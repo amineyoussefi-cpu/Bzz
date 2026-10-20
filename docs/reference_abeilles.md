@@ -2,8 +2,9 @@
 
 Document de conception du premier peuplement du monde Bzz. Il décrit les **types d'abeilles** envisagés,
 les **habitats** qu'elles peuvent rechercher, les **critères** qui guident leur choix et les **traits de
-personnalité** modélisés. Les classes correspondantes existent dans [`godot/entities/`](../godot/entities/), mais
-**aucune abeille ni aucun habitat n'est encore instancié dans le monde simulé**.
+personnalité** modélisés. Les classes correspondantes existent dans [`godot/entities/`](../godot/entities/).
+Depuis le tableau de bord (voir [api.md](api.md)), on peut placer des habitats et des abeilles dans le monde, mais
+**aucune abeille ne prend encore de décision** : la logique de choix décrite ici n'est appelée par rien.
 
 Chaque section sépare :
 

@@ -1,135 +1,170 @@
 # PROJECT_STATUS
 
-_Dernière mise à jour : 2026-10-20_
+_Dernière mise à jour : 2026-10-20 (prompt 4 : tableau de bord)_
 
 Référence de reprise entre sessions. Ne décrit que ce qui existe réellement dans le dépôt.
 Spécifications d'origine : [prompts/prompt1.txt](prompts/prompt1.txt),
 [prompts/github_versioning.txt](prompts/github_versioning.txt), [prompts/portability.txt](prompts/portability.txt),
-[prompts/prompt2.txt](prompts/prompt2.txt).
+[prompts/prompt2.txt](prompts/prompt2.txt), [prompts/prompt3.txt](prompts/prompt3.txt),
+[prompts/prompt4.txt](prompts/prompt4.txt).
 
 ## Architecture actuelle
 
 ```
-Python (backend/bzz)                         Godot 4.7 headless (godot/)
- stdin JSON ─► __main__.py                     main.tscn : Node2D "World" vide
-              └► engine.GodotEngine ──TCP──►   main.gd   : serveur TCP <host>:<port>
-                   commands.validate()          ◄── réponses JSON
+Tableau de bord (navigateur) ──HTTP + WebSocket──► Backend Python ──TCP JSON──► Godot 4.7 headless
+  backend/bzz/static/index.html                    bzz/server.py (FastAPI)       main.gd (TCP) → WorldApi
+                                                   bzz/engine.py (verrou)        entités = enfants du nœud World
+                     stdin JSON ─► bzz/__main__.py ┘ bzz/commands.py (validation)
 ```
+
+**Évolution de décision (prompt 4).** Le prompt 1 excluait tout frontend. Un tableau de bord web est désormais
+ajouté, **uniquement comme client du backend Python** :
+
+- Godot reste le moteur et le propriétaire de l'état du monde, toujours sans fenêtre.
+- Python reste l'unique point d'entrée vers Godot : il valide, transmet et calcule les KPI.
+- Le navigateur n'affiche que ce que le backend lui fournit.
+- Le point d'entrée stdin fonctionne toujours.
 
 Deux modes, choisis par la variable `GODOT_HOST` :
 
-- **local** (`GODOT_HOST` vide) : Python lance lui-même Godot en sous-processus sur un port libre.
-- **distant** (`GODOT_HOST=godot`) : Python se connecte à un Godot déjà lancé (autre conteneur / serveur).
-  C'est le mode utilisé par Docker Compose.
+- **local** (`GODOT_HOST` vide) : Python lance lui-même Godot en sous-processus sur un port libre. Si le cache
+  `.godot/` manque (dépôt fraîchement cloné), il lance d'abord `godot --import`.
+- **distant** (`GODOT_HOST=godot`) : Python se connecte à un Godot déjà lancé. C'est le mode de Docker Compose.
 
 Fichiers :
 
-- **godot/** — projet Godot 4.7. Scène unique `main.tscn` (Node2D vide) avec `main.gd`, qui ouvre un
-  `TCPServer` (`-- --host=H --port=N`, défaut `127.0.0.1:9876`) et traite les commandes dans `_process`.
-  `run/max_fps=60` pour ne pas saturer un CPU en headless.
-- **godot/entities/** — modèle abeilles/habitats, **conçu mais non instancié dans le monde** (le monde reste vide,
-  `node_count` = 0) : `Habitat` (Node2D, 6 types, caractéristiques, occupants), `Bee` (Node2D : évaluation,
-  choix, installation), `BeePersonality` (Resource, 4 traits), `Preference` (Resource, un critère pondéré),
-  `BeeSpecies` (catalogue de 5 espèces : types acceptés et préférences par défaut).
-  Référence illustrée et sourcée : [docs/reference_abeilles.md](docs/reference_abeilles.md)
-  (version PDF : [docs/reference_abeilles.pdf](docs/reference_abeilles.pdf), générée depuis le Markdown, à régénérer s'il change).
-- **godot/entities/roles/** — rôles et interfaces de comportement, **définis mais jamais exécutés** :
-  `BeeRole` (enum `SCOUT`/`FOLLOWER`/`QUEEN`, indépendant des espèces, `create_behavior`),
-  `BeeBehavior` (classe abstraite : `role()`, `actions()`), `ScoutBehavior`, `FollowerBehavior`, `QueenBehavior`,
-  `DanceSignal` (données d'une danse), `ColonyDecision` (contrat avec la future décision collective).
-  `Bee` porte `role` + `behavior` (`set_role`, `FOLLOWER` par défaut). Détail des méthodes et de ce qui reste à faire :
-  [docs/roles_comportements.md](docs/roles_comportements.md) (+ PDF).
-- **godot/tests/test_entities.gd** — tests unitaires du modèle et des rôles (lancés par `backend/tests/test_entities.py`).
-- **docs/** — documents de référence (Markdown + PDF, illustrations SVG dans `docs/img/`).
-  PDF régénérés par `python docs/build_pdf.py docs/*.md` (dépendances : `docs/requirements.txt` + Chrome).
-- **backend/bzz/engine.py** — `GodotEngine` : démarrage/connexion, `send`, `stop`, `restart`, utilisable en `with`.
-  Toute la configuration vient des variables d'environnement (liste en tête du fichier et dans `.env.example`).
-- **backend/bzz/commands.py** — liste blanche des commandes et de leurs arguments, validée avant envoi.
-- **backend/bzz/__main__.py** — point d'entrée des données : lit une commande JSON par ligne sur stdin,
-  la transmet, imprime le résultat. `restart` est géré côté Python.
-- **Dockerfile** — multi-cible : `godot` (serveur Godot headless, binaire Linux officiel téléchargé, amd64/arm64)
-  et `backend` (Python 3.12 + binaire Godot, pour le mode local et les tests).
-- **compose.yaml** — services `godot` et `backend` ; `restart: unless-stopped` sur `godot`.
-- **.env.example** — variables configurables, sans secrets. **backend/requirements.txt** — vide (stdlib seulement).
-
-### Protocole (JSON, une ligne par message)
-
-- Requête : `{"id": 1, "cmd": "ping", "args": {}}`
-- Réponse : `{"id": 1, "ok": true, "result": ...}` ou `{"id": 1, "ok": false, "error": "..."}`
+- **godot/main.gd** — nœud World : serveur TCP (`--host`, `--port`, `--world-width`, `--world-height`), `ping`/`quit`,
+  délègue tout le reste à `WorldApi`. `run/max_fps=60`.
+- **godot/api/world_api.gd** — `WorldApi` : catalogue, ajout/consultation/retrait des entités (identifiants `hab-N` / `bee-N`
+  jamais réutilisés), horloge (`tick`, pause, vitesse), journal d'événements (1000 derniers, curseur `seq`) et validation
+  côté Godot. **N'appelle jamais** `evaluate_habitat`, `choose_habitat`, `settle` ni les composants de rôles.
+- **godot/entities/** — modèle :
+  - `Habitat` (Node2D, 6 types) et `HabitatCatalog` (caractéristiques par défaut par type, bornes, noms lisibles) ;
+  - `Bee` (Node2D : évaluation, choix, installation — logique conservée telle quelle, non appelée) ;
+  - `BeePersonality` (4 traits, `PRESETS`, `validate_traits`), `Preference`, `BeeSpecies` (5 espèces + noms lisibles) ;
+  - `DecisionEvent` (format des futurs événements de décision, jamais émis).
+  Référence : [docs/reference_abeilles.md](docs/reference_abeilles.md) (+ PDF).
+- **godot/entities/roles/** — `BeeRole` (`scout`/`follower`/`queen`), `BeeBehavior` (abstraite), `ScoutBehavior`,
+  `FollowerBehavior`, `QueenBehavior`, `DanceSignal`, `ColonyDecision` : interfaces définies, jamais exécutées.
+  Voir [docs/roles_comportements.md](docs/roles_comportements.md) (+ PDF).
+- **backend/bzz/engine.py** — `GodotEngine` : démarrage (local/distant), récupération du catalogue au démarrage,
+  `send` protégé par un **verrou** (une connexion TCP partagée par tous les appelants), `stop`, `restart`.
+  Erreurs : `ValueError` (refus Python), `CommandRejected` (refus Godot), `GodotError` (connexion).
+- **backend/bzz/commands.py** — liste blanche (commandes, arguments, types) + validation des valeurs à partir du
+  catalogue généré par Godot (aucune liste recopiée). À garder synchronisée avec `WorldApi.ARGS`.
+- **backend/bzz/server.py** — API HTTP + WebSocket `/ws` (FastAPI), relevé des événements toutes les 250 ms,
+  sert la page du tableau de bord. `python -m bzz.server`.
+- **backend/bzz/kpi.py** — calcul des KPI à partir de l'état, des entités et des événements.
+- **backend/bzz/static/index.html** — tableau de bord (HTML/JS sans framework, sans dépendance externe).
+- **backend/bzz/__main__.py** — entrée stdin (une commande JSON par ligne), inchangée.
+- **godot/tests/test_entities.gd** — tests GDScript (modèle, rôles, `WorldApi`), lancés par `backend/tests/test_entities.py`.
+- **backend/tests/** — `test_engine` (cycle de vie), `test_protocol` (chaque commande), `test_server` (API HTTP + WebSocket + KPI).
+- **docs/api.md** — **référence de toutes les commandes et routes**, avec exemples, format des événements et des
+  décisions, choix du relevé périodique et du verrou, KPI.
+- **docs/** — documents de référence (Markdown + PDF, SVG dans `docs/img/`) ; PDF régénérés par `python docs/build_pdf.py docs/*.md`.
+- **Dockerfile** — cibles `godot` (serveur headless) et `backend` (Python 3.12 + dépendances + binaire Godot ; CMD = serveur web).
+- **compose.yaml** — `godot` (port interne uniquement) + `backend` (tableau de bord publié sur `127.0.0.1:${DASHBOARD_PORT:-8000}`).
+- **.env.example** — `GODOT_*`, `WORLD_WIDTH`/`WORLD_HEIGHT`, `DASHBOARD_PORT`, `BZZ_HTTP_HOST` ; sans secrets.
+- **backend/requirements.txt** — `fastapi`, `uvicorn`, `websockets` (serveur), `httpx` (tests) ; le moteur et
+  l'entrée stdin n'utilisent que la bibliothèque standard.
 
 ## Fonctionnalités implémentées
 
-- Modèle d'entités (non relié au protocole ni au monde) : une abeille évalue un habitat
-  (`Bee.evaluate_habitat` / `score_breakdown`), choisit le meilleur au-dessus de son seuil (`choose_habitat`),
-  s'y installe ou le quitte (`settle`, `leave_home`). Formules dans docs/reference_abeilles.md §3–5.
-- Rôles : seules les opérations sur des données sont écrites — éclaireuse : `evaluate_habitat` (délégué à `Bee`),
-  `remember_habitat`, `perform_dance` (construit un `DanceSignal`) ; suiveuse : `receive_dance`, `evaluate_habitat` ;
-  reine : `receive_colony_decision`, `follow_colony_decision` (fixe `target_habitat`, sans bouger).
-  **Interfaces vides** (aucun effet) : `explore_habitats`, `return_to_colony`, `evaluate_signal`, `decide_to_follow`,
-  `visit_habitat`, `move_to_habitat`, `lay_eggs`, `manage_reproduction_cycle`.
+Commandes du protocole (détail et exemples : [docs/api.md](docs/api.md)) :
 
-Commandes du protocole :
+| Commande | Effet |
+|---|---|
+| `ping`, `quit` | test de vie, arrêt de Godot |
+| `get_state` | tick, pause, vitesse, taille du monde, effectifs, dernier `seq`, `decision_mechanism: null` |
+| `get_catalog` | types d'habitats et leurs valeurs par défaut, caractéristiques et bornes, espèces, rôles, traits, préréglages, monde, vitesses |
+| `add_habitat` | type + position + surcharge facultative des caractéristiques |
+| `add_bee` | espèce + position + personnalité (préréglage / traits / aléatoire avec graine) + nom + rôle |
+| `list_entities`, `get_entity`, `remove_entity`, `clear_world` | consultation et retrait (un habitat retiré libère ses occupants) |
+| `pause`, `resume`, `set_speed` | horloge de simulation (le monde démarre en pause ; vitesse de 0,25 à 8) |
+| `get_events` | événements depuis un curseur (`entity_added`, `entity_removed`, `world_cleared`, `paused`, `resumed`, `speed_changed`) |
+| `restart` | (stdin uniquement) relance Godot |
 
-| Commande    | Effet                                                           |
-|-------------|-----------------------------------------------------------------|
-| `ping`      | renvoie `"pong"`                                                |
-| `get_state` | `physics_frames`, `process_frames`, `node_count` (0 : monde vide) |
-| `quit`      | Godot répond `"bye"` puis s'arrête                              |
-| `restart`   | (CLI Python) local : relance le sous-processus ; distant : `quit` puis reconnexion (Compose relance Godot) |
+Tableau de bord (<http://localhost:8000>) :
+
+- **Formulaires** : ajout d'habitat (type, position par clic dans la vue, surcharge des caractéristiques) et d'abeille
+  (espèce, rôle, nom, position, personnalité par préréglage, curseurs ou aléatoire avec graine).
+- **Vue du monde** : 2D, couleur par type d'habitat et par espèce.
+- **Entités** : liste avec détail et retrait, plus les boutons pause/reprise, vitesse et vider le monde. Les erreurs du
+  backend s'affichent dans une notification.
+- **KPI temps réel** : effectifs par type et par espèce, répartition des traits, abeilles installées ou sans habitat,
+  occupation des habitats, temps simulé, état de la simulation, fil des événements.
+- **Espace décisions** : fil, nombre de choix et de refus, score moyen, répartition par espèce et par trait. Il est
+  affiché vide, avec la mention qu'aucun mécanisme n'est actif.
+
+**Aucune décision n'est prise** : les abeilles ajoutées restent sans habitat et à leur position, et aucun événement
+`decision` n'est émis. Un test le vérifie après plus de 200 ticks de simulation à vitesse ×8.
+
+Modèle (inchangé) :
+
+- Évaluation et choix d'habitat dans `Bee` : `score_breakdown`, `evaluate_habitat`, `choose_habitat`, `settle`,
+  `leave_home`. Cette logique est conservée comme référence pour le futur mécanisme, puis sera retirée.
+- Rôles : opérations sur données uniquement. Les interfaces vides restent `explore_habitats`, `return_to_colony`,
+  `evaluate_signal`, `decide_to_follow`, `visit_habitat`, `move_to_habitat`, `lay_eggs`, `manage_reproduction_cycle`.
 
 ## Utilisation
 
-Avec Docker (aucune installation à part Docker) :
+Avec Docker :
 
 ```sh
 cp .env.example .env                       # optionnel
-docker compose up -d godot
-docker compose run --rm backend            # puis taper : {"cmd": "get_state"}
+docker compose up -d                       # tableau de bord : http://localhost:8000
+docker compose run --rm backend python -m bzz          # entrée stdin
 docker compose run --rm -e GODOT_HOST= backend python -m unittest discover tests   # tests
 docker compose down
 ```
 
-Sans Docker (Godot 4.7 sur le PATH ou `GODOT_BIN`, Python ≥ 3.10) :
+Sans Docker (Godot ≥ 4.5 sur le PATH ou `GODOT_BIN`, Python ≥ 3.10) :
 
 ```sh
+python3 -m venv .venv && .venv/bin/pip install -r backend/requirements.txt
 cd backend
-python3 -m bzz
-python3 -m unittest discover tests -v
+../.venv/bin/python -m bzz.server          # tableau de bord : http://localhost:8000
+../.venv/bin/python -m bzz                 # entrée stdin (aucune dépendance requise)
+../.venv/bin/python -m unittest discover tests     # 23 tests ; sans les dépendances web, 4 sont ignorés
 ```
 
 ## Décisions techniques
 
-- **TCP + JSON lignes** : standard des deux côtés (`TCPServer` Godot, `socket` Python), pas de dépendance ;
-  fonctionne aussi bien en local qu'entre conteneurs.
-- **Mode local : port libre choisi par Python** et passé en argument : plusieurs instances possibles.
-- **Validation double** : liste blanche Python avant envoi, Godot rejette aussi les commandes inconnues.
-- **Configuration uniquement par variables d'environnement**, aucun chemin absolu dans le code
-  (chemin du projet Godot résolu relativement au dépôt).
-- **Une seule image Dockerfile multi-cible** plutôt que deux Dockerfiles : le binaire Godot n'est téléchargé qu'une fois.
-- En mode distant, la fin du backend ne fait que se déconnecter (Godot reste vivant) ; seul `restart`/`quit` l'arrête.
-- La simulation tourne en continu (pas de pas-à-pas piloté) : Godot garde son cycle natif.
-- **Entités en GDScript dans Godot**, pas en Python : le moteur reste propriétaire de l'état du monde ;
-  Python les pilotera plus tard via de nouvelles commandes.
-- `Bee`/`Habitat` héritent de `Node2D` (position dans le monde dès qu'ils y seront ajoutés) ;
-  personnalité et préférences sont des `Resource` (sauvegardables, éditables, copiées par individu).
-- Évaluation = moyenne pondérée de critères « triangulaires » (idéal ± tolérance), puis modulée par la personnalité.
-  Valeurs idéales issues des sources quand elles existent ; tolérances et poids = réglages de jeu.
-- Choix d'habitat **individuel** ; la décision collective des essaims d'abeilles mellifères n'est pas modélisée.
-- **Rôles par composition** : `bee.behavior` est un composant remplaçable (`set_role`), pas une sous-classe de `Bee` ;
-  les comportements délèguent l'évaluation à `Bee` (aucune duplication). La reine n'a pas de méthode de choix d'habitat.
-- `BeeBehavior` utilise `@abstract` (GDScript ≥ 4.5) : le projet requiert Godot 4.5+ (4.7 utilisé).
+- **TCP + JSON lignes** entre Python et Godot, en requête/réponse uniquement.
+- **Événements relevés par Python** (`get_events` avec curseur, toutes les 250 ms), plutôt qu'envoyés spontanément
+  par Godot : le protocole reste simple, aucun message spontané ne se mêle aux réponses, et aucun événement n'est
+  perdu (`lost` signale un débordement du journal de 1000 événements). Justification complète : docs/api.md §5.
+- **Une connexion TCP + un verrou** dans `GodotEngine.send` : les requêtes HTTP concurrentes et le relevé passent
+  l'un après l'autre sans mélanger leurs réponses.
+- **Événements horodatés en ticks de simulation** (compteur propre à `WorldApi`, arrêté en pause). La vitesse change
+  `Engine.physics_ticks_per_second` (60 × vitesse).
+- **Noms lisibles générés depuis les énumérations** (`Habitat.Type`, `BeeSpecies.Id`, `BeeRole.Id`) ; le catalogue
+  est produit par Godot et sert à Python pour valider, donc aucune liste n'est dupliquée à la main.
+- **Validation double** (Python puis Godot), refus sans correction silencieuse, tout est vérifié avant la création.
+- **Taille du monde** : une seule valeur par défaut (`WorldApi.DEFAULT_SIZE`, 1000 × 700), modifiable par
+  `WORLD_WIDTH`/`WORLD_HEIGHT`, transmises à Godot en ligne de commande seulement si elles sont définies.
+- **Graine** : toujours enregistrée (tirée au hasard si absente), donc toute abeille aléatoire est reproductible.
+- **KPI calculés par Python** (`kpi.py`) ; le navigateur ne calcule rien. Les KPI de décision lisent déjà le format
+  `DecisionEvent`, indépendant de la source de la décision.
+- **Tableau de bord servi par le backend** (même origine, pas de service Compose séparé) : HTML/JS sans framework ni build.
+- Hérité des étapes précédentes : configuration par variables d'environnement, Dockerfile multi-cible,
+  entités en GDScript, rôles par composition, `@abstract` (Godot ≥ 4.5).
 
 ## Problèmes connus / limites
 
+- **Pas d'authentification** : le tableau de bord est prévu pour un usage local. Compose le publie sur `127.0.0.1`
+  seulement ; ne pas l'exposer sur un réseau sans ajouter une authentification.
+- Pas de sauvegarde ni de chargement d'un monde (hors périmètre). Redémarrer Godot vide le monde.
+- Une capture WebSocket peut montrer une entité un relevé (≤ 250 ms) avant l'événement correspondant :
+  entités et événements viennent de requêtes distinctes.
+- Une seule connexion TCP sérialise toutes les commandes : cela suffit pour un usage local, mais ce serait un goulot
+  d'étranglement avec beaucoup de clients.
+- Le journal d'événements de Godot est limité à 1000 événements, et le backend en garde 200 pour les nouveaux clients.
 - Mode local : petite fenêtre de course entre le choix du port libre et l'écoute par Godot (rare).
-- Si `main.gd` a une erreur de parse, Godot ne quitte pas : `start()` échoue après le timeout (10 s).
-- `send()` est synchrone et un seul client à la fois côté Python (Godot accepte plusieurs connexions).
-- Le port Godot n'est pas publié sur l'hôte dans `compose.yaml` (accès réservé au réseau Compose).
-- Les tests supposent le mode local (ils vérifient le PID du sous-processus) : lancer avec `GODOT_HOST=` vide.
-- Les tests GDScript nécessitent un `godot --import` préalable (fait automatiquement par le test Python),
-  sinon les `class_name` ne sont pas reconnus en mode `--script`.
-- `floral_abundance` et `predator_risk` sont des valeurs fixées à la main ; rien ne les calcule encore depuis le monde.
-- `.godot/` (cache d'import) n'est pas versionné ; il est régénéré au premier lancement (pré-généré dans l'image).
+- Si un script Godot a une erreur de parse, Godot ne quitte pas : `start()` échoue après le timeout (10 s).
+- Les tests supposent le mode local (`GODOT_HOST=` vide).
+- `floral_abundance` et `predator_risk` sont fixés à la main (valeurs par défaut ou surcharge) ; rien ne les calcule depuis le monde.
+- `.godot/` (cache d'import) n'est pas versionné ; il est régénéré automatiquement (moteur en mode local, images Docker).
 
 ## Tâches en cours
 
@@ -137,10 +172,9 @@ python3 -m unittest discover tests -v
 
 ## Prochaines étapes possibles
 
-- Instancier abeilles et habitats dans le monde : commandes `spawn_habitat`, `spawn_bee`, `remove`
-  et `get_state` détaillé (liste des entités), puis comportements (recherche, déplacement, installation).
-- Décision collective pour les essaims d'abeilles mellifères (force de danse, attrition, signal stop, quorum)
-  produisant une `ColonyDecision` ; puis implémenter les interfaces vides des rôles (voir docs/roles_comportements.md §7).
-- Mécanisme de reproduction (ponte, développement, naissance) derrière `lay_eggs` / `manage_reproduction_cycle`.
-- Pas-à-pas de la simulation piloté par Python (pause / `step N`) si un déterminisme est requis.
-- Source de données entrantes réelle (HTTP, file de messages, fichier) à la place de stdin, en nouveau service Compose.
+- **Prompt 5** : mécanisme de décision des abeilles. Il émettra des événements `decision` (format `DecisionEvent`,
+  docs/api.md §3), renseignera `decision_mechanism` dans `get_state`, puis remplacera la logique de choix de `Bee`.
+- Décision collective des essaims d'abeilles mellifères (quorum) produisant une `ColonyDecision` ; implémentation
+  des interfaces des rôles (déplacements, danse).
+- Reproduction derrière `lay_eggs` / `manage_reproduction_cycle`.
+- Sauvegarde et chargement d'un monde ; authentification si le tableau de bord doit être exposé.

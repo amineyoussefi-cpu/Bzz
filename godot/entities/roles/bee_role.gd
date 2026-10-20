@@ -17,3 +17,12 @@ static func create_behavior(id: Id, bee: Bee) -> BeeBehavior:
 
 static func role_name(id: Id) -> String:
 	return Id.keys()[id]
+
+
+## Readable lowercase names ("scout", ...) used by the protocol.
+static func from_name(n: String) -> int:
+	return Id.keys().find(n.to_upper()) if n == n.to_lower() else -1
+
+
+static func names() -> Array:
+	return Id.keys().map(func(k): return k.to_lower())

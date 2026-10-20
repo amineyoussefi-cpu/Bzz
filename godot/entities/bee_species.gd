@@ -6,6 +6,19 @@ extends RefCounted
 enum Id { HONEY_BEE, BUMBLEBEE, MASON_BEE, MINING_BEE, CARPENTER_BEE }
 
 
+static func species_name(id: Id) -> String:
+	return Id.keys()[id].to_lower()
+
+
+## Enum value for a readable name, or -1.
+static func from_name(n: String) -> int:
+	return Id.keys().find(n.to_upper()) if n == n.to_lower() else -1
+
+
+static func names() -> Array:
+	return Id.keys().map(func(k): return k.to_lower())
+
+
 static func accepted_types(id: Id) -> Array:
 	match id:
 		Id.HONEY_BEE: return [Habitat.Type.TREE_CAVITY, Habitat.Type.HIVE_BOX]

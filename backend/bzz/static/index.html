@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bzz — tableau de bord</title>
+<style>
+  :root {
+    --bg: #faf6ec; --panel: #fff; --ink: #2b2118; --muted: #7a6a50; --line: #e6dcc6;
+    --accent: #d89a2b; --accent-ink: #5a3d12; --ok: #4c7a35; --err: #b5523a; --soft: #f6f1e4;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.4 -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--ink); }
+  header { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; padding: 10px 16px;
+           background: var(--panel); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
+  header h1 { font-size: 18px; margin: 0 12px 0 0; color: var(--accent-ink); }
+  .pill { padding: 3px 10px; border-radius: 99px; font-weight: 600; font-size: 12px; background: var(--soft); }
+  .pill.run { background: #e3f1da; color: var(--ok); } .pill.pause { background: #fbe8d0; color: var(--accent-ink); }
+  .pill.off { background: #f6dcd5; color: var(--err); }
+  .clock { font-variant-numeric: tabular-nums; color: var(--muted); }
+  button { font: inherit; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--line); background: var(--soft);
+           color: var(--ink); cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  button.danger { color: var(--err); }
+  button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  main { display: grid; grid-template-columns: 320px minmax(0, 1fr) 360px; gap: 14px; padding: 14px 16px; }
+  @media (max-width: 1200px) { main { grid-template-columns: 320px minmax(0, 1fr); } .col-right { grid-column: 1 / -1; } }
+  @media (max-width: 760px) { main { grid-template-columns: 1fr; } }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; }
+  section h2 { font-size: 14px; margin: 0 0 10px; color: var(--accent-ink); text-transform: uppercase; letter-spacing: .04em; }
+  label { display: block; font-size: 12px; color: var(--muted); margin: 6px 0 2px; }
+  input, select { font: inherit; width: 100%; padding: 5px 7px; border: 1px solid var(--line); border-radius: 5px; background: #fff; color: var(--ink); }
+  input[type=range] { padding: 0; }
+  .row { display: flex; gap: 8px; } .row > * { flex: 1; }
+  .hint { font-size: 12px; color: var(--muted); }
+  details summary { cursor: pointer; font-size: 12px; color: var(--accent-ink); margin-top: 8px; }
+  .seg { display: flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; margin-top: 4px; }
+  .seg label { flex: 1; margin: 0; text-align: center; padding: 5px 0; cursor: pointer; color: var(--ink); font-size: 13px; }
+  .seg input { display: none; } .seg input:checked + span { font-weight: 700; color: var(--accent-ink); }
+  .seg label:has(input:checked) { background: var(--soft); }
+  .trait { display: grid; grid-template-columns: 90px 1fr 36px; align-items: center; gap: 6px; font-size: 12px; }
+  .form-actions { margin-top: 10px; }
+  #world-wrap { position: relative; }
+  canvas { width: 100%; display: block; border-radius: 8px; background: #eef4e4; border: 1px solid var(--line); cursor: crosshair; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--muted); margin-top: 8px; }
+  .sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+  .sw.dot { border-radius: 50%; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--line); }
+  th { font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; }
+  tr.sel td { background: var(--soft); }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .entities { max-height: 260px; overflow: auto; }
+  pre.detail { background: var(--soft); border-radius: 6px; padding: 8px; font-size: 11.5px; max-height: 280px; overflow: auto; margin: 8px 0 0; }
+  .kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 8px; }
+  .kpi { background: var(--soft); border-radius: 8px; padding: 8px 10px; }
+  .kpi b { display: block; font-size: 22px; font-variant-numeric: tabular-nums; }
+  .kpi span { font-size: 12px; color: var(--muted); }
+  .bars div { display: grid; grid-template-columns: 110px 1fr 28px; gap: 6px; align-items: center; font-size: 12px; margin: 2px 0; }
+  .bar { height: 10px; background: var(--soft); border-radius: 3px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--accent); }
+  .hist { display: grid; grid-template-columns: 90px repeat(5, 1fr); gap: 3px; align-items: end; font-size: 11px; margin: 4px 0; }
+  .hist .col { background: var(--accent); border-radius: 2px 2px 0 0; min-height: 1px; }
+  .hist .cell { height: 26px; display: flex; align-items: flex-end; background: var(--soft); border-radius: 2px; }
+  .hist .cell .col { width: 100%; }
+  .feed { list-style: none; margin: 0; padding: 0; max-height: 220px; overflow: auto; font-size: 12.5px; }
+  .feed li { padding: 4px 0; border-bottom: 1px dashed var(--line); }
+  .feed .t { color: var(--muted); font-variant-numeric: tabular-nums; margin-right: 6px; }
+  .empty { color: var(--muted); font-style: italic; font-size: 12.5px; }
+  .notice { background: #fbe8d0; color: var(--accent-ink); border-radius: 6px; padding: 8px 10px; font-size: 12.5px; margin-bottom: 8px; }
+  #toast { position: fixed; right: 16px; bottom: 16px; max-width: 420px; padding: 10px 14px; border-radius: 8px;
+           background: var(--err); color: #fff; box-shadow: 0 4px 16px rgba(0,0,0,.15); display: none; z-index: 10; }
+  #toast.ok { background: var(--ok); }
+</style>
+</head>
+<body>
+<header>
+  <h1>🐝 Bzz</h1>
+  <span id="conn" class="pill off">déconnecté</span>
+  <span id="run" class="pill pause">en pause</span>
+  <span class="clock">tick <b id="tick">0</b> · <span id="secs">0</span> s simulées</span>
+  <button id="btn-toggle" class="primary">Lancer</button>
+  <label style="margin:0;display:flex;align-items:center;gap:6px;color:var(--ink)">Vitesse
+    <select id="speed" style="width:auto"></select></label>
+  <button id="btn-clear" class="danger">Vider le monde</button>
+</header>
+
+<main>
+  <div class="col-left">
+    <section>
+      <h2>Ajouter un habitat</h2>
+      <form id="f-habitat">
+        <label for="h-type">Type</label><select id="h-type" required></select>
+        <div class="row">
+          <div><label for="h-x">x</label><input id="h-x" type="number" step="any" required></div>
+          <div><label for="h-y">y</label><input id="h-y" type="number" step="any" required></div>
+        </div>
+        <p class="hint">Astuce : cliquez dans la vue du monde pour placer.</p>
+        <details><summary>Surcharger les caractéristiques</summary><div id="h-features"></div></details>
+        <div class="form-actions"><button class="primary" type="submit">Ajouter l'habitat</button></div>
+      </form>
+    </section>
+
+    <section>
+      <h2>Ajouter une abeille</h2>
+      <form id="f-bee">
+        <div class="row">
+          <div><label for="b-species">Espèce</label><select id="b-species" required></select></div>
+          <div><label for="b-role">Rôle</label><select id="b-role"></select></div>
+        </div>
+        <label for="b-name">Nom (facultatif)</label><input id="b-name" maxlength="40">
+        <div class="row">
+          <div><label for="b-x">x</label><input id="b-x" type="number" step="any" required></div>
+          <div><label for="b-y">y</label><input id="b-y" type="number" step="any" required></div>
+        </div>
+        <label>Personnalité</label>
+        <div class="seg" role="radiogroup">
+          <label><input type="radio" name="pmode" value="preset" checked><span>Préréglage</span></label>
+          <label><input type="radio" name="pmode" value="traits"><span>Traits</span></label>
+          <label><input type="radio" name="pmode" value="random"><span>Aléatoire</span></label>
+        </div>
+        <div id="p-preset"><label for="b-preset">Préréglage</label><select id="b-preset"></select></div>
+        <div id="p-traits" hidden></div>
+        <div id="p-random" hidden><label for="b-seed">Graine (facultative, pour reproduire la même abeille)</label>
+          <input id="b-seed" type="number" min="1" step="1" placeholder="aléatoire"></div>
+        <div class="form-actions"><button class="primary" type="submit">Ajouter l'abeille</button></div>
+      </form>
+    </section>
+  </div>
+
+  <div class="col-center">
+    <section>
+      <h2>Monde</h2>
+      <div id="world-wrap"><canvas id="world" aria-label="Vue du monde"></canvas></div>
+      <div class="legend" id="legend"></div>
+    </section>
+    <section>
+      <h2>Entités <span class="hint" id="ent-count"></span></h2>
+      <div class="entities"><table>
+        <thead><tr><th>Id</th><th>Type / espèce</th><th>Position</th><th>Habitat</th><th></th></tr></thead>
+        <tbody id="ent-body"></tbody></table>
+      </div>
+      <pre class="detail" id="detail" hidden></pre>
+    </section>
+  </div>
+
+  <div class="col-right">
+    <section>
+      <h2>Indicateurs</h2>
+      <div class="kpis">
+        <div class="kpi"><b id="k-hab">0</b><span>habitats</span></div>
+        <div class="kpi"><b id="k-bees">0</b><span>abeilles</span></div>
+        <div class="kpi"><b id="k-settled">0</b><span>abeilles installées</span></div>
+        <div class="kpi"><b id="k-homeless">0</b><span>abeilles sans habitat</span></div>
+      </div>
+      <label>Habitats par type</label><div class="bars" id="k-types"></div>
+      <label>Abeilles par espèce</label><div class="bars" id="k-species"></div>
+      <label>Traits de personnalité (0 → 1, 5 classes)</label><div id="k-traits"></div>
+      <details><summary>Taux d'occupation des habitats</summary>
+        <table><thead><tr><th>Habitat</th><th>Type</th><th class="num">Occ.</th><th class="num">Taux</th></tr></thead>
+          <tbody id="k-occ"></tbody></table></details>
+    </section>
+    <section>
+      <h2>Événements du monde</h2>
+      <ul class="feed" id="world-feed"></ul>
+    </section>
+    <section>
+      <h2>Décisions des abeilles</h2>
+      <div class="notice" id="no-mechanism">Aucun mécanisme de décision n'est encore actif : les abeilles ne
+        choisissent pas d'habitat. Cet espace se remplira à l'étape suivante.</div>
+      <div class="kpis">
+        <div class="kpi"><b id="d-chosen">0</b><span>choix</span></div>
+        <div class="kpi"><b id="d-refused">0</b><span>refus</span></div>
+        <div class="kpi" style="grid-column:1/-1"><b id="d-avg">—</b><span>score moyen des habitats choisis</span></div>
+      </div>
+      <label>Choix / refus par espèce</label><div class="bars" id="d-species"></div>
+      <details><summary>Choix / refus selon les traits</summary><div id="d-traits"></div></details>
+      <label>Fil des décisions</label><ul class="feed" id="decision-feed"></ul>
+    </section>
+  </div>
+</main>
+<div id="toast" role="alert"></div>
+
+<script>
+// Display-only client: every value shown comes from the backend (REST + /ws snapshots).
+const LABELS = {
+  tree_cavity: "Cavité d'arbre", hive_box: "Ruche", rodent_burrow: "Terrier", bare_soil: "Sol nu",
+  hollow_stem: "Tiges creuses", dead_wood: "Bois mort",
+  honey_bee: "Abeille mellifère", bumblebee: "Bourdon", mason_bee: "Osmie", mining_bee: "Andrène", carpenter_bee: "Xylocope",
+  scout: "Éclaireuse", follower: "Suiveuse", queen: "Reine",
+  pickiness: "Exigence", boldness: "Audace", sociability: "Sociabilité", curiosity: "Curiosité",
+};
+const HAB_COLORS = { tree_cavity: "#8a5a34", hive_box: "#e0a93a", rodent_burrow: "#a07850", bare_soil: "#d9bf86",
+                     hollow_stem: "#b5523a", dead_wood: "#6f5a45" };
+const BEE_COLORS = { honey_bee: "#d89a2b", bumblebee: "#1d1a17", mason_bee: "#c8552a", mining_bee: "#8d8a84", carpenter_bee: "#5b3fa0" };
+const label = k => LABELS[k] || k;
+const $ = id => document.getElementById(id);
+let catalog = null, snap = null, selected = null;
+
+function toast(msg, ok = false) {
+  const t = $("toast"); t.textContent = msg; t.className = ok ? "ok" : ""; t.style.display = "block";
+  clearTimeout(toast.timer); toast.timer = setTimeout(() => t.style.display = "none", ok ? 2000 : 6000);
+}
+
+async function api(method, path, body) {
+  const res = await fetch(path, { method, headers: body ? { "Content-Type": "application/json" } : {},
+                                  body: body ? JSON.stringify(body) : undefined });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) { toast(data.error || data.detail || `Erreur ${res.status}`); throw new Error(data.error); }
+  return data;
+}
+
+function opt(sel, values, fmt = label) {
+  sel.innerHTML = values.map(v => `<option value="${v}">${fmt(v)}</option>`).join("");
+}
+
+function buildForms() {
+  opt($("h-type"), catalog.habitat_types.map(t => t.name));
+  opt($("b-species"), catalog.species.map(s => s.name));
+  opt($("b-role"), catalog.roles); $("b-role").value = catalog.default_role;
+  opt($("b-preset"), Object.keys(catalog.presets), p => p);
+  const s = catalog.speed, speeds = [0.25, 0.5, 1, 2, 4, 8].filter(v => v >= s.min && v <= s.max);
+  opt($("speed"), speeds, v => `×${v}`); $("speed").value = s.default;
+  for (const id of ["h-x", "b-x"]) { $(id).max = catalog.world.width; $(id).min = 0; }
+  for (const id of ["h-y", "b-y"]) { $(id).max = catalog.world.height; $(id).min = 0; }
+  $("p-traits").innerHTML = catalog.traits.map(t => `<div class="trait"><span>${label(t.name)}</span>
+    <input type="range" min="${t.min}" max="${t.max}" step="0.05" value="0.5" id="t-${t.name}"
+      oninput="this.nextElementSibling.textContent=this.value" aria-label="${label(t.name)}"><span>0.5</span></div>`).join("");
+  renderFeatureInputs();
+  $("legend").innerHTML =
+    catalog.habitat_types.map(t => `<span><i class="sw" style="background:${HAB_COLORS[t.name]}"></i>${label(t.name)}</span>`).join("") +
+    catalog.species.map(s => `<span><i class="sw dot" style="background:${BEE_COLORS[s.name]}"></i>${label(s.name)}</span>`).join("");
+}
+
+function renderFeatureInputs() {
+  const t = catalog.habitat_types.find(t => t.name === $("h-type").value);
+  $("h-features").innerHTML = Object.entries(catalog.features).map(([k, spec]) => spec.type === "bool"
+    ? `<label>${k}<select data-feat="${k}" data-type="bool"><option value="">défaut (${t.defaults[k]})</option>
+         <option value="true">true</option><option value="false">false</option></select></label>`
+    : `<label>${k} <span class="hint">[${spec.min} – ${spec.max}]</span>
+         <input type="number" step="${spec.type === "int" ? 1 : "any"}" data-feat="${k}" data-type="${spec.type}"
+           placeholder="défaut : ${t.defaults[k]}"></label>`).join("");
+}
+
+$("h-type").addEventListener("change", renderFeatureInputs);
+document.querySelectorAll("input[name=pmode]").forEach(r => r.addEventListener("change", () => {
+  const mode = document.querySelector("input[name=pmode]:checked").value;
+  for (const m of ["preset", "traits", "random"]) $("p-" + m).hidden = m !== mode;
+}));
+
+$("f-habitat").addEventListener("submit", async e => {
+  e.preventDefault();
+  const features = {};
+  for (const el of $("h-features").querySelectorAll("[data-feat]")) {
+    if (el.value === "") continue;
+    features[el.dataset.feat] = el.dataset.type === "bool" ? el.value === "true" : Number(el.value);
+  }
+  const body = { type: $("h-type").value, x: Number($("h-x").value), y: Number($("h-y").value) };
+  if (Object.keys(features).length) body.features = features;
+  const r = await api("POST", "/api/habitats", body).catch(() => null);
+  if (r) toast(`Habitat ${r.id} ajouté`, true);
+});
+
+$("f-bee").addEventListener("submit", async e => {
+  e.preventDefault();
+  const mode = document.querySelector("input[name=pmode]:checked").value;
+  let personality;
+  if (mode === "preset") personality = { preset: $("b-preset").value };
+  else if (mode === "traits") personality = { traits: Object.fromEntries(catalog.traits.map(t => [t.name, Number($("t-" + t.name).value)])) };
+  else { personality = { random: true }; if ($("b-seed").value !== "") personality.seed = Number($("b-seed").value); }
+  const body = { species: $("b-species").value, role: $("b-role").value, x: Number($("b-x").value),
+                 y: Number($("b-y").value), personality };
+  if ($("b-name").value) body.name = $("b-name").value;
+  const r = await api("POST", "/api/bees", body).catch(() => null);
+  if (r) toast(`Abeille ${r.id} ajoutée`, true);
+});
+
+$("btn-toggle").onclick = () => api("POST", snap?.state.paused ? "/api/simulation/resume" : "/api/simulation/pause").catch(() => {});
+$("speed").onchange = () => api("POST", "/api/simulation/speed", { speed: Number($("speed").value) }).catch(() => {});
+$("btn-clear").onclick = () => confirm("Retirer toutes les entités du monde ?") && api("POST", "/api/world/clear").catch(() => {});
+
+// --- world view -------------------------------------------------------------
+const canvas = $("world"), ctx = canvas.getContext("2d");
+function scale() { return canvas.clientWidth / catalog.world.width; }
+canvas.addEventListener("click", e => {
+  const r = canvas.getBoundingClientRect(), k = scale();
+  const x = Math.round((e.clientX - r.left) / k), y = Math.round((e.clientY - r.top) / k);
+  for (const id of ["h-x", "b-x"]) $(id).value = x;
+  for (const id of ["h-y", "b-y"]) $(id).value = y;
+});
+
+function drawWorld() {
+  if (!catalog) return;
+  const w = canvas.clientWidth, h = w * catalog.world.height / catalog.world.width, dpr = devicePixelRatio || 1;
+  canvas.style.height = h + "px"; canvas.width = w * dpr; canvas.height = h * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, h);
+  const k = w / catalog.world.width;
+  for (const e of snap?.entities || []) {
+    const x = e.x * k, y = e.y * k;
+    ctx.lineWidth = e.id === selected ? 3 : 1; ctx.strokeStyle = e.id === selected ? "#2b2118" : "rgba(0,0,0,.35)";
+    if (e.kind === "habitat") {
+      ctx.fillStyle = HAB_COLORS[e.type]; ctx.fillRect(x - 9, y - 9, 18, 18); ctx.strokeRect(x - 9, y - 9, 18, 18);
+    } else {
+      ctx.beginPath(); ctx.arc(x, y, 5, 0, 2 * Math.PI); ctx.fillStyle = BEE_COLORS[e.species]; ctx.fill(); ctx.stroke();
+    }
+  }
+}
+new ResizeObserver(drawWorld).observe(canvas);
+
+// --- entities ---------------------------------------------------------------
+async function showDetail(id) {
+  selected = id; drawWorld(); renderEntities();
+  const d = await api("GET", "/api/entities/" + encodeURIComponent(id)).catch(() => null);
+  $("detail").hidden = !d; if (d) $("detail").textContent = JSON.stringify(d, null, 2);
+}
+async function removeEntity(id) {
+  const r = await api("DELETE", "/api/entities/" + encodeURIComponent(id)).catch(() => null);
+  if (r) { toast(`${id} retiré`, true); if (selected === id) { selected = null; $("detail").hidden = true; } }
+}
+function renderEntities() {
+  const list = snap?.entities || [];
+  $("ent-count").textContent = `(${list.length})`;
+  $("ent-body").innerHTML = list.map(e => `<tr class="${e.id === selected ? "sel" : ""}">
+    <td><a href="#" onclick="showDetail('${e.id}');return false">${e.id}</a></td>
+    <td>${e.kind === "habitat" ? label(e.type) : `${label(e.species)} · ${label(e.role)}${e.name ? " · " + escapeHtml(e.name) : ""}`}</td>
+    <td>${Math.round(e.x)}, ${Math.round(e.y)}</td>
+    <td>${e.kind === "habitat" ? `${e.occupants}/${e.capacity}` : (e.home_id || "—")}</td>
+    <td><button class="danger" onclick="removeEntity('${e.id}')" aria-label="Retirer ${e.id}">✕</button></td></tr>`).join("")
+    || `<tr><td colspan="5" class="empty">Le monde est vide.</td></tr>`;
+}
+const escapeHtml = s => s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+// --- KPI ----------------------------------------------------------------------
+function bars(el, counts) {
+  const max = Math.max(1, ...Object.values(counts));
+  el.innerHTML = Object.entries(counts).map(([k, v]) =>
+    `<div><span>${label(k)}</span><span class="bar"><i style="width:${100 * v / max}%"></i></span><span class="num">${v}</span></div>`).join("");
+}
+function hist(el, dist) {
+  el.innerHTML = Object.entries(dist).map(([t, bins]) => {
+    const max = Math.max(1, ...bins);
+    return `<div class="hist"><span>${label(t)}</span>${bins.map((n, i) =>
+      `<div class="cell" title="${(i / 5).toFixed(1)}–${((i + 1) / 5).toFixed(1)} : ${n}"><div class="col" style="height:${100 * n / max}%"></div></div>`).join("")}</div>`;
+  }).join("");
+}
+function evText(ev) {
+  const d = ev.data;
+  switch (ev.type) {
+    case "entity_added": return `Ajout de ${d.id} (${label(d.type || d.species)})`;
+    case "entity_removed": return `Retrait de ${d.id}` + (d.released_bee_ids?.length ? ` — libère ${d.released_bee_ids.join(", ")}` : "");
+    case "world_cleared": return `Monde vidé (${d.removed} entités)`;
+    case "paused": return "Simulation en pause";
+    case "resumed": return "Simulation lancée";
+    case "speed_changed": return `Vitesse ×${d.speed}`;
+    case "decision": return d.outcome === "chosen"
+      ? `${d.bee_id} choisit ${d.chosen_habitat_id} (score ${d.evaluated.find(c => c.habitat_id === d.chosen_habitat_id)?.score?.toFixed(2) ?? "?"})`
+      : `${d.bee_id} refuse ${d.evaluated.length} habitat(s)`;
+    default: return ev.type;
+  }
+}
+function feed(el, events, emptyText) {
+  el.innerHTML = events.slice().reverse().map(ev => `<li><span class="t">t${ev.tick}</span>${escapeHtml(evText(ev))}</li>`).join("")
+    || `<li class="empty">${emptyText}</li>`;
+}
+
+function render() {
+  const s = snap.state, k = snap.kpi;
+  $("run").textContent = s.paused ? "en pause" : "en cours"; $("run").className = "pill " + (s.paused ? "pause" : "run");
+  $("btn-toggle").textContent = s.paused ? "Lancer" : "Pause";
+  $("tick").textContent = k.sim.tick; $("secs").textContent = k.sim.seconds;
+  if (document.activeElement !== $("speed")) $("speed").value = s.speed;
+  $("k-hab").textContent = s.habitats; $("k-bees").textContent = s.bees;
+  $("k-settled").textContent = k.bees_settled; $("k-homeless").textContent = k.bees_homeless;
+  bars($("k-types"), k.habitats_by_type); bars($("k-species"), k.bees_by_species); hist($("k-traits"), k.trait_distribution);
+  $("k-occ").innerHTML = k.occupancy.map(o => `<tr><td>${o.id}</td><td>${label(o.type)}</td><td class="num">${o.occupants}/${o.capacity}</td>
+    <td class="num">${Math.round(100 * o.rate)} %</td></tr>`).join("") || `<tr><td colspan="4" class="empty">Aucun habitat.</td></tr>`;
+  feed($("world-feed"), snap.world_events, "Aucun événement pour l'instant.");
+  const d = k.decisions;
+  $("no-mechanism").hidden = !!d.mechanism;
+  $("d-chosen").textContent = d.chosen; $("d-refused").textContent = d.refused;
+  $("d-avg").textContent = d.avg_chosen_score ?? "—";
+  bars($("d-species"), Object.fromEntries(Object.entries(d.by_species).map(([sp, c]) => [sp, c.chosen + c.refused])));
+  $("d-traits").innerHTML = Object.entries(d.by_trait).map(([t, bins]) => `<div class="hint">${label(t)} : ${bins.map(
+    (b, i) => `[${(i / 5).toFixed(1)}–${((i + 1) / 5).toFixed(1)}] ${b.chosen}✓ ${b.refused}✗`).join(" · ")}</div>`).join("");
+  feed($("decision-feed"), snap.decision_events, "Aucune décision : aucun mécanisme actif.");
+  renderEntities(); drawWorld();
+}
+
+// --- live feed ------------------------------------------------------------------
+function connect() {
+  const ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws");
+  ws.onopen = () => { $("conn").textContent = "connecté"; $("conn").className = "pill run"; };
+  ws.onmessage = m => { snap = JSON.parse(m.data); if (catalog) render(); };
+  ws.onclose = () => { $("conn").textContent = "déconnecté"; $("conn").className = "pill off"; setTimeout(connect, 1500); };
+}
+
+(async () => {
+  catalog = await api("GET", "/api/catalog");
+  buildForms();
+  connect();
+})();
+</script>
+</body>
+</html>

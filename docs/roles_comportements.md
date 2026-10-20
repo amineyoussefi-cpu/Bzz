@@ -4,7 +4,8 @@ Document de conception des **rôles** (éclaireuse, suiveuse, reine) et des **ac
 accomplir. Il complète la [référence abeilles et habitats](reference_abeilles.md).
 
 > **État actuel.** Les classes et leurs interfaces existent dans [`godot/entities/roles/`](../godot/entities/roles/).
-> **Aucune abeille, aucun habitat et aucune colonie n'est instancié dans le monde, et aucune action n'est exécutée.**
+> Des abeilles (avec leur rôle) et des habitats peuvent être placés dans le monde depuis le tableau de bord, mais
+> **aucune action de rôle n'est exécutée** et aucune colonie n'existe.
 > Les méthodes marquées *interface* sont vides : elles ne déplacent rien, ne créent pas d'œufs et ne génèrent pas
 > de nouvelles abeilles.
 

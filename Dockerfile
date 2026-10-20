@@ -30,7 +30,8 @@ COPY godot/ ./
 RUN godot --headless --import --path . || true
 ENV GODOT_PORT=9876
 EXPOSE 9876
-CMD ["sh", "-c", "exec godot --headless --path . -- --host=0.0.0.0 --port=${GODOT_PORT}"]
+# world size flags only when set, so Godot keeps the single default (WorldApi.DEFAULT_SIZE)
+CMD ["sh", "-c", "exec godot --headless --path . -- --host=0.0.0.0 --port=${GODOT_PORT} ${WORLD_WIDTH:+--world-width=$WORLD_WIDTH} ${WORLD_HEIGHT:+--world-height=$WORLD_HEIGHT}"]
 
 
 FROM python:3.12-slim AS backend
@@ -42,5 +43,8 @@ COPY backend/requirements.txt backend/requirements.txt
 RUN pip install --no-cache-dir -r backend/requirements.txt
 COPY godot/ godot/
 COPY backend/ backend/
+RUN godot --headless --import --path /app/godot || true
 WORKDIR /app/backend
-CMD ["python", "-m", "bzz"]
+EXPOSE 8000
+# dashboard + API; the stdin entry point stays available: python -m bzz
+CMD ["python", "-m", "bzz.server"]

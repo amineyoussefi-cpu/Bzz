@@ -1,3 +1,3 @@
-from .engine import GodotEngine, GodotError
+from .engine import CommandRejected, GodotEngine, GodotError
 
-__all__ = ["GodotEngine", "GodotError"]
+__all__ = ["CommandRejected", "GodotEngine", "GodotError"]

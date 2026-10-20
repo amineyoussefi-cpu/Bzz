@@ -1,1 +1,6 @@
-# Runtime dependencies. None yet: the backend uses only the Python >= 3.10 standard library.
+# Backend dependencies. The engine and the stdin entry point use only the standard library (Python >= 3.10);
+# these are for the dashboard API (python -m bzz.server).
+fastapi==0.156.3
+uvicorn==0.54.0
+websockets==17.3   # WebSocket support for uvicorn
+httpx==0.28.1      # only for the API tests (fastapi.testclient)

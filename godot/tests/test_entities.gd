@@ -81,6 +81,7 @@ func _init() -> void:
 			check(pref.criterion in Habitat.new().features(), "criterion %s exists" % pref.criterion)
 
 	test_roles()
+	test_world_api()
 	print("entity tests: %s" % ("OK" if failures == 0 else "%d failure(s)" % failures))
 	quit(1 if failures else 0)
 
@@ -139,3 +140,33 @@ func test_roles() -> void:
 	queen.behavior.manage_reproduction_cycle()
 	check(queen.home == null and queen.position == Vector2.ZERO and site.occupants.is_empty(),
 		"queen actions do not move her or create bees")
+
+
+func test_world_api() -> void:
+	var world := Node2D.new()
+	var api := WorldApi.new(world)
+	var h = api.handle("add_habitat", {"type": "bare_soil", "x": 10, "y": 10}).result
+	var b = api.handle("add_bee", {"species": "mining_bee", "x": 20, "y": 20}).result
+	check(world.get_child_count() == 2 and h.id != b.id, "entities added as world children with unique ids")
+	check(not api.handle("add_bee", {"species": "mining_bee", "x": 20, "y": 9999}).ok and world.get_child_count() == 2,
+		"refused command creates nothing")
+
+	# removing a habitat releases its occupants (settled by hand here: no command or loop ever settles a bee)
+	var bee: Bee = api.entities[b.id]
+	var habitat: Habitat = api.entities[h.id]
+	bee.settle(habitat)
+	var removed = api.handle("remove_entity", {"id": h.id}).result
+	check(removed.released_bee_ids == [b.id] and bee.home == null and world.get_child_count() == 1,
+		"removing a habitat frees its occupants")
+
+	var tick := api.tick
+	api.step()
+	check(api.tick == tick, "paused world does not advance")
+	api.handle("resume", {})
+	api.step()
+	check(api.tick == tick + 1, "running world advances one tick per physics frame")
+	check(api.handle("clear_world", {}).result.removed == 1 and world.get_child_count() == 0, "clear_world empties")
+	var types: Array = api.handle("get_events", {}).result.events.map(func(e): return e.type)
+	check(types == ["entity_added", "entity_added", "entity_removed", "resumed", "world_cleared"], "event log %s" % [types])
+	check("decision" not in types, "no decision event")
+	world.free()

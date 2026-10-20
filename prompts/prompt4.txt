@@ -1,0 +1,163 @@
+# Tableau de bord : construire le monde et suivre les décisions des abeilles
+
+## Objectif
+
+Ajouter un **tableau de bord web** permettant à l'utilisateur de peupler l'environnement 2D et de suivre en temps réel ce qui s'y passe.
+
+Le tableau de bord ne communique jamais directement avec Godot. Toutes ses actions passent par le backend Python, qui les valide et les transmet à Godot par le protocole existant :
+
+```
+Tableau de bord (navigateur) ──HTTP / temps réel──► Backend Python ──TCP JSON──► Godot headless
+                             ◄── état, KPI, événements ──            ◄── résultats, événements ──
+```
+
+Depuis le tableau de bord, l'utilisateur pourra :
+
+- ajouter des habitats en choisissant leur type ;
+- ajouter des abeilles en choisissant leur espèce et leur personnalité et leur role;
+- consulter, retirer les entités et vider le monde ;
+- suivre en temps réel des indicateurs (KPI) sur l'état du monde ;
+- disposer d'un espace prêt à afficher les décisions des abeilles, qui seront produites à l'étape suivante.
+
+## 1. Évolution de l'architecture
+
+Le prompt 1 prévoyait de supprimer tout frontend. Cette décision évolue : un tableau de bord est ajouté **comme client du backend Python**, sans remettre en cause les autres principes.
+
+- Godot reste le moteur central et le propriétaire de l'état du monde. Il continue de tourner en mode headless, sans fenêtre.
+- Python reste l'unique point d'entrée vers Godot : il expose une API au tableau de bord, valide les requêtes et pilote Godot.
+- Le tableau de bord est un client : il n'a aucune logique de simulation et ne calcule rien que Godot ou Python ne fournisse déjà.
+- Le point d'entrée stdin existant doit continuer de fonctionner.
+
+Ce changement de décision devra être documenté dans `PROJECT_STATUS.md`.
+
+## 2. Backend Python : API pour le tableau de bord
+
+Le backend devra exposer :
+
+- **Une API HTTP** pour les actions (catalogue, ajout, consultation, retrait, remise à zéro, contrôle de la simulation).
+- **Un canal temps réel** (par exemple WebSocket ou Server-Sent Events) pour pousser au tableau de bord les événements et les KPI sans rechargement de page.
+
+Un framework web léger pourra être utilisé (par exemple FastAPI) : les dépendances devront être déclarées dans `backend/requirements.txt`.
+
+Points d'attention :
+
+- `GodotEngine.send()` est actuellement synchrone et prévu pour un seul client. Les requêtes HTTP simultanées et le flux temps réel ne doivent pas mélanger leurs réponses sur la connexion TCP (verrou, file d'attente ou connexion dédiée, au choix, mais documenté).
+- Godot fonctionne aujourd'hui en requête/réponse. Il faudra prévoir un moyen de récupérer les événements qu'il produit (interrogation périodique avec curseur, ou envoi spontané d'événements par Godot). Le mécanisme retenu devra être justifié et documenté.
+
+## 3. Commandes de la boîte à outils (protocole Python ↔ Godot)
+
+Les types, espèces et traits sont désignés par des **noms lisibles** (par exemple `"tree_cavity"`, `"honey_bee"`), jamais par des numéros internes d'énumération. Chaque nouvelle commande est ajoutée à la liste blanche Python (`commands.py`) et au traitement côté Godot, en les gardant synchronisées.
+
+### Catalogue
+
+- `get_catalog` : types d'habitats, espèces, traits de personnalité avec leurs bornes, préréglages de personnalité et dimensions du monde. Le catalogue est généré à partir des classes existantes (`Habitat.Type`, `BeeSpecies.Id`, `BeePersonality`) et non recopié à la main.
+
+### Ajout d'habitats
+
+- `add_habitat(type, x, y, features?)` : ajoute un habitat du type choisi à la position indiquée.
+
+Chaque type d'habitat dispose de **caractéristiques par défaut** (volume, entrée, hauteur, ensoleillement, humidité, capacité, etc.), définies dans un catalogue dédié sur le modèle de `BeeSpecies`, en s'appuyant sur `docs/reference_abeilles.md` lorsque c'est possible. `features` permet de surcharger certaines valeurs, avec vérification des bornes.
+
+### Ajout d'abeilles
+
+- `add_bee(species, x, y, personality?, name?)` : ajoute une abeille de l'espèce choisie.
+
+La personnalité pourra être fournie de trois façons :
+
+- **Traits explicites** : valeurs entre 0 et 1 pour `pickiness`, `boldness`, `sociability` et `curiosity`.
+- **Préréglage nommé** : par exemple `"prudente"`, `"audacieuse"`, `"sociable"`, `"curieuse"`, `"équilibrée"`, définis dans le code et documentés.
+- **Aléatoire**, avec une graine (`seed`) optionnelle pour reproduire exactement la même abeille.
+
+L'abeille reçoit les préférences par défaut de son espèce (`Bee.create`) et le rôle par défaut déjà prévu.
+
+### Consultation et retrait
+
+- `list_entities` : habitats et abeilles présents, avec identifiant, type ou espèce et position.
+- `get_entity(id)` : détail d'une entité (caractéristiques d'un habitat ; espèce, personnalité, rôle, préférences et habitat actuel d'une abeille).
+- `remove_entity(id)` : retire une entité. Retirer un habitat libère proprement ses occupants.
+- `clear_world` : retire toutes les entités.
+
+Chaque entité reçoit un **identifiant unique et stable**, renvoyé à sa création.
+
+### Contrôle de la simulation
+
+- `pause`, `resume` et éventuellement `set_speed` : permettre à l'utilisateur de construire le monde à l'arrêt, puis de lancer la simulation.
+
+## 4. Événements et préparation des décisions
+
+**Aucun mécanisme de décision ne doit être exécuté dans cette étape.** Les décisions des abeilles seront confiées à un nouveau mécanisme à l'étape suivante (prompt 5).
+
+- Les méthodes de choix déjà présentes dans le modèle (`Bee.evaluate_habitat`, `choose_habitat`, `settle`, ainsi que les composants de rôles) ne doivent être appelées par aucune boucle de simulation, aucune commande et aucune route de l'API.
+- Cette logique de choix existante ne doit être ni supprimée ni modifiée : elle servira de référence au futur mécanisme de décision, puis sera retirée lors d'une étape ultérieure.
+- Les abeilles ajoutées restent sans habitat et ne changent pas d'état tant qu'aucune commande de l'utilisateur ne les modifie.
+- Les événements produits dans cette étape concernent uniquement le monde : entité ajoutée, entité retirée, monde vidé, simulation mise en pause ou relancée.
+- Un **format d'événement de décision** est défini et documenté (abeille, habitats évalués, scores avec le détail par critère, habitat choisi ou refus, justification éventuelle, source de la décision, résultat), sans qu'aucun événement de ce type ne soit émis. Ce format doit être indépendant de la source des décisions, afin que le mécanisme du prompt 5 puisse l'alimenter sans modifier le tableau de bord.
+- Tous les événements sont horodatés avec le **temps de la simulation** (numéro de tick), et non l'heure réelle, afin de rester cohérents avec la pause et les changements de vitesse.
+
+Restent hors périmètre : toute décision, le déplacement, l'exploration, la danse, la décision collective et la reproduction.
+
+## 5. Tableau de bord
+
+### Actions
+
+- Formulaire d'ajout d'habitat : choix du type dans le catalogue, position, surcharge facultative des caractéristiques.
+- Formulaire d'ajout d'abeille : choix de l'espèce, de la personnalité (préréglage, curseurs pour chaque trait, ou aléatoire avec graine), position et nom.
+- Liste des entités avec consultation du détail et retrait.
+- Boutons pause / reprise et remise à zéro du monde.
+- Les erreurs de validation renvoyées par le backend sont affichées clairement à l'utilisateur.
+
+### Vue du monde
+
+- Une vue 2D simplifiée affichant les habitats et les abeilles à leur position, avec une distinction visuelle par type et par espèce. Cette vue est un simple affichage de l'état fourni par le backend.
+
+### KPI en temps réel
+
+Disponibles dès cette étape :
+
+- Nombre d'habitats par type et d'abeilles par espèce.
+- Répartition des abeilles selon leurs traits de personnalité.
+- Abeilles installées / sans habitat, et taux d'occupation de chaque habitat (toutes sans habitat et taux nuls tant qu'aucune décision n'existe).
+- Temps de simulation écoulé et état de la simulation (en pause ou en cours).
+- Fil des événements du monde (ajouts, retraits, remise à zéro, pause).
+
+Préparés pour le prompt 5, affichés vides avec une mention indiquant qu'aucun mécanisme de décision n'est encore actif :
+
+- Fil des décisions : quelle abeille a choisi ou refusé quel habitat, avec quel score.
+- Score moyen des habitats choisis et nombre de refus.
+- Répartition des choix par espèce et selon les traits de personnalité.
+
+Les KPI sont calculés à partir de l'état et des événements fournis par le backend, jamais par une simulation parallèle dans le navigateur.
+
+## 6. Règles de validation
+
+- Le monde a des dimensions définies et configurables, sans valeur codée en dur à plusieurs endroits. Une position hors du monde est refusée.
+- Un type, une espèce, un préréglage ou un trait inconnu est refusé avec un message indiquant les valeurs acceptées.
+- Une valeur hors bornes est refusée, jamais corrigée silencieusement.
+- Une commande refusée ne laisse aucune entité partiellement créée.
+- La validation reste faite à la fois dans Python et dans Godot.
+
+## 7. Portabilité et contraintes
+
+Avant toute modification, examiner le dépôt existant, les classes disponibles et les conventions du projet.
+
+- Réutiliser `Habitat`, `Bee`, `BeeSpecies`, `BeePersonality`, `Preference` et `BeeRole` sans dupliquer leur logique.
+- Ajouter le tableau de bord à Docker Compose (nouveau service ou servi par le backend), avec un port publié configurable via `.env.example`.
+- Le port de Godot reste réservé au réseau interne de Compose.
+- Conserver le fonctionnement sans Docker, en local.
+- Pas d'authentification pour l'instant : le tableau de bord est prévu pour un usage local. Cette limite est notée dans `PROJECT_STATUS.md`.
+- La sauvegarde et le chargement d'un monde ne font pas partie de cette étape.
+
+## 8. Tests et documentation
+
+- Adapter les tests existants qui supposent un monde toujours vide.
+- Tester chaque commande du protocole : ajout réussi, refus des valeurs invalides, consultation, retrait, remise à zéro, reproductibilité d'une abeille créée avec la même graine.
+- Tester l'API HTTP du backend et la réception des événements sur le canal temps réel.
+- Vérifier qu'aucune décision n'est prise : après l'ajout d'abeilles et d'habitats et un temps de simulation en cours, toutes les abeilles restent sans habitat, à leur position, et aucun événement de décision n'est émis.
+- Documenter chaque commande et chaque route de l'API avec un exemple de requête et de réponse.
+- Mettre à jour `PROJECT_STATUS.md` (architecture, nouvelle décision sur le frontend, commandes, API, KPI, limites, prochaines étapes), puis commiter.
+
+## Résultat attendu
+
+Un utilisateur ouvre le tableau de bord dans son navigateur, ajoute des habitats et des abeilles en choisissant type, espèce et personnalité, lance ou met en pause la simulation et voit en temps réel l'état du monde et ses KPI se mettre à jour. L'espace dédié aux décisions est prêt à recevoir les événements du futur mécanisme.
+
+**À la fin de cette étape, le monde contient des habitats et des abeilles pilotés depuis le tableau de bord, mais aucune abeille ne prend de décision : aucun choix d'habitat, aucune installation, aucun déplacement. Les décisions seront introduites au prompt 5.**

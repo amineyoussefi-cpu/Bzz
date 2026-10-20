@@ -21,7 +21,7 @@ class EngineTest(unittest.TestCase):
     def test_ping(self):
         self.assertEqual(self.engine.send("ping"), "pong")
 
-    def test_state_advances_and_world_is_empty(self):
+    def test_state_advances_and_world_starts_empty(self):
         a = self.engine.send("get_state")
         time.sleep(0.3)
         b = self.engine.send("get_state")

@@ -6,6 +6,10 @@ Configured by environment variables (see .env.example):
   GODOT_BIN          Godot executable when spawning (default "godot" on PATH)
   GODOT_PROJECT_DIR  Godot project when spawning (default: ../godot relative to this repo)
   GODOT_TIMEOUT      seconds to wait for Godot to accept connections (default 10)
+  WORLD_WIDTH/HEIGHT world size passed to a spawned Godot (default: Godot's own, see WorldApi.DEFAULT_SIZE)
+
+One TCP connection is shared by every caller (HTTP requests, the event poller, stdin): a lock makes each
+request/response pair atomic, so concurrent callers never read each other's responses.
 """
 
 import itertools
@@ -13,6 +17,7 @@ import json
 import os
 import socket
 import subprocess
+import threading
 import time
 from pathlib import Path
 
@@ -30,6 +35,10 @@ def _free_port() -> int:
 
 class GodotError(RuntimeError):
     pass
+
+
+class CommandRejected(GodotError):
+    """Godot answered ok=false (validation error, unknown entity...)."""
 
 
 class GodotEngine:
@@ -51,6 +60,8 @@ class GodotEngine:
         self.sock: socket.socket | None = None
         self._file = None
         self._ids = itertools.count(1)
+        self._lock = threading.Lock()
+        self.catalog: dict | None = None  # fetched at start; used to validate values before sending
 
     @property
     def remote(self) -> bool:
@@ -61,12 +72,19 @@ class GodotEngine:
             raise GodotError("already running")
         if self.remote:
             self._connect(self.host, self.port)
-            return
-        port = _free_port()
-        self.proc = subprocess.Popen(
-            [self.godot_bin, "--headless", "--path", str(self.project_dir), "--", f"--port={port}"]
-        )
-        self._connect("127.0.0.1", port)
+        else:
+            if not (self.project_dir / ".godot" / "global_script_class_cache.cfg").exists():
+                # fresh checkout: class_name scripts are only known after an import
+                subprocess.run([self.godot_bin, "--headless", "--path", str(self.project_dir), "--import"],
+                               capture_output=True, timeout=120)
+            port = _free_port()
+            world = [f"--world-{k.lower()}={v}" for k in ("WIDTH", "HEIGHT") if (v := os.environ.get(f"WORLD_{k}"))]
+            self.proc = subprocess.Popen(
+                [self.godot_bin, "--headless", "--path", str(self.project_dir), "--", f"--port={port}", *world]
+            )
+            self._connect("127.0.0.1", port)
+        self.catalog = None
+        self.catalog = self.send("get_catalog")
 
     def _connect(self, host: str, port: int) -> None:
         deadline = time.monotonic() + self.timeout
@@ -85,20 +103,21 @@ class GodotEngine:
         self._file = self.sock.makefile("rwb")
 
     def send(self, cmd: str, **args) -> object:
-        validate(cmd, args)
-        if not self._file:
-            raise GodotError("not running")
-        req_id = next(self._ids)
-        self._file.write(json.dumps({"id": req_id, "cmd": cmd, "args": args}).encode() + b"\n")
-        self._file.flush()
-        line = self._file.readline()
+        validate(cmd, args, self.catalog)
+        with self._lock:
+            if not self._file:
+                raise GodotError("not running")
+            req_id = next(self._ids)
+            self._file.write(json.dumps({"id": req_id, "cmd": cmd, "args": args}).encode() + b"\n")
+            self._file.flush()
+            line = self._file.readline()
         if not line:
             raise GodotError("connection closed by Godot")
         resp = json.loads(line)
         if resp.get("id") != req_id:
             raise GodotError(f"response id mismatch: {resp}")
         if not resp["ok"]:
-            raise GodotError(resp["error"])
+            raise CommandRejected(resp["error"])
         return resp["result"]
 
     def stop(self, quit_remote: bool = False) -> None:

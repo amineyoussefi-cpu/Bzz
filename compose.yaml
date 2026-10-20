@@ -7,6 +7,9 @@ services:
         GODOT_VERSION: ${GODOT_VERSION:-4.7.2}
     environment:
       GODOT_PORT: ${GODOT_PORT:-9876}
+      WORLD_WIDTH: ${WORLD_WIDTH:-}
+      WORLD_HEIGHT: ${WORLD_HEIGHT:-}
+    # no published port: Godot is only reachable inside the compose network
     # the "quit"/"restart" commands stop Godot; compose brings it back
     restart: unless-stopped
 
@@ -20,7 +23,12 @@ services:
       GODOT_HOST: godot
       GODOT_PORT: ${GODOT_PORT:-9876}
       GODOT_TIMEOUT: ${GODOT_TIMEOUT:-10}
+      BZZ_HTTP_HOST: 0.0.0.0
     depends_on:
       - godot
-    # commands are read from stdin: `docker compose run --rm backend`
+    # dashboard on http://localhost:${DASHBOARD_PORT}; bound to the host's loopback since there is no authentication
+    ports:
+      - "127.0.0.1:${DASHBOARD_PORT:-8000}:8000"
+    restart: unless-stopped
+    # stdin entry point instead: docker compose run --rm backend python -m bzz
     stdin_open: true
