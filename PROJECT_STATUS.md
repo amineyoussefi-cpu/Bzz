@@ -31,7 +31,8 @@ Fichiers :
   `node_count` = 0) : `Habitat` (Node2D, 6 types, caractéristiques, occupants), `Bee` (Node2D : évaluation,
   choix, installation), `BeePersonality` (Resource, 4 traits), `Preference` (Resource, un critère pondéré),
   `BeeSpecies` (catalogue de 5 espèces : types acceptés et préférences par défaut).
-  Référence illustrée et sourcée : [docs/reference_abeilles.md](docs/reference_abeilles.md).
+  Référence illustrée et sourcée : [docs/reference_abeilles.md](docs/reference_abeilles.md)
+  (version PDF : [docs/reference_abeilles.pdf](docs/reference_abeilles.pdf), générée depuis le Markdown, à régénérer s'il change).
 - **godot/tests/test_entities.gd** — tests unitaires du modèle (lancés par `backend/tests/test_entities.py`).
 - **backend/bzz/engine.py** — `GodotEngine` : démarrage/connexion, `send`, `stop`, `restart`, utilisable en `with`.
   Toute la configuration vient des variables d'environnement (liste en tête du fichier et dans `.env.example`).
