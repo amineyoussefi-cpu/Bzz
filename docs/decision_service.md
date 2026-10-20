@@ -113,7 +113,8 @@ Mac mini Apple M4 Pro, 24 Go de mémoire unifiée, torch 2.14.1, révision `7418
 La boucle de décision vit dans le backend ([`backend/bzz/decision/loop.py`](../backend/bzz/decision/loop.py)).
 
 1. **Cadence** : uniquement quand la simulation tourne, tous les `DECISION_INTERVAL_TICKS` ticks, pour chaque abeille
-   sans habitat qui n'a pas déjà une décision en cours. Au plus `DECISION_CONCURRENCY` décisions à la fois. Les appels
+   en recherche et chaque essaim en grappe qui n'a pas déjà une décision en cours. Les abeilles en vol, installées
+   ou en attente, et les essaims à découvert, ne demandent rien. Au plus `DECISION_CONCURRENCY` décisions à la fois. Les appels
    passent par des threads : ils ne bloquent ni l'API, ni le tableau de bord, ni Godot.
 2. **Situation** : `get_decision_situation` (Godot) décrit l'abeille et chaque habitat : caractéristiques, distance,
    type accepté, place libre.
@@ -124,13 +125,22 @@ La boucle de décision vit dans le backend ([`backend/bzz/decision/loop.py`](../
    `Bee`, exécutée par Godot) calcule son propre choix **sans l'appliquer**.
 5. **Application** : `apply_decision` (Godot) vérifie que l'abeille existe et n'a pas d'habitat, que l'habitat existe,
    que son type est accepté et qu'il reste de la place.
-   - Si la décision est valide, l'abeille s'installe (`Bee.settle`) et Godot publie un événement `decision`.
+   - Si la décision est valide, l'abeille (ou l'essaim, mené par sa reine via une `ColonyDecision`) **s'envole**
+     vers l'habitat et ne s'y installe qu'à l'arrivée ; Godot publie `decision`, puis `flight_started` et `arrived`
+     (ou `arrival_failed` si l'habitat est plein ou retiré entre-temps).
    - Sinon, Godot la **rejette** et publie un événement `decision` dont `result` vaut `"rejected"`.
    - Si la simulation a été mise en pause entre-temps, rien n'est appliqué et aucun événement n'est publié.
 6. **Service indisponible** : aucune décision n'est prise et le tableau de bord l'indique. Il n'y a **pas de bascule**
    vers la logique de référence.
 
-Les abeilles ne se déplacent pas : elles s'installent « à distance » et leur position ne change pas.
+**Essaims.** La situation envoyée à OpenJev décrit un essaim d'abeilles mellifères en grappe. Elle ajoute :
+
+- sa **population** et son **délai restant** ;
+- la **distance** de chaque cavité depuis la grappe ;
+- une règle : « refuser est possible tant qu'il reste du temps ; quand le temps manque, une cavité acceptable vaut
+  mieux que rien ».
+
+La logique de référence, elle, ignore le délai et la distance.
 
 ---
 

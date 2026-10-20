@@ -80,7 +80,7 @@ class ProtocolTest(unittest.TestCase):
 
     # --- bees ------------------------------------------------------------------------
     def test_add_bee_personality_forms(self):
-        a = self.send("add_bee", species="honey_bee", x=1, y=2, personality={"traits": TRAITS}, name="Ada")
+        a = self.send("add_bee", species="bumblebee", x=1, y=2, personality={"traits": TRAITS}, name="Ada")
         self.assertEqual((a["personality"], a["name"], a["role"], a["home_id"]), (TRAITS, "Ada", "follower", None))
         b = self.send("add_bee", species="bumblebee", x=1, y=2, personality={"preset": "prudente"}, role="scout")
         self.assertEqual((b["personality"]["pickiness"], b["role"]), (0.8, "scout"))
@@ -89,39 +89,40 @@ class ProtocolTest(unittest.TestCase):
         self.assertEqual(detail["personality_source"], "random")
         self.assertGreaterEqual(detail["seed"], 1)
         self.assertEqual(detail["accepted_habitat_types"], ["hollow_stem", "dead_wood"])
+        self.assertEqual((a["state"], b["state"], c["state"]), ("waiting", "waiting", "waiting"))  # no habitat yet
         self.assertTrue(detail["preferences"])
 
     def test_same_seed_same_bee(self):
         p = {"random": True, "seed": 1234}
-        a = self.send("add_bee", species="honey_bee", x=1, y=1, personality=p)
-        b = self.send("add_bee", species="honey_bee", x=1, y=1, personality=p)
-        c = self.send("add_bee", species="honey_bee", x=1, y=1, personality={"random": True, "seed": 99})
+        a = self.send("add_bee", species="bumblebee", x=1, y=1, personality=p)
+        b = self.send("add_bee", species="bumblebee", x=1, y=1, personality=p)
+        c = self.send("add_bee", species="bumblebee", x=1, y=1, personality={"random": True, "seed": 99})
         self.assertEqual(a["personality"], b["personality"])
         self.assertNotEqual(a["personality"], c["personality"])
         # a random bee without seed can be reproduced from the seed it reports
-        d = self.send("add_bee", species="honey_bee", x=1, y=1)
+        d = self.send("add_bee", species="bumblebee", x=1, y=1)
         seed = self.send("get_entity", id=d["id"])["seed"]
-        e = self.send("add_bee", species="honey_bee", x=1, y=1, personality={"random": True, "seed": seed})
+        e = self.send("add_bee", species="bumblebee", x=1, y=1, personality={"random": True, "seed": seed})
         self.assertEqual(d["personality"], e["personality"])
         # a seed can accompany a preset or traits: it fixes the bee's random generator (curiosity noise)
-        f = self.send("add_bee", species="honey_bee", x=1, y=1, personality={"preset": "sociable", "seed": 5})
+        f = self.send("add_bee", species="bumblebee", x=1, y=1, personality={"preset": "sociable", "seed": 5})
         self.assertEqual(self.send("get_entity", id=f["id"])["seed"], 5)
 
     def test_add_bee_refusals_python_and_godot(self):
         bad = [
             dict(species="wasp", x=1, y=1),
-            dict(species="honey_bee", x=5000, y=1),
-            dict(species="honey_bee", x=1, y=1, role="king"),
-            dict(species="honey_bee", x=1, y=1, name="x" * 41),
-            dict(species="honey_bee", x=1, y=1, personality={"preset": "grumpy"}),
-            dict(species="honey_bee", x=1, y=1, personality={"traits": {**TRAITS, "boldness": 1.2}}),
-            dict(species="honey_bee", x=1, y=1, personality={"traits": {"pickiness": 0.5}}),
-            dict(species="honey_bee", x=1, y=1, personality={"traits": {**TRAITS, "anger": 0.5}}),
-            dict(species="honey_bee", x=1, y=1, personality={"random": True, "seed": 0}),
-            dict(species="honey_bee", x=1, y=1, personality={"preset": "sociable", "mood": 3}),
-            dict(species="honey_bee", x=1, y=1, personality={"preset": "sociable", "random": True}),
-            dict(species="honey_bee", x=1, y=1, personality={"random": False}),
-            dict(species="honey_bee", x=1, y=1, personality={"mood": "happy"}),
+            dict(species="bumblebee", x=5000, y=1),
+            dict(species="bumblebee", x=1, y=1, role="king"),
+            dict(species="bumblebee", x=1, y=1, name="x" * 41),
+            dict(species="bumblebee", x=1, y=1, personality={"preset": "grumpy"}),
+            dict(species="bumblebee", x=1, y=1, personality={"traits": {**TRAITS, "boldness": 1.2}}),
+            dict(species="bumblebee", x=1, y=1, personality={"traits": {"pickiness": 0.5}}),
+            dict(species="bumblebee", x=1, y=1, personality={"traits": {**TRAITS, "anger": 0.5}}),
+            dict(species="bumblebee", x=1, y=1, personality={"random": True, "seed": 0}),
+            dict(species="bumblebee", x=1, y=1, personality={"preset": "sociable", "mood": 3}),
+            dict(species="bumblebee", x=1, y=1, personality={"preset": "sociable", "random": True}),
+            dict(species="bumblebee", x=1, y=1, personality={"random": False}),
+            dict(species="bumblebee", x=1, y=1, personality={"mood": "happy"}),
         ]
         for args in bad:
             with self.subTest(args=args):
@@ -134,7 +135,7 @@ class ProtocolTest(unittest.TestCase):
     # --- consultation & removal -----------------------------------------------------------
     def test_list_get_remove_clear(self):
         h = self.send("add_habitat", **TREE)
-        b = self.send("add_bee", species="honey_bee", x=5, y=5)
+        b = self.send("add_bee", species="bumblebee", x=5, y=5)
         self.assertEqual([e["id"] for e in self.send("list_entities")], [h["id"], b["id"]])
         self.assertEqual(self.send("get_entity", id=h["id"])["occupant_ids"], [])
         removed = self.send("remove_entity", id=h["id"])
@@ -195,7 +196,7 @@ class ProtocolTest(unittest.TestCase):
         for t, x in [("tree_cavity", 100), ("hive_box", 200), ("bare_soil", 300), ("hollow_stem", 400), ("dead_wood", 500)]:
             self.send("add_habitat", type=t, x=x, y=100)
         bees = [self.send("add_bee", species=s, x=50 + 10 * i, y=600, role=r)
-                for i, (s, r) in enumerate([("honey_bee", "scout"), ("honey_bee", "follower"), ("honey_bee", "queen"),
+                for i, (s, r) in enumerate([("bumblebee", "scout"), ("bumblebee", "follower"), ("bumblebee", "queen"),
                                             ("bumblebee", "follower"), ("mining_bee", "follower")])]
         self.send("set_speed", speed=8)
         self.send("resume")
@@ -208,6 +209,64 @@ class ProtocolTest(unittest.TestCase):
             self.assertEqual((after[b["id"]]["x"], after[b["id"]]["y"]), (b["x"], b["y"]))
         self.assertTrue(all(e["occupants"] == 0 for e in after.values() if e["kind"] == "habitat"))
         self.assertNotIn("decision", [e["type"] for e in self.send("get_events")["events"]])
+
+
+    # --- swarms and states ----------------------------------------------------------------------
+    def test_honey_bees_only_as_swarms(self):
+        with self.assertRaisesRegex(ValueError, "use add_swarm"):
+            self.send("add_bee", species="honey_bee", x=1, y=1)
+        with self.assertRaisesRegex(CommandRejected, "use add_swarm"):
+            self.godot_only("add_bee", species="honey_bee", x=1, y=1)
+        self.assertEqual(self.count(), 0)
+
+    def test_add_swarm_and_consult(self):
+        s = self.send("add_swarm", x=200, y=100, population=9000, personality={"preset": "prudente", "seed": 3},
+                      name="Essaim A")
+        self.assertEqual((s["kind"], s["species"], s["state"], s["population"], s["name"]),
+                         ("swarm", "honey_bee", "cluster", 9000, "Essaim A"))
+        self.assertTrue(s["waiting"])  # no cavity in the world yet
+        cat = self.send("get_catalog")
+        self.assertAlmostEqual(s["days_left"], cat["swarm"]["cluster_days"])
+        self.assertEqual((s["cluster_x"], s["cluster_y"]), (200, 100))
+        self.send("add_habitat", type="tree_cavity", x=10, y=10)
+        d = self.send("get_entity", id=s["id"])
+        self.assertFalse(d["waiting"])
+        self.assertEqual(d["queen"], {"role": "queen", "target_habitat_id": None, "decision_support": None})
+        self.assertEqual(d["accepted_habitat_types"], ["tree_cavity", "hive_box"])
+        self.assertEqual(self.send("get_state")["swarms"], 1)
+        self.assertEqual(self.send("remove_entity", id=s["id"])["kind"], "swarm")
+        self.assertEqual(self.send("get_state")["node_count"], 1)
+
+    def test_add_swarm_refusals_python_and_godot(self):
+        bad = [dict(x=1, y=1, population=10), dict(x=1, y=1, population=10**6), dict(x=-1, y=1, population=5000),
+               dict(x=1, y=1, population=5000, personality={"preset": "grumpy"}),
+               dict(x=1, y=1, population=5000, name="x" * 41)]
+        for args in bad:
+            with self.subTest(args=args):
+                with self.assertRaises(ValueError):
+                    self.send("add_swarm", **args)
+                with self.assertRaises(CommandRejected):
+                    self.godot_only("add_swarm", **args)
+        with self.assertRaises(ValueError):
+            self.send("add_swarm", x=1, y=1)  # population is required
+        self.assertEqual(self.count(), 0)
+
+    def test_time_parameters_and_flight_speeds_in_catalog(self):
+        c = self.send("get_catalog")
+        self.assertEqual(set(c["time"]), {"day_ticks", "flight_speed_factor"})
+        honey = next(s for s in c["species"] if s["name"] == "honey_bee")
+        self.assertTrue(honey["lives_in_swarms"] and honey["flight_speed_sourced"])
+        self.assertEqual(c["swarm"]["species"], "honey_bee")
+        self.assertEqual(self.send("get_state")["day_ticks"], c["time"]["day_ticks"])
+
+
+class ParametersTest(unittest.TestCase):
+    def test_simulation_parameters_reach_godot(self):
+        with GodotEngine(godot_params={"day-ticks": 500, "swarm-cluster-days": 2}) as engine:
+            c = engine.catalog
+            self.assertEqual((c["time"]["day_ticks"], c["swarm"]["cluster_days"]), (500, 2))
+            s = engine.send("add_swarm", x=1, y=1, population=5000)
+            self.assertAlmostEqual(s["days_left"], 2)
 
 
 class WorldSizeTest(unittest.TestCase):

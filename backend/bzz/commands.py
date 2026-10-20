@@ -20,6 +20,8 @@ COMMANDS: dict[str, dict[str, tuple[tuple[type, ...] | type, bool]]] = {
     "add_habitat": {"type": (str, True), "x": (NUM, True), "y": (NUM, True), "features": (dict, False)},
     "add_bee": {"species": (str, True), "x": (NUM, True), "y": (NUM, True), "personality": (dict, False),
                 "name": (str, False), "role": (str, False)},
+    "add_swarm": {"x": (NUM, True), "y": (NUM, True), "population": (int, True), "personality": (dict, False),
+                  "name": (str, False)},
     "get_entity": {"id": (str, True)},
     "remove_entity": {"id": (str, True)},
     "set_speed": {"speed": (NUM, True)},
@@ -71,12 +73,20 @@ def _check_values(cmd: str, args: dict, cat: dict) -> None:
             _check_feature(key, value, cat["features"])
     elif cmd == "add_bee":
         _one_of("species", args["species"], [s["name"] for s in cat["species"]])
+        if args["species"] == cat["swarm"]["species"]:
+            raise ValueError(f"{args['species']} lives in swarms: use add_swarm instead of add_bee")
         if "role" in args:
             _one_of("role", args["role"], cat["roles"])
+    if cmd in ("add_bee", "add_swarm"):
         if len(args.get("name", "")) > cat["max_name_length"]:
             raise ValueError(f"name must be at most {cat['max_name_length']} characters")
         if "personality" in args:
             _check_personality(args["personality"], cat)
+    if cmd == "add_swarm":
+        pop = cat["swarm"]["population"]
+        if not pop["min"] <= args["population"] <= pop["max"]:
+            raise ValueError(f"population must be an integer between {pop['min']} and {pop['max']} "
+                             f"(got {args['population']})")
     elif cmd == "set_speed":
         lo, hi = cat["speed"]["min"], cat["speed"]["max"]
         if not lo <= args["speed"] <= hi:

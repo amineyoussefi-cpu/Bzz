@@ -5,7 +5,8 @@ accomplir. Il complète la [référence abeilles et habitats](reference_abeilles
 
 > **État actuel.** Les classes et leurs interfaces existent dans [`godot/entities/roles/`](../godot/entities/roles/).
 > Des abeilles (avec leur rôle) et des habitats peuvent être placés dans le monde depuis le tableau de bord, mais
-> **aucune action de rôle n'est exécutée** et aucune colonie n'existe.
+> **aucune action de rôle n'est exécutée**, sauf `QueenBehavior.move_to_habitat` : la reine d'un essaim suit la
+> décision collective (`ColonyDecision`) et emmène l'essaim en vol (voir la [référence §6](reference_abeilles.md)).
 > Les méthodes marquées *interface* sont vides : elles ne déplacent rien, ne créent pas d'œufs et ne génèrent pas
 > de nouvelles abeilles.
 
@@ -105,7 +106,7 @@ c'est vérifié par les tests.
 |---|---|---|
 | `receive_colony_decision(d)` | **défini** | enregistre la `ColonyDecision` reçue |
 | `follow_colony_decision(d)` | **défini** | adopte l'habitat décidé comme destination (`target_habitat`), sans bouger |
-| `move_to_habitat(h)` | interface | déplacement vers l'habitat retenu (aucun déplacement) |
+| `move_to_habitat(h)` | **défini** | déplacement vers l'habitat retenu : la reine d'un essaim emmène tout l'essaim (`Swarm.fly_to`), installation à l'arrivée |
 | `lay_eggs()` | interface | ponte (ne crée rien) |
 | `manage_reproduction_cycle()` | interface | cycle de reproduction et développement des nouvelles abeilles (ne crée rien) |
 
@@ -154,7 +155,7 @@ Règles retenues :
 | Comportement | Méthode(s) concernée(s) |
 |---|---|
 | Recherche d'habitats dans le monde | `ScoutBehavior.explore_habitats` |
-| Déplacements (aller, retour, visite, déménagement) | `return_to_colony`, `visit_habitat`, `move_to_habitat` |
+| Déplacements des éclaireuses et suiveuses (aller, retour, visite) | `return_to_colony`, `visit_habitat` (le vol de l'essaim existe : `move_to_habitat`) |
 | Analyse d'une danse et décision de la suivre | `evaluate_signal`, `decide_to_follow` |
 | Décision collective (force de danse, attrition, signal stop, quorum) | nouveau mécanisme → produit `ColonyDecision` |
 | Ponte et cycle de reproduction | `lay_eggs`, `manage_reproduction_cycle` + nouveau mécanisme |

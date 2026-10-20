@@ -45,7 +45,7 @@ les courants d'air ni l'humidité de la cavité.
 
 🎮 **Simulation.** Préférences : volume 40 L (critère le plus lourd), entrée ≈ 40 mm de diamètre (≈ 12,5 cm²),
 hauteur 5 m, cavité déjà occupée, fleurs à proximité. L'humidité n'est volontairement **pas** un critère.
-*Simplifications* : le choix est fait par **une** abeille (pas de décision collective d'essaim, prévue plus tard) ;
+*Simplifications* : l'abeille mellifère est représentée par un **essaim** (§6) qui prend **une** décision unique (pas de vote d'éclaireuses) ;
 l'orientation de l'entrée et la distance à la colonie mère ne sont pas modélisées.
 
 ### 1.2 Bourdon terrestre (*Bombus terrestris*)
@@ -217,10 +217,66 @@ voir le document dédié [Rôles et comportements](roles_comportements.md).
 
 ---
 
+## 6. Essaimage, grappe et déplacements
+
+<img src="img/grappe_essaim.svg" width="420">
+
+### 6.1 Essaim et grappe (abeille mellifère)
+
+🔬 **Biologie.**
+
+- Lors de l'essaimage, une partie de la colonie quitte la ruche avec la reine. Un essaim compte de l'ordre de
+  **10 000 ouvrières et une reine** ([Seeley, Cornell][cornell]).
+- L'essaim se pose en **grappe**, souvent sur une branche, **à découvert**. Il y reste **de quelques heures à quelques
+  jours**, le temps que quelques centaines d'éclaireuses trouvent et choisissent une cavité ; les autres abeilles
+  restent immobiles et économisent leur énergie ([Seeley, Harvard Magazine][harvard]).
+- Une fois le site retenu, l'**essaim entier s'envole** et s'y installe. Le vol est guidé par les quelques éclaireuses
+  qui connaissent le site (les « streakers », environ 5 % de l'essaim). Il dure de l'ordre d'une quinzaine de minutes
+  selon la distance ([Bee Culture][beeculture]).
+
+🎮 **Simulation.**
+
+| Réel | Dans Bzz |
+|---|---|
+| ~10 000 ouvrières + une reine | entité `Swarm` : une **population** (un nombre) et une reine `Bee` de rôle `QUEEN` |
+| décision collective (éclaireuses, danses, quorum) | **une seule décision par intervalle**, prise par OpenJev pour tout l'essaim ; transmise à la reine par une `ColonyDecision` |
+| tempérament propre à chaque colonie | **personnalité collective** (`BeePersonality` partagée avec la reine) : invention de jeu |
+| quelques heures à quelques jours en grappe | délai réglable (`SWARM_CLUSTER_DAYS`, 3 jours par défaut) qui ne s'écoule qu'en grappe |
+| grappe restée trop longtemps sans abri | état **« nid à découvert »** à l'expiration du délai : échec compté dans les KPI |
+| une cavité abrite une colonie | un essaim occupe **une seule place**, quelle que soit sa population |
+
+Les abeilles mellifères ne s'ajoutent plus qu'**en essaim**. Les autres espèces restent des abeilles individuelles.
+
+### 6.2 Vitesses de vol
+
+| Espèce | Vitesse | Statut |
+|---|---|---|
+| Abeille mellifère (ouvrière) | 7,5 m/s | **sourcée** : butineuses non chargées, Wenner 1963 ([BioNumbers][bionumbers]) |
+| Essaim d'abeilles mellifères | 2,7 m/s (~9,7 km/h) | source apicole, à confirmer ([Bee Culture][beeculture]) |
+| Bourdon | 4,5 m/s | réglage de jeu (aucune mesure fiable trouvée) |
+| Osmie, andrène | 3,0 m/s | réglages de jeu |
+| Xylocope | 4,0 m/s | réglage de jeu |
+
+**Simplifications du déplacement.**
+
+- Le vol se fait en **ligne droite**, sans obstacle ni recherche de chemin.
+- L'habitat n'est pas réservé pendant le vol : s'il est plein à l'arrivée, l'installation échoue.
+- Une unité du monde vaut un mètre.
+- **Échelle de temps** : une journée simulée dure `DAY_TICKS` ticks, soit une minute réelle à ×1 par défaut. Avec les
+  vraies vitesses, un vol ne durerait qu'une fraction de seconde à l'écran. Un **facteur de vitesse de vol**
+  (`FLIGHT_SPEED_FACTOR`, réglage de jeu) ralentit donc tous les vols de la même façon : les vitesses *relatives*
+  entre espèces restent celles du tableau, mais un vol dure plusieurs heures simulées au lieu de quelques minutes.
+
+---
+
 ## Sources
 
 - <a id="s1"></a>Seeley, T. D. & Morse, R. A. (1978). *Nest site selection by the honey bee, Apis mellifera*. Insectes Sociaux 25, 323–337. [doi:10.1007/BF02224297][seeley1978]
 - Seeley, T. D. (1977). *Measurement of nest cavity volume by the honey bee*. [PDF][seeley1977]
+- Seeley, T. D. — essaims d'environ 10 000 ouvrières, éclaireuses : Cornell Chronicle (2006). [lien][cornell]
+- Seeley, T. D. (2011). Extrait de *Honeybee Democracy* : la grappe reste de quelques heures à quelques jours. Harvard Magazine. [lien][harvard]
+- *Flight guidance mechanisms of honey bee swarms*, Bee Culture (streakers, vitesse et durée du vol d'essaim). [lien][beeculture]
+- Wenner, A. M. (1963), vitesse de croisière des butineuses (~7,5 m/s), via BioNumbers 107550. [lien][bionumbers]
 - Seeley, T. D. (2010). *Honeybee Democracy*. Princeton University Press. (présentation : [Science Friday][seeley2010])
 - *Bombus terrestris*, Wikipedia. [lien][bombus-wiki]
 - Kells, A. R. & Goulson, D. (2003). *Preferred nesting sites of bumblebee queens in agroecosystems in the UK*. Biological Conservation 109, 165–174. [dépôt Stirling][kells2003]
@@ -241,3 +297,8 @@ voir le document dédié [Rôles et comportements](roles_comportements.md).
 [andrena-osu]: https://u.osu.edu/knoxcountyag/?p=3714
 [ground-nesting]: https://pollinationecology.org/index.php/jpe/article/download/682/368/3638
 [xylocopa-pmc]: https://pmc.ncbi.nlm.nih.gov/articles/PMC7347186
+
+[cornell]: https://www.news.cornell.edu/stories/2006/04/honeybee-decision-making-ability-rivals-any-department-committee
+[harvard]: https://www.harvardmagazine.com/node/30873
+[beeculture]: https://beeculture.com/?p=11692
+[bionumbers]: https://bionumbers.hms.harvard.edu/bionumber.aspx?id=107550

@@ -38,7 +38,7 @@ class ServerTest(unittest.TestCase):
         r = c.post("/api/habitats", json={"type": "hive_box", "x": 10, "y": 10})
         self.assertEqual(r.status_code, 201)
         hab = r.json()["id"]
-        r = c.post("/api/bees", json={"species": "honey_bee", "x": 20, "y": 20, "personality": {"preset": "curieuse"}})
+        r = c.post("/api/bees", json={"species": "bumblebee", "x": 20, "y": 20, "personality": {"preset": "curieuse"}})
         self.assertEqual(r.status_code, 201)
         bee = r.json()["id"]
         self.assertEqual([e["id"] for e in c.get("/api/entities").json()], [hab, bee])
@@ -54,11 +54,16 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(c.delete(f"/api/entities/{hab}").json()["kind"], "habitat")
         self.assertEqual(c.delete(f"/api/entities/{hab}").status_code, 404)
         self.assertEqual(c.post("/api/world/clear").json(), {"removed": 1})
+        r = c.post("/api/swarms", json={"x": 50, "y": 50, "population": 8000, "name": "A"})
+        self.assertEqual((r.status_code, r.json()["kind"], r.json()["state"]), (201, "swarm", "cluster"))
+        r = c.post("/api/bees", json={"species": "honey_bee", "x": 1, "y": 1})
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("add_swarm", r.json()["error"])
 
     def test_decisions_flow_to_the_feed_when_running(self):
         c = self.client
         c.post("/api/habitats", json={"type": "tree_cavity", "x": 5, "y": 5})
-        bee = c.post("/api/bees", json={"species": "honey_bee", "x": 6, "y": 6}).json()["id"]
+        bee = c.post("/api/bees", json={"species": "bumblebee", "x": 6, "y": 6}).json()["id"]
         self.assertEqual(c.get("/api/decision/status").json()["provider"], "fake")
         c.post("/api/simulation/resume")
         with c.websocket_connect("/ws") as ws:
@@ -111,6 +116,36 @@ class ServerTest(unittest.TestCase):
             self.assertTrue(k["decisions"]["service"]["available"])
 
 
+class KpiMovementTest(unittest.TestCase):
+    def test_movement_and_states(self):
+        from bzz import kpi
+
+        catalog = {"traits": [{"name": "boldness"}], "species": [{"name": "mining_bee"}, {"name": "honey_bee"}],
+                   "habitat_types": [{"name": "bare_soil"}]}
+        state = {"tick": 400, "ticks_per_second": 60, "paused": False, "speed": 1, "day_ticks": 100}
+        p = {"boldness": 0.5}
+        entities = [
+            {"id": "bee-1", "kind": "bee", "species": "mining_bee", "personality": p, "home_id": None, "state": "flying"},
+            {"id": "bee-2", "kind": "bee", "species": "mining_bee", "personality": p, "home_id": None, "state": "waiting"},
+            {"id": "swarm-3", "kind": "swarm", "species": "honey_bee", "name": "", "personality": p, "home_id": None,
+             "state": "cluster", "population": 9000, "days_left": 1.25, "waiting": False},
+        ]
+        events = [
+            {"type": "arrived", "data": {"flight_ticks": 25, "found_after_days": 1.0}},
+            {"type": "arrived", "data": {"flight_ticks": 75, "found_after_days": 2.0}},
+            {"type": "arrival_failed", "data": {"flight_ticks": 10, "reason": "full"}},
+            {"type": "swarm_exposed", "data": {}},
+        ]
+        k = kpi.compute(state, entities, events, catalog)
+        self.assertEqual(k["bees_by_state"], {"searching": 0, "waiting": 1, "flying": 1, "settled": 0})
+        self.assertEqual(k["swarms_by_state"]["cluster"], 1)
+        self.assertEqual(k["swarms"][0]["days_left"], 1.25)
+        m = k["movement"]
+        self.assertEqual((m["arrivals"], m["arrival_failures"], m["swarms_exposed"]), (2, 1, 1))
+        self.assertEqual((m["avg_days_to_habitat"], m["avg_flight_hours"]), (1.5, 12.0))  # 50 ticks = half a day
+        self.assertEqual(m["failures_by_reason"], {"full": 1, "removed": 0})
+
+
 class KpiDecisionFormatTest(unittest.TestCase):
     """The decision KPIs already understand the documented event format, though nothing emits it yet."""
 
@@ -119,14 +154,16 @@ class KpiDecisionFormatTest(unittest.TestCase):
 
         catalog = {"traits": [{"name": "boldness"}], "species": [{"name": "honey_bee"}],
                    "habitat_types": [{"name": "tree_cavity"}]}
-        state = {"tick": 120, "ticks_per_second": 60, "paused": False, "speed": 1}
-        bees = [{"id": "bee-1", "kind": "bee", "species": "honey_bee", "personality": {"boldness": 0.9}, "home_id": "hab-2"}]
+        state = {"tick": 120, "ticks_per_second": 60, "paused": False, "speed": 1, "day_ticks": 100}
+        bees = [{"id": "bee-1", "kind": "bee", "species": "honey_bee", "personality": {"boldness": 0.9}, "home_id": "hab-2",
+                 "state": "settled"}]
         ev = lambda outcome, chosen, score: {"seq": 1, "tick": 10, "type": "decision", "data": {
             "bee_id": "bee-1", "evaluated": [{"habitat_id": "hab-2", "score": score, "breakdown": {}}],
             "chosen_habitat_id": chosen, "outcome": outcome, "reason": "", "source": "test", "result": "none",
             "agreement": outcome == "chosen"}}
         k = kpi.compute(state, bees, [ev("chosen", "hab-2", 0.8), ev("refused", None, 0.2)], catalog)
         self.assertEqual(k["sim"]["seconds"], 2)
+        self.assertEqual((k["sim"]["day"], k["sim"]["hour"]), (2, 4.8))  # tick 120 with 100-tick days
         d = k["decisions"]
         self.assertEqual((d["count"], d["chosen"], d["refused"], d["avg_chosen_score"]), (2, 1, 1, 0.8))
         self.assertEqual(d["by_species"]["honey_bee"], {"chosen": 1, "refused": 1})

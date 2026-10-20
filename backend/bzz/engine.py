@@ -6,7 +6,9 @@ Configured by environment variables (see .env.example):
   GODOT_BIN          Godot executable when spawning (default "godot" on PATH)
   GODOT_PROJECT_DIR  Godot project when spawning (default: ../godot relative to this repo)
   GODOT_TIMEOUT      seconds to wait for Godot to accept connections (default 10)
-  WORLD_WIDTH/HEIGHT world size passed to a spawned Godot (default: Godot's own, see WorldApi.DEFAULT_SIZE)
+  WORLD_WIDTH/HEIGHT, DAY_TICKS, FLIGHT_SPEED_FACTOR, SWARM_SPEED_MPS, SWARM_CLUSTER_DAYS
+                     simulation parameters passed to a spawned Godot when set (defaults live in Godot:
+                     WorldApi.DEFAULT_SIZE / DEFAULT_CONFIG)
 
 One TCP connection is shared by every caller (HTTP requests, the event poller, stdin): a lock makes each
 request/response pair atomic, so concurrent callers never read each other's responses.
@@ -22,6 +24,11 @@ import time
 from pathlib import Path
 
 from .commands import validate
+
+# environment variable -> Godot command-line flag, passed only when set
+GODOT_PARAMS = {"WORLD_WIDTH": "world-width", "WORLD_HEIGHT": "world-height", "DAY_TICKS": "day-ticks",
+                "FLIGHT_SPEED_FACTOR": "flight-speed-factor", "SWARM_SPEED_MPS": "swarm-speed-mps",
+                "SWARM_CLUSTER_DAYS": "swarm-cluster-days"}
 
 DEFAULT_PROJECT_DIR = Path(__file__).resolve().parents[2] / "godot"
 
@@ -49,6 +56,7 @@ class GodotEngine:
         timeout: float | None = None,
         host: str | None = None,
         port: int | None = None,
+        godot_params: dict | None = None,
     ):
         env = os.environ.get
         self.godot_bin = godot_bin or env("GODOT_BIN") or "godot"
@@ -56,6 +64,9 @@ class GodotEngine:
         self.timeout = timeout or float(env("GODOT_TIMEOUT") or 10)
         self.host = host or env("GODOT_HOST") or None  # None -> spawn a local Godot
         self.port = port or int(env("GODOT_PORT") or 9876)
+        # flag -> value for a spawned Godot: from the environment, then overridden by `godot_params`
+        self.godot_params = {flag: v for var, flag in GODOT_PARAMS.items() if (v := env(var))}
+        self.godot_params.update(godot_params or {})
         self.proc: subprocess.Popen | None = None
         self.sock: socket.socket | None = None
         self._file = None
@@ -78,9 +89,9 @@ class GodotEngine:
                 subprocess.run([self.godot_bin, "--headless", "--path", str(self.project_dir), "--import"],
                                capture_output=True, timeout=120)
             port = _free_port()
-            world = [f"--world-{k.lower()}={v}" for k in ("WIDTH", "HEIGHT") if (v := os.environ.get(f"WORLD_{k}"))]
+            params = [f"--{flag}={v}" for flag, v in self.godot_params.items()]
             self.proc = subprocess.Popen(
-                [self.godot_bin, "--headless", "--path", str(self.project_dir), "--", f"--port={port}", *world]
+                [self.godot_bin, "--headless", "--path", str(self.project_dir), "--", f"--port={port}", *params]
             )
             self._connect("127.0.0.1", port)
         self.catalog = None

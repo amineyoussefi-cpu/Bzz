@@ -23,6 +23,7 @@ DOCS = Path(__file__).resolve().parents[3] / "docs"
 SPECIES = ["honey_bee", "bumblebee", "mason_bee", "mining_bee", "carpenter_bee"]
 PROFILES = ["prudente", "audacieuse", "sociable", "curieuse", "équilibrée"]
 BEE_POSITION = (500, 350)
+SWARM_POPULATION = 10000
 
 # (type, x, y, feature overrides); every set offers at least one habitat type to every species
 HABITAT_SETS = {
@@ -69,8 +70,11 @@ def run_scenarios(provider) -> list[dict]:
             for i, species in enumerate(SPECIES):
                 for j, profile in enumerate(PROFILES):
                     seed = 1000 + 100 * set_index + 10 * i + j
-                    bee = engine.send("add_bee", species=species, x=BEE_POSITION[0], y=BEE_POSITION[1],
-                                      personality={"preset": profile, "seed": seed})
+                    where = {"x": BEE_POSITION[0], "y": BEE_POSITION[1], "personality": {"preset": profile, "seed": seed}}
+                    if species == engine.catalog["swarm"]["species"]:  # honey bees exist only as swarms
+                        bee = engine.send("add_swarm", population=SWARM_POPULATION, **where)
+                    else:
+                        bee = engine.send("add_bee", species=species, **where)
                     situation = engine.send("get_decision_situation", bee_id=bee["id"])
                     candidates = eligible_candidates(situation, DEFAULT_MAX_CANDIDATES)
                     decision = provider.decide(situation, candidates)
@@ -78,6 +82,7 @@ def run_scenarios(provider) -> list[dict]:
                     ids = {h["id"]: h["type"] for h in candidates}
                     rows.append({
                         "set": set_name, "species": species, "profile": profile, "seed": seed,
+                        "swarm": bee["kind"] == "swarm",
                         "candidates": ids,
                         "openjev": decision["choice"], "openjev_best": decision.get("best"),
                         "probabilities": decision["probabilities"],
@@ -129,6 +134,9 @@ def write_report(rows: list[dict], info: dict, path: Path) -> None:
         f"- {s['total']} décisions : 5 espèces × 5 profils de personnalité × 3 jeux d'habitats ; graines fixes.",
         f"- Temps de réponse médian du modèle : {s['latency_ms_median']:.0f} ms.",
         "- Rien n'est appliqué : chaque abeille est seulement évaluée par les deux logiques.",
+        "- **Abeilles mellifères = essaims** (10 000 ouvrières, délai de grappe complet). OpenJev reçoit aussi la "
+        "population, le délai restant et la distance depuis la grappe ; **la logique de référence ignore le délai et "
+        "la distance**, donc un désaccord sur un essaim peut venir de ces informations supplémentaires.",
         "",
         f"## Taux d'accord global : {_rate(rows)}",
         "",
@@ -144,7 +152,7 @@ def write_report(rows: list[dict], info: dict, path: Path) -> None:
         lines += ["", f"## {title}", "", "| | Accord |", "|---|---|"]
         lines += [f"| {name} | {_rate(rs)} |" for name, rs in groups[k].items()]
     lines += ["", "## Formulations essayées", "",
-              "Mesurées sur ces mêmes 75 scénarios le 2026-10-20 ; seule la dernière est dans le code "
+              "Mesurées sur ces 75 scénarios le 2026-10-20, avant l'introduction des essaims (abeilles mellifères alors individuelles) ; seule la dernière est dans le code "
               "([`prompting.py`](../backend/bzz/decision/prompting.py)).", "",
               "| Formulation | Accord | Comportement |", "|---|---|---|",
               "| A — une question « quel habitat ? » avec l'option « aucun » | 41 % | ne refuse presque jamais "

@@ -167,7 +167,10 @@ Réglages les plus utiles :
 | `DASHBOARD_PORT` | `8000` | port du tableau de bord |
 | `WORLD_WIDTH`, `WORLD_HEIGHT` | 1000 × 700 | taille du monde |
 | `OPENJEV_DEVICE` | `auto` | `cuda`, `mps` ou `cpu` pour forcer l'appareil du modèle |
-| `DECISION_INTERVAL_TICKS` | `120` | fréquence des décisions (60 ticks = 1 seconde simulée) |
+| `DECISION_INTERVAL_TICKS` | `120` | fréquence des décisions, en ticks |
+| `DAY_TICKS` | `3600` | durée d'une journée simulée en ticks (1 minute réelle à ×1) |
+| `SWARM_CLUSTER_DAYS` | `3` | jours dont dispose un essaim en grappe |
+| `FLIGHT_SPEED_FACTOR` | `0.05` | vitesse d'affichage des vols (plus grand = vols plus rapides) |
 
 La liste complète est commentée dans `.env.example`.
 
@@ -226,12 +229,17 @@ Ouvrir **<http://localhost:8000>** dans le navigateur.
    et l'appareil.
 2. **Ajouter des habitats** : choisir un type, cliquer dans la vue du monde pour placer, puis « Ajouter l'habitat ».
 3. **Ajouter des abeilles** : choisir l'espèce, le rôle et la personnalité (préréglage, curseurs, ou aléatoire avec une
-   graine), placer, puis « Ajouter l'abeille ».
-4. **Lancer** la simulation (bouton en haut). Le monde est construit à l'arrêt, et les abeilles ne décident que
-   lorsque la simulation tourne.
-5. **Suivre** le fil des décisions : chaque abeille sans habitat choisit (ou refuse) un habitat. Les indicateurs
-   affichent les installations, les refus et l'accord avec la logique de référence.
-6. **Mettre en pause**, retirer une entité (✕) ou « Vider le monde » à tout moment.
+   graine), placer, puis « Ajouter l'abeille ». Chaque espèce n'accepte que certains habitats ; une abeille sans
+   habitat compatible est affichée « en attente ».
+4. **Poser un essaim** d'abeilles mellifères (formulaire « Ajouter un essaim ») : population, personnalité collective,
+   position de la branche. L'essaim attend en grappe et dispose de quelques jours simulés pour trouver une cavité
+   d'arbre ou une ruche libre.
+5. **Lancer** la simulation (bouton en haut). Le monde est construit à l'arrêt, et les abeilles ne décident que
+   lorsque la simulation tourne. Le jour et l'heure simulés s'affichent en haut ; la vitesse ×4 ou ×8 accélère tout.
+6. **Suivre** les décisions et les vols : chaque abeille ou essaim choisit (ou refuse) un habitat, **s'y rend en vol**
+   (trajet en pointillés sur la carte), puis s'installe à l'arrivée. Un essaim qui ne trouve rien avant la fin de son
+   délai reste « à découvert ».
+7. **Mettre en pause**, retirer une entité (✕) ou « Vider le monde » à tout moment.
 
 ### 4.6 Arrêter
 
@@ -309,7 +317,8 @@ cd backend; ..\.venv\Scripts\python -m bzz.server
 | Windows : « l'exécution de scripts est désactivée » | Lancer le script avec `powershell -ExecutionPolicy Bypass -File .\decision\start.ps1`, comme indiqué. |
 | `docker compose` : « Cannot connect to the Docker daemon » | Docker Desktop n'est pas démarré : l'ouvrir et attendre qu'il soit prêt. |
 | Le port 8000 est déjà pris | Choisir un autre port dans `.env` (`DASHBOARD_PORT=8080`), puis `docker compose up -d`. |
-| Les abeilles ne décident rien | La simulation est en pause, aucun habitat n'accepte leur espèce, ou le service est indisponible. |
+| Les abeilles ne décident rien | La simulation est en pause, aucun habitat n'accepte leur espèce (état « en attente »), ou le service est indisponible. |
+| « honey_bee lives in swarms » | Les abeilles mellifères s'ajoutent avec le formulaire « Ajouter un essaim ». |
 | Premier lancement très long | C'est le téléchargement unique des poids (3,2 Go) et la construction des images Docker. |
 | Mac : `./decision/start.sh: Permission denied` | `chmod +x decision/start.sh`, puis relancer. |
 

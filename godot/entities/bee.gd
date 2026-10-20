@@ -1,7 +1,7 @@
 class_name Bee
 extends Node2D
 ## An autonomous bee that judges habitats through its species preferences and its personality.
-## Designed for many independent instances; none is placed in the world yet.
+## Designed for many independent instances. Honey bees enter the world as swarm queens (Swarm), not alone.
 
 @export var species: BeeSpecies.Id = BeeSpecies.Id.HONEY_BEE
 @export var bee_name := ""
@@ -13,6 +13,8 @@ var home: Habitat = null
 var rng := RandomNumberGenerator.new()
 var role: BeeRole.Id = BeeRole.Id.FOLLOWER
 var behavior: BeeBehavior  # actions of the current role; set by set_role()
+var flight: Flight = null  # set while flying to a chosen habitat
+var flight_speed := 1.0    # world units per tick (species speed x flight speed factor, set by WorldApi)
 
 
 ## Builds a bee with its species defaults; pass a personality to override the random one.
@@ -78,6 +80,11 @@ func settle(h: Habitat) -> bool:
 	h.occupants.append(self)
 	home = h
 	return true
+
+
+## Starts a straight flight toward `h`; settling happens on arrival (WorldApi).
+func fly_to(h: Habitat) -> void:
+	flight = Flight.new(position, h, flight_speed)
 
 
 func leave_home() -> void:

@@ -20,15 +20,20 @@ Lancer : `cd backend && python -m bzz.server` puis ouvrir <http://localhost:8000
 
 - **Noms lisibles** partout : `"tree_cavity"`, `"honey_bee"`, `"scout"`, jamais de numéro d'énumération.
   Ils sont générés depuis les énumérations GDScript (`Habitat.Type`, `BeeSpecies.Id`, `BeeRole.Id`).
-- **Identifiants** : `hab-N` ou `bee-N`, uniques et stables, jamais réutilisés pendant la vie du processus Godot
+- **Identifiants** : `hab-N`, `bee-N` ou `swarm-N`, uniques et stables, jamais réutilisés pendant la vie du processus Godot
   (même après `clear_world`).
-- **Positions** en unités du monde : `0 ≤ x ≤ largeur`, `0 ≤ y ≤ hauteur`. Taille par défaut 1000 × 700
-  (`WorldApi.DEFAULT_SIZE`), modifiable par `WORLD_WIDTH` / `WORLD_HEIGHT`.
+- **Positions** en unités du monde (1 unité = 1 m) : `0 ≤ x ≤ largeur`, `0 ≤ y ≤ hauteur`. Taille par défaut
+  1000 × 700 (`WorldApi.DEFAULT_SIZE`), modifiable par `WORLD_WIDTH` / `WORLD_HEIGHT`.
 - **Validation double** : Python (`commands.py`, à partir du catalogue que Godot génère) puis Godot (`world_api.gd`).
   Une valeur hors bornes est **refusée, jamais corrigée** ; le message d'erreur liste les valeurs acceptées.
   Tout est vérifié avant la création : une commande refusée ne laisse aucune entité partielle.
 - **Temps** : les événements sont horodatés en **ticks de simulation**. Le compteur n'avance que lorsque la simulation
-  tourne ; à la vitesse ×1, 60 ticks valent une seconde simulée.
+  tourne (60 ticks par seconde réelle à ×1). Une **journée simulée** dure `day_ticks` ticks (`DAY_TICKS`, 3600 par
+  défaut, soit une minute réelle à ×1). La pause arrête le temps, les vols et les délais ; la vitesse les accélère
+  tous de la même façon.
+- **Paramètres de simulation** (valeurs par défaut uniquement dans `WorldApi.DEFAULT_CONFIG`, modifiables par
+  variables d'environnement) : `DAY_TICKS`, `FLIGHT_SPEED_FACTOR` (unités par tick pour 1 m/s, 0,05), `SWARM_SPEED_MPS`
+  (2,7), `SWARM_CLUSTER_DAYS` (3). Le catalogue les renvoie.
 
 ---
 
@@ -52,6 +57,7 @@ Ces commandes sont accessibles en Python (`GodotEngine.send(cmd, **args)`) et pa
 | `get_catalog` | — |
 | `add_habitat` | `type`, `x`, `y`, `features?` |
 | `add_bee` | `species`, `x`, `y`, `personality?`, `name?`, `role?` |
+| `add_swarm` | `x`, `y`, `population`, `personality?`, `name?` |
 | `list_entities` | — |
 | `get_entity` | `id` |
 | `remove_entity` | `id` |
@@ -59,16 +65,16 @@ Ces commandes sont accessibles en Python (`GodotEngine.send(cmd, **args)`) et pa
 | `pause`, `resume` | — |
 | `set_speed` | `speed` (0.25 à 8) |
 | `get_events` | `since?` (curseur, défaut 0) |
-| `get_decision_situation` | `bee_id` |
-| `apply_decision` | `bee_id`, `habitat_id` (ou `null`), `decision?` |
-| `reference_decision` | `bee_id`, `habitat_ids` |
+| `get_decision_situation` | `bee_id` (abeille ou essaim) |
+| `apply_decision` | `bee_id` (abeille ou essaim), `habitat_id` (ou `null`), `decision?` |
+| `reference_decision` | `bee_id` (abeille ou essaim), `habitat_ids` |
 
 ### `get_state`
 
 ```json
 ← {"tick": 1435, "paused": false, "speed": 1.0, "ticks_per_second": 60,
-   "world": {"width": 1000, "height": 700}, "habitats": 5, "bees": 5, "node_count": 10,
-   "last_event_seq": 12, "physics_frames": 2210, "process_frames": 2205}
+   "world": {"width": 1000, "height": 700}, "habitats": 5, "bees": 5, "swarms": 1, "node_count": 11,
+   "day_ticks": 3600.0, "last_event_seq": 12, "physics_frames": 2210, "process_frames": 2205}
 ```
 
 ### `get_catalog`
@@ -88,6 +94,15 @@ Généré à partir des classes, jamais recopié à la main :
    "presets": {"prudente": {"pickiness": 0.8, "boldness": 0.1, "sociability": 0.4, "curiosity": 0.2}, ...},
    "world": {"width": 1000, "height": 700}, "speed": {"min": 0.25, "max": 8.0, "default": 1.0},
    "ticks_per_second": 60, "max_name_length": 40}
+```
+
+À partir de cette étape, le catalogue contient aussi :
+
+```json
+   "species": [{"name": "honey_bee", ..., "flight_speed_mps": 7.5, "flight_speed_sourced": true, "lives_in_swarms": true}, ...],
+   "time": {"day_ticks": 3600.0, "flight_speed_factor": 0.05},
+   "swarm": {"species": "honey_bee", "population": {"min": 1000, "max": 50000, "default": 10000},
+             "speed_mps": 2.7, "cluster_days": 3.0}
 ```
 
 **Caractéristiques par défaut des habitats** (`HabitatCatalog`, d'après [la référence](reference_abeilles.md) ;
@@ -147,14 +162,41 @@ La personnalité s'écrit sous l'une de ces trois formes, chacune avec une grain
   l'identique : même espèce, même forme et même graine.
 - L'abeille reçoit les préférences par défaut de son espèce (`Bee.create`) et le rôle `follower`, sauf si `role` est donné.
 - Elle est créée **sans habitat** (`home_id: null`).
+- **L'abeille mellifère est refusée** : `"honey_bee lives in swarms: use add_swarm instead of add_bee"`.
+
+### `add_swarm`
+
+Pose un essaim d'abeilles mellifères **en grappe** sur une branche à la position donnée. L'essaim a une reine (une
+`Bee` de rôle `queen`), une population d'ouvrières (un nombre) et une personnalité collective (mêmes formes que pour
+`add_bee`). Son délai de grappe vaut `swarm.cluster_days`.
+
+```json
+→ {"x": 450, "y": 330, "population": 12000, "name": "Essaim A", "personality": {"preset": "audacieuse"}}
+← {"id": "swarm-7", "kind": "swarm", "species": "honey_bee", "name": "Essaim A", "population": 12000,
+   "state": "cluster", "waiting": false, "days_left": 3.0, "cluster_x": 450.0, "cluster_y": 330.0,
+   "x": 450.0, "y": 330.0, "personality": {...}, "home_id": null}
+```
+
+Refus : population hors de 1000–50 000, position hors du monde, personnalité ou nom invalides.
 
 ### `list_entities`
 
 ```json
 ← [{"id": "hab-1", "kind": "habitat", "type": "tree_cavity", "x": 200.0, "y": 150.0, "capacity": 1, "occupants": 0},
-   {"id": "bee-2", "kind": "bee", "species": "honey_bee", "name": "Ada", "role": "scout", "x": 300.0, "y": 200.0,
-    "personality": {...}, "home_id": null}]
+   {"id": "bee-2", "kind": "bee", "species": "mining_bee", "name": "Ada", "role": "scout", "x": 312.4, "y": 207.1,
+    "state": "flying", "personality": {...}, "home_id": null,
+    "target_id": "hab-3", "target_x": 700.0, "target_y": 520.0, "speed": 0.15, "flight_ticks": 120},
+   {"id": "swarm-7", "kind": "swarm", "state": "cluster", "population": 12000, "days_left": 2.4, ...}]
 ```
+
+**États** (`state`) :
+
+| Entité | États |
+|---|---|
+| abeille | `searching` (en recherche), `waiting` (en attente : aucun habitat compatible dans le monde), `flying` (en vol), `settled` (installée) |
+| essaim | `cluster` (en grappe, délai qui s'écoule ; `waiting: true` si aucune cavité compatible), `flying` (en vol), `settled` (installé), `exposed` (nid à découvert : délai écoulé, échec) |
+
+Une entité en vol a aussi `target_id`, `target_x`, `target_y`, `speed` (unités par tick) et `flight_ticks`.
 
 ### `get_entity`
 
@@ -164,6 +206,9 @@ La personnalité s'écrit sous l'une de ces trois formes, chacune avec une grain
    "seed": 1867123, "personality_source": "preset:curieuse"}
 → {"id": "hab-1"}
 ← {..., "features": {"cavity_volume_l": 40.0, ...}, "occupant_ids": []}
+→ {"id": "swarm-7"}
+← {..., "accepted_habitat_types": ["tree_cavity", "hive_box"], "preferences": [...], "seed": 42,
+   "queen": {"role": "queen", "target_habitat_id": "hab-1", "decision_support": 12000}}
 ```
 
 ### `remove_entity` et `clear_world`
@@ -175,7 +220,11 @@ La personnalité s'écrit sous l'une de ces trois formes, chacune avec une grain
 ← {"removed": 4}
 ```
 
-Retirer un habitat libère ses occupants (`Bee.leave_home`) ; leurs identifiants sont listés dans `released_bee_ids`.
+- **Retirer un habitat** libère ses occupants, listés dans `released_bee_ids` : les abeilles reprennent leur
+  recherche, les essaims se reposent en grappe sur place.
+- **Vols en cours** : les abeilles ou essaims qui volaient vers cet habitat s'arrêtent sur place, avec un événement
+  `arrival_failed` (`reason: "removed"`).
+- **Retirer un essaim** libère sa place.
 
 ### `pause`, `resume`, `set_speed`
 
@@ -202,8 +251,11 @@ Retirer un habitat libère ses occupants (`Bee.leave_home`) ; leurs identifiants
 
 ### `get_decision_situation`
 
-Ce dont un décideur a besoin pour une abeille : son profil complet et **tous** les habitats. `eligible` signifie que le
-type est accepté par l'espèce et qu'il reste de la place.
+Ce dont un décideur a besoin pour une abeille **ou un essaim** : son profil complet et **tous** les habitats.
+
+- `eligible` signifie que le type est accepté par l'espèce et qu'il reste de la place.
+- Pour un essaim, le profil est celui de la reine, plus `population` et `days_left`, et `distance` est mesurée
+  depuis la grappe.
 
 ```json
 → {"bee_id": "bee-3"}
@@ -217,19 +269,25 @@ type est accepté par l'espèce et qu'il reste de la place.
 
 ### `apply_decision`
 
-Godot **valide puis applique** une décision prise ailleurs (par OpenJev) : l'abeille existe et n'a pas d'habitat,
-l'habitat existe, son type est accepté par l'espèce et il reste de la place. `habitat_id: null` signifie qu'aucun
-habitat n'est choisi. `decision` porte les champs de l'événement (§3) ; Godot impose lui-même `bee_id`,
+Godot **valide puis applique** une décision prise ailleurs (par OpenJev). Il vérifie que :
+
+- l'abeille est en recherche (ou l'essaim en grappe), ni en vol, ni installée, ni à découvert ;
+- l'habitat existe, son type est accepté et il reste de la place **au moment de la décision**.
+
+**L'abeille s'envole alors vers l'habitat** (`flight_started`) **et ne s'y installe qu'à l'arrivée** (`arrived`).
+L'habitat n'est pas réservé : s'il est plein à l'arrivée, c'est un échec (`arrival_failed`) et l'abeille reprend sa
+recherche. Pour un essaim, la décision passe par la reine : `follow_colony_decision(ColonyDecision)`, puis
+`move_to_habitat`, qui emmène tout l'essaim. `habitat_id: null` signifie qu'aucun habitat n'est choisi. `decision` porte les champs de l'événement (§3) ; Godot impose lui-même `bee_id`,
 `chosen_habitat_id`, `outcome` et `result`.
 
 ```json
 → {"bee_id": "bee-3", "habitat_id": "hab-1", "decision": {"source": "openjev", "probabilities": {...}, ...}}
-← {"bee_id": "bee-3", "habitat_id": "hab-1", "result": "settled"}
+← {"bee_id": "bee-3", "habitat_id": "hab-1", "result": "flying"}
 → {"bee_id": "bee-4", "habitat_id": "hab-6"}
 ← {"ok": false, "error": "honey_bee does not accept habitat type bare_soil"}
 ```
 
-- **Décision valide** : un événement `decision` est publié (`result` vaut `"settled"`, ou `"none"` sans choix).
+- **Décision valide** : un événement `decision` est publié, avec `result` valant `"flying"`, ou `"none"` sans choix.
 - **Décision invalide** : elle est refusée, et un événement `decision` est quand même publié avec `result: "rejected"`,
   `outcome: "refused"` et le motif dans `reason`.
 - **Simulation en pause** : la décision est refusée (`simulation is paused`) sans événement.
@@ -261,6 +319,10 @@ Chaque événement a la forme `{"seq": int, "tick": int, "type": str, "data": {.
 | `paused`, `resumed` | `{}` |
 | `speed_changed` | `{"speed"}` |
 | `decision` | voir ci-dessous (publié par `apply_decision`) |
+| `flight_started` | `{"id", "kind", "habitat_id", "from_x", "from_y", "to_x", "to_y", "distance", "speed"}` |
+| `arrived` | `{"id", "kind", "habitat_id", "flight_ticks", "found_after_days"}` : arrivée **et** installation |
+| `arrival_failed` | `{"id", "kind", "habitat_id", "flight_ticks", "reason"}` : `"full"` (plein à l'arrivée) ou `"removed"` (retiré pendant le vol) |
+| `swarm_exposed` | `{"id", "x", "y", "population"}` : délai de grappe écoulé, nid à découvert |
 
 ### Format d'un événement de décision
 
@@ -294,11 +356,12 @@ de la décision. Le backend le remplit (source `"openjev"`), Godot le publie. Ex
 | `outcome` | `"chosen"` ou `"refused"` (déduit de `chosen_habitat_id`) |
 | `reason` | justification (pour un rejet : le motif donné par Godot) |
 | `source` | origine de la décision : `"openjev"` ; `"collective"` plus tard |
-| `result` | ce qui a suivi : `"settled"`, `"none"` (aucun choix), `"rejected"` (refusée par Godot) |
+| `result` | ce qui a suivi : `"flying"` (envol ; l'installation est l'événement `arrived`), `"none"` (aucun choix), `"rejected"` (refusée par Godot) |
 | `probabilities` | probabilité de chaque option, `"none"` compris |
 | `reference` | choix de la logique de référence (`choice`) et seuil d'acceptation, pour comparaison |
 | `agreement` | `true` si la source et la référence font le même choix |
 | `model` | modèle, révision, appareil et temps de réponse |
+| `context` | informations données au décideur : `distances` (habitat → m) ; pour un essaim, `population` et `days_left` (ignorés par la référence) |
 
 ---
 
@@ -320,6 +383,7 @@ Toutes les réponses sont en JSON. En cas d'erreur, la réponse est `{"error": "
 | `DELETE /api/entities/{id}` | `remove_entity` | 200 |
 | `POST /api/habitats` | `add_habitat` (corps = arguments) | 201 |
 | `POST /api/bees` | `add_bee` (corps = arguments) | 201 |
+| `POST /api/swarms` | `add_swarm` (corps = arguments) | 201 |
 | `POST /api/world/clear` | `clear_world` | 200 |
 | `POST /api/simulation/pause` | `pause` | 200 |
 | `POST /api/simulation/resume` | `resume` | 200 |
@@ -350,7 +414,9 @@ curl -X POST localhost:8000/api/simulation/speed -H 'content-type: application/j
 
 ## 5. Temps réel (WebSocket `/ws`)
 
-À la connexion, puis à chaque changement (nouvel événement ou tick qui avance), le backend envoie une **capture** :
+À la connexion, puis à chaque changement (nouvel événement ou tick qui avance), et au plus toutes les
+`DASHBOARD_UPDATE_INTERVAL` secondes (0,25 par défaut), le backend envoie une **capture**. Les positions ne sont donc
+pas envoyées à chaque tick ; le navigateur fait glisser chaque entité vers sa nouvelle position entre deux captures.
 
 ```json
 {"type": "snapshot",
@@ -393,11 +459,15 @@ Calculés par le backend ([`backend/bzz/kpi.py`](../backend/bzz/kpi.py)) à part
 
 | Clé | Contenu |
 |---|---|
-| `sim` | `tick`, `seconds` (ticks / 60), `paused`, `speed` |
+| `sim` | `tick`, `seconds` (ticks / 60), `day` (à partir de 1), `hour` (0–24), `paused`, `speed` |
 | `habitats_by_type`, `bees_by_species` | effectifs (0 inclus pour chaque type et espèce du catalogue) |
 | `trait_distribution` | pour chaque trait, nombre d'abeilles dans 5 classes : 0–0,2 … 0,8–1 |
-| `bees_settled`, `bees_homeless` | abeilles avec ou sans habitat (toutes sans habitat tant qu'il n'y a pas de décision) |
+| `bees_by_state` | abeilles en recherche, en attente, en vol, installées |
+| `swarms_by_state`, `swarms` | essaims en grappe, en vol, installés, à découvert ; liste avec population et jours restants |
+| `bees_settled`, `bees_homeless` | abeilles installées ou non |
+| `movement` | `arrivals`, `arrival_failures`, `failures_by_reason` (`full`, `removed`), `avg_days_to_habitat` (de l'ajout à l'installation, en jours simulés), `avg_flight_hours` (heures simulées), `swarms_exposed` |
 | `occupancy` | pour chaque habitat : `occupants`, `capacity`, `rate` |
 | `decisions` | `service` (état du service), `count`, `chosen`, `refused`, `rejected`, `avg_chosen_score` (probabilité moyenne des habitats choisis), `avg_chosen_reference_score`, `agreement_rate`, `agreement_by_species`, `by_species`, `by_trait` |
 
-Les KPI de décision portent sur les 20 000 dernières décisions reçues depuis le démarrage du backend.
+Les KPI de décision et de déplacement portent sur les 20 000 derniers événements de ce type reçus depuis le
+démarrage du backend.

@@ -1,0 +1,122 @@
+# Déplacement des abeilles et grappe d'essaimage des abeilles mellifères
+
+## Objectif
+
+Faire bouger le monde : une abeille qui a choisi un habitat **s'y rend en volant**, et ne s'y installe qu'à son arrivée. Le déplacement est visible en temps réel sur la carte du tableau de bord.
+
+Introduire en parallèle **l'essaim d'abeilles mellifères et sa grappe** : un essaim quitte sa colonie, se pose en grappe sur une branche, à découvert, et dispose de **quelques jours** pour trouver un habitat. S'il en trouve un, il s'y rend en vol et s'y installe ; sinon, il reste exposé sur sa branche.
+
+Les décisions continuent d'être prises par OpenJev, comme au prompt 5.
+
+## 1. Temps de la simulation
+
+Le déplacement et le délai de l'essaim reposent sur le temps de la simulation, jamais sur l'heure réelle.
+
+- Définir la durée d'une **journée simulée** en ticks, sous forme de paramètre configurable (variable d'environnement et `.env.example`).
+- Le tableau de bord affiche le jour et l'heure simulés.
+- La pause arrête le temps, les vols et les délais ; le changement de vitesse les accélère ou les ralentit de façon cohérente.
+
+## 2. Déplacement
+
+Le déplacement est géré **par Godot**, propriétaire de l'état du monde, dans son cycle natif.
+
+- Après une décision, l'abeille part en vol **en ligne droite** vers l'habitat choisi, à la vitesse de son espèce. Pas d'obstacles ni de recherche de chemin dans cette étape.
+- La vitesse de vol de chaque espèce est un paramètre du catalogue des espèces. Les valeurs s'appuient sur des sources lorsqu'elles existent ; sinon ce sont des réglages de jeu, signalés comme tels.
+- **L'installation a lieu à l'arrivée**, pas au moment de la décision. L'habitat n'est pas réservé pendant le vol : s'il est plein à l'arrivée, l'installation échoue, un événement est émis et l'abeille redevient en recherche.
+- Si l'habitat visé est retiré pendant le vol, l'abeille s'arrête sur place et redevient en recherche.
+- Une abeille en vol ne demande aucune décision.
+
+Chaque abeille a un **état explicite**, visible dans le tableau de bord : en recherche, en vol, installée. Une abeille en recherche sans aucun habitat compatible dans le monde est signalée comme **en attente : aucun habitat compatible**.
+
+Nouveaux événements (horodatés en ticks) : départ en vol, arrivée et installation, échec à l'arrivée (habitat plein ou retiré).
+
+## 3. Essaim et grappe
+
+### Principe biologique
+
+Lors de l'essaimage, une partie de la colonie d'abeilles mellifères quitte la ruche avec la reine et se pose en **grappe** sur une branche, à découvert. Pendant ce temps, des éclaireuses cherchent une cavité. Lorsqu'un site est retenu, l'essaim entier s'envole et s'y installe. La grappe ne peut rester exposée que quelques jours.
+
+Ces éléments doivent être vérifiés et sourcés dans le document de référence, en distinguant clairement la biologie réelle des simplifications de jeu.
+
+### Modèle
+
+- Créer une entité **essaim** (`Swarm`), distincte de `Bee`, qui représente une colonie d'abeilles mellifères :
+  - une **reine** (une `Bee` de rôle `QUEEN`, réutilisant `QueenBehavior`) ;
+  - une **population** (nombre d'ouvrières), représentée par un nombre et non par des milliers d'entités ;
+  - une **personnalité collective**, réutilisant `BeePersonality` (simplification de jeu à documenter) ;
+  - la position de la **grappe** (la branche où l'essaim est posé) ;
+  - le **délai restant** avant la fin de la période de grappe, en jours simulés.
+- Un essaim occupe **une seule place** dans un habitat : la capacité d'une ruche ou d'une cavité correspond à une colonie, pas à une abeille.
+- À partir de cette étape, les abeilles mellifères sont ajoutées **uniquement sous forme d'essaim**. `add_bee` avec l'espèce abeille mellifère est refusé avec un message indiquant d'utiliser l'ajout d'essaim. Les autres espèces restent des abeilles individuelles.
+
+### États de l'essaim
+
+- **En grappe** : posé sur sa branche, le délai s'écoule.
+- **En vol** : l'essaim entier se déplace vers l'habitat choisi, à une vitesse d'essaim configurable.
+- **Installé** : l'essaim occupe l'habitat. La reine y est rattachée.
+- **Nid à découvert** : le délai est écoulé sans habitat ; l'essaim reste sur sa branche, exposé. C'est un échec, comptabilisé dans les KPI.
+
+Si l'habitat est plein ou retiré à l'arrivée, l'essaim se pose de nouveau en grappe à l'endroit où il se trouve, avec le délai qu'il lui restait.
+
+### Décision de l'essaim
+
+- Dans cette étape, l'essaim prend **une seule décision collective** par intervalle, confiée à OpenJev. Le mécanisme réel (éclaireuses, danse, quorum) n'est pas modélisé.
+- La décision transmise à la reine utilise `ColonyDecision`. La reine suit la décision (`follow_colony_decision`) et l'essaim se déplace avec elle (`move_to_habitat` reçoit sa première implémentation réelle).
+- La situation transmise à OpenJev inclut, en plus des préférences de l'espèce, la **population de l'essaim**, son **délai restant** et la **distance** de chaque habitat candidat depuis la grappe. Ne choisir aucun habitat reste une réponse valable tant qu'il reste du temps.
+- La logique de référence continue de calculer son choix pour comparaison. Comme elle ignore le délai et la distance, le rapport de comparaison doit l'indiquer pour les décisions d'essaim.
+
+## 4. Commandes et API
+
+Ajouter au protocole (liste blanche Python et traitement Godot) et à l'API du backend :
+
+- `add_swarm(x, y, population, personality?, name?)` : pose un essaim en grappe à la position indiquée (la branche).
+- La consultation (`list_entities`, `get_entity`), le retrait et la remise à zéro prennent en charge les essaims.
+- L'état transmis au tableau de bord inclut les positions, états et cibles des abeilles et essaims en vol.
+
+Le format du protocole TCP reste inchangé : seules de nouvelles commandes sont ajoutées.
+
+## 5. Tableau de bord
+
+### Carte
+
+- Les abeilles et essaims se déplacent de façon fluide vers leur cible ; la trajectoire en cours est visible.
+- La grappe est représentée sur sa branche, avec sa population et le délai restant.
+- Les états (en recherche, en attente, en vol, installé, en grappe, nid à découvert) sont distinguables visuellement.
+- La fréquence d'envoi des positions au navigateur est limitée et configurable : inutile d'envoyer chaque tick.
+
+### Actions
+
+- Formulaire d'ajout d'essaim : position de la branche, population, personnalité, nom.
+- Le formulaire d'ajout d'abeille ne propose plus l'abeille mellifère et renvoie vers l'ajout d'essaim.
+
+### KPI
+
+- Abeilles en recherche, en attente, en vol, installées.
+- Essaims en grappe (avec délai restant), en vol, installés, en nid à découvert.
+- Temps moyen pour trouver un habitat, en jours simulés.
+- Durée moyenne des vols et nombre d'échecs à l'arrivée.
+
+## 6. Contraintes
+
+Avant toute modification, examiner le dépôt existant, les classes disponibles et les conventions du projet.
+
+- Réutiliser les classes existantes (`Bee`, `Habitat`, `BeeSpecies`, `BeePersonality`, `BeeRole`, `QueenBehavior`, `ColonyDecision`) sans dupliquer leur logique.
+- Ne pas supprimer ni modifier la logique de choix de référence.
+- Ne pas implémenter dans cette étape : l'exploration par les éclaireuses, la danse, le quorum, la reproduction, l'essaimage depuis une ruche existante (l'utilisateur pose lui-même l'essaim), les obstacles et la recherche de chemin.
+- Toutes les durées, vitesses et délais sont des paramètres configurables, sans valeur codée en dur à plusieurs endroits.
+- Conserver le fonctionnement en local et avec Docker Compose ; le modèle OpenJev reste hors Docker.
+
+## 7. Tests et documentation
+
+- Tester le déplacement : une abeille atteint l'habitat dans le temps attendu selon sa vitesse, s'installe à l'arrivée et pas avant ; la pause arrête le vol ; un habitat plein ou retiré provoque un échec à l'arrivée et un retour en recherche.
+- Tester l'essaim : il occupe une seule place, la reine suit la décision collective, il s'installe à l'arrivée, il passe en nid à découvert à l'expiration du délai, il se repose en grappe en cas d'échec à l'arrivée.
+- Tester le refus de `add_bee` pour l'abeille mellifère, et l'état « en attente : aucun habitat compatible ».
+- Les tests n'utilisent pas le vrai modèle : ils s'appuient sur le faux fournisseur de décision existant.
+- Mettre à jour le document de référence (section sur l'essaimage et la grappe, sourcée, avec illustration de la grappe) et régénérer son PDF.
+- Mettre à jour la documentation de l'API, `PROJECT_STATUS.md` (architecture, nouvelles entités, paramètres, limites, prochaines étapes), puis commiter.
+
+## Résultat attendu
+
+L'utilisateur pose un essaim en grappe sur une branche et ajoute des abeilles solitaires et des habitats. Il lance la simulation et voit sur la carte les abeilles partir vers l'habitat qu'elles ont choisi et s'y installer à l'arrivée, et l'essaim attendre sur sa branche, puis s'envoler vers la cavité retenue avant la fin de son délai, ou rester exposé s'il n'en trouve aucune.
+
+**À la fin de cette étape, les abeilles et les essaims se déplacent et s'installent à l'arrivée, l'essaim dispose d'un délai de quelques jours en grappe, mais les éclaireuses, la danse et le quorum ne sont pas encore modélisés : la décision de l'essaim reste une décision unique prise par OpenJev.**

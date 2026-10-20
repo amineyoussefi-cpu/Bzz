@@ -26,9 +26,14 @@ func follow_colony_decision(p_decision: ColonyDecision) -> void:
 	target_habitat = p_decision.habitat
 
 
-## Interface only: will move the queen to the chosen habitat. No movement yet.
-func move_to_habitat(_habitat: Habitat) -> void:
-	pass
+## Flies to the chosen habitat; a queen inside a swarm takes the whole swarm with her.
+func move_to_habitat(habitat: Habitat) -> void:
+	target_habitat = habitat
+	var swarm := bee.get_parent() as Swarm
+	if swarm:
+		swarm.fly_to(habitat)
+	else:
+		bee.fly_to(habitat)
 
 
 ## Interface only: will lay eggs in the current home. Creates nothing yet.

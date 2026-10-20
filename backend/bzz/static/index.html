@@ -73,6 +73,10 @@
              border-radius: 6px; padding: 8px 10px; margin-bottom: 8px; }
   .service dt { color: var(--muted); } .service dd { margin: 0; overflow-wrap: anywhere; }
   .feed .agree { color: var(--ok); } .feed .disagree { color: var(--err); }
+  .swarm-row { font-size: 12.5px; padding: 3px 0; border-bottom: 1px dashed var(--line); }
+  .state { font-size: 11.5px; padding: 1px 7px; border-radius: 99px; background: var(--soft); white-space: nowrap; }
+  .state.flying, .state.cluster { background: #fbe8d0; } .state.settled { background: #e3f1da; color: var(--ok); }
+  .state.waiting { background: #eee; color: #777; } .state.exposed { background: #f6dcd5; color: var(--err); }
   #toast { position: fixed; right: 16px; bottom: 16px; max-width: 420px; padding: 10px 14px; border-radius: 8px;
            background: var(--err); color: #fff; box-shadow: 0 4px 16px rgba(0,0,0,.15); display: none; z-index: 10; }
   #toast.ok { background: var(--ok); }
@@ -83,7 +87,7 @@
   <h1>🐝 Bzz</h1>
   <span id="conn" class="pill off">déconnecté</span>
   <span id="run" class="pill pause">en pause</span>
-  <span class="clock">tick <b id="tick">0</b> · <span id="secs">0</span> s simulées</span>
+  <span class="clock">Jour <b id="day">1</b> · <b id="hour">00h00</b> · tick <span id="tick">0</span></span>
   <button id="btn-toggle" class="primary">Lancer</button>
   <label style="margin:0;display:flex;align-items:center;gap:6px;color:var(--ink)">Vitesse
     <select id="speed" style="width:auto"></select></label>
@@ -128,7 +132,29 @@
         <div id="p-traits" hidden></div>
         <div id="p-random" hidden><label for="b-seed">Graine (facultative, pour reproduire la même abeille)</label>
           <input id="b-seed" type="number" min="1" step="1" placeholder="aléatoire"></div>
+        <p class="hint">Les abeilles mellifères vivent en colonie : ajoutez-les avec le formulaire « essaim ».</p>
         <div class="form-actions"><button class="primary" type="submit">Ajouter l'abeille</button></div>
+      </form>
+    </section>
+
+    <section>
+      <h2>Ajouter un essaim</h2>
+      <form id="f-swarm">
+        <p class="hint" style="margin-top:0">Abeilles mellifères : une reine et ses ouvrières, posées en grappe sur une
+          branche. L'essaim a <b id="s-days">3</b> jours pour trouver une cavité.</p>
+        <div class="row">
+          <div><label for="s-pop">Population (ouvrières)</label><input id="s-pop" type="number" step="1" required></div>
+          <div><label for="s-name">Nom (facultatif)</label><input id="s-name" maxlength="40"></div>
+        </div>
+        <div class="row">
+          <div><label for="s-x">x (branche)</label><input id="s-x" type="number" step="any" required></div>
+          <div><label for="s-y">y (branche)</label><input id="s-y" type="number" step="any" required></div>
+        </div>
+        <div class="row">
+          <div><label for="s-preset">Personnalité collective</label><select id="s-preset"></select></div>
+          <div><label for="s-seed">Graine (facultative)</label><input id="s-seed" type="number" min="1" step="1" placeholder="aléatoire"></div>
+        </div>
+        <div class="form-actions"><button class="primary" type="submit">Poser l'essaim</button></div>
       </form>
     </section>
   </div>
@@ -142,7 +168,7 @@
     <section>
       <h2>Entités <span class="hint" id="ent-count"></span></h2>
       <div class="entities"><table>
-        <thead><tr><th>Id</th><th>Type / espèce</th><th>Position</th><th>Habitat</th><th></th></tr></thead>
+        <thead><tr><th>Id</th><th>Type / espèce</th><th>État</th><th>Position</th><th>Habitat</th><th></th></tr></thead>
         <tbody id="ent-body"></tbody></table>
       </div>
       <pre class="detail" id="detail" hidden></pre>
@@ -154,10 +180,15 @@
       <h2>Indicateurs</h2>
       <div class="kpis">
         <div class="kpi"><b id="k-hab">0</b><span>habitats</span></div>
-        <div class="kpi"><b id="k-bees">0</b><span>abeilles</span></div>
-        <div class="kpi"><b id="k-settled">0</b><span>abeilles installées</span></div>
-        <div class="kpi"><b id="k-homeless">0</b><span>abeilles sans habitat</span></div>
+        <div class="kpi"><b id="k-bees">0</b><span>abeilles · <span id="k-swarms">0</span> essaims</span></div>
+        <div class="kpi"><b id="k-days">—</b><span>jours moyens pour trouver un habitat</span></div>
+        <div class="kpi"><b id="k-flight">—</b><span>durée moyenne d'un vol (heures simulées)</span></div>
+        <div class="kpi"><b id="k-arrivals">0</b><span>arrivées</span></div>
+        <div class="kpi"><b id="k-failures">0</b><span>échecs à l'arrivée (<span id="k-fail-detail"></span>)</span></div>
       </div>
+      <label>Abeilles par état</label><div class="bars" id="k-bee-states"></div>
+      <label>Essaims par état</label><div class="bars" id="k-swarm-states"></div>
+      <div id="k-swarm-list"></div>
       <label>Habitats par type</label><div class="bars" id="k-types"></div>
       <label>Abeilles par espèce</label><div class="bars" id="k-species"></div>
       <label>Traits de personnalité (0 → 1, 5 classes)</label><div id="k-traits"></div>
@@ -197,7 +228,13 @@ const LABELS = {
   honey_bee: "Abeille mellifère", bumblebee: "Bourdon", mason_bee: "Osmie", mining_bee: "Andrène", carpenter_bee: "Xylocope",
   scout: "Éclaireuse", follower: "Suiveuse", queen: "Reine",
   pickiness: "Exigence", boldness: "Audace", sociability: "Sociabilité", curiosity: "Curiosité",
+  searching: "en recherche", waiting: "en attente : aucun habitat compatible", flying: "en vol", settled: "installée",
+  cluster: "en grappe", exposed: "nid à découvert",
 };
+const SWARM_STATE_LABELS = { flying: "en vol", settled: "installé" };
+const stateLabel = (e) => e.kind === "swarm"
+  ? (SWARM_STATE_LABELS[e.state] || label(e.state)) + (e.state === "cluster" && e.waiting ? " · aucune cavité compatible" : "")
+  : label(e.state);
 const HAB_COLORS = { tree_cavity: "#8a5a34", hive_box: "#e0a93a", rodent_burrow: "#a07850", bare_soil: "#d9bf86",
                      hollow_stem: "#b5523a", dead_wood: "#6f5a45" };
 const BEE_COLORS = { honey_bee: "#d89a2b", bumblebee: "#1d1a17", mason_bee: "#c8552a", mining_bee: "#8d8a84", carpenter_bee: "#5b3fa0" };
@@ -224,20 +261,25 @@ function opt(sel, values, fmt = label) {
 
 function buildForms() {
   opt($("h-type"), catalog.habitat_types.map(t => t.name));
-  opt($("b-species"), catalog.species.map(s => s.name));
+  opt($("b-species"), catalog.species.filter(s => !s.lives_in_swarms).map(s => s.name));
+  opt($("s-preset"), ["", ...Object.keys(catalog.presets)], p => p || "aléatoire");
+  const pop = catalog.swarm.population;
+  Object.assign($("s-pop"), { min: pop.min, max: pop.max, value: pop.default });
+  $("s-days").textContent = catalog.swarm.cluster_days;
   opt($("b-role"), catalog.roles); $("b-role").value = catalog.default_role;
   opt($("b-preset"), Object.keys(catalog.presets), p => p);
   const s = catalog.speed, speeds = [0.25, 0.5, 1, 2, 4, 8].filter(v => v >= s.min && v <= s.max);
   opt($("speed"), speeds, v => `×${v}`); $("speed").value = s.default;
-  for (const id of ["h-x", "b-x"]) { $(id).max = catalog.world.width; $(id).min = 0; }
-  for (const id of ["h-y", "b-y"]) { $(id).max = catalog.world.height; $(id).min = 0; }
+  for (const id of ["h-x", "b-x", "s-x"]) { $(id).max = catalog.world.width; $(id).min = 0; }
+  for (const id of ["h-y", "b-y", "s-y"]) { $(id).max = catalog.world.height; $(id).min = 0; }
   $("p-traits").innerHTML = catalog.traits.map(t => `<div class="trait"><span>${label(t.name)}</span>
     <input type="range" min="${t.min}" max="${t.max}" step="0.05" value="0.5" id="t-${t.name}"
       oninput="this.nextElementSibling.textContent=this.value" aria-label="${label(t.name)}"><span>0.5</span></div>`).join("");
   renderFeatureInputs();
   $("legend").innerHTML =
     catalog.habitat_types.map(t => `<span><i class="sw" style="background:${HAB_COLORS[t.name]}"></i>${label(t.name)}</span>`).join("") +
-    catalog.species.map(s => `<span><i class="sw dot" style="background:${BEE_COLORS[s.name]}"></i>${label(s.name)}</span>`).join("");
+    catalog.species.map(s => `<span><i class="sw dot" style="background:${BEE_COLORS[s.name]}"></i>${label(s.name)}${s.lives_in_swarms ? " (essaim)" : ""}</span>`).join("") +
+    `<span>◌ en attente</span><span>- - → en vol</span><span>⬭ grappe (population · jours restants)</span>`;
 }
 
 function renderFeatureInputs() {
@@ -283,6 +325,16 @@ $("f-bee").addEventListener("submit", async e => {
   if (r) toast(`Abeille ${r.id} ajoutée`, true);
 });
 
+$("f-swarm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const personality = $("s-preset").value ? { preset: $("s-preset").value } : { random: true };
+  if ($("s-seed").value !== "") personality.seed = Number($("s-seed").value);
+  const body = { x: Number($("s-x").value), y: Number($("s-y").value), population: Number($("s-pop").value), personality };
+  if ($("s-name").value) body.name = $("s-name").value;
+  const r = await api("POST", "/api/swarms", body).catch(() => null);
+  if (r) toast(`Essaim ${r.id} posé en grappe`, true);
+});
+
 $("btn-toggle").onclick = () => api("POST", snap?.state.paused ? "/api/simulation/resume" : "/api/simulation/pause").catch(() => {});
 $("speed").onchange = () => api("POST", "/api/simulation/speed", { speed: Number($("speed").value) }).catch(() => {});
 $("btn-clear").onclick = () => confirm("Retirer toutes les entités du monde ?") && api("POST", "/api/world/clear").catch(() => {});
@@ -293,31 +345,89 @@ function scale() { return canvas.clientWidth / catalog.world.width; }
 canvas.addEventListener("click", e => {
   const r = canvas.getBoundingClientRect(), k = scale();
   const x = Math.round((e.clientX - r.left) / k), y = Math.round((e.clientY - r.top) / k);
-  for (const id of ["h-x", "b-x"]) $(id).value = x;
-  for (const id of ["h-y", "b-y"]) $(id).value = y;
+  for (const id of ["h-x", "b-x", "s-x"]) $(id).value = x;
+  for (const id of ["h-y", "b-y", "s-y"]) $(id).value = y;
 });
+
+// Smooth movement: each snapshot gives new positions; the view glides from the shown position to the new one
+// over the time between two snapshots (positions come from Godot, nothing is simulated here).
+const shown = new Map();  // id -> {fx, fy, tx, ty}
+let lastSnapAt = performance.now(), snapGap = 250;
+function onPositions(entities) {
+  const now = performance.now();
+  snapGap = Math.min(1000, Math.max(50, now - lastSnapAt)); lastSnapAt = now;
+  const seen = new Set();
+  for (const e of entities) {
+    seen.add(e.id);
+    const cur = shownPos(e.id) || { x: e.x, y: e.y };
+    shown.set(e.id, { fx: cur.x, fy: cur.y, tx: e.x, ty: e.y });
+  }
+  for (const id of shown.keys()) if (!seen.has(id)) shown.delete(id);
+}
+function shownPos(id) {
+  const p = shown.get(id); if (!p) return null;
+  const t = Math.min(1, (performance.now() - lastSnapAt) / snapGap);
+  return { x: p.fx + (p.tx - p.fx) * t, y: p.fy + (p.ty - p.fy) * t };
+}
 
 function drawWorld() {
   if (!catalog) return;
   const w = canvas.clientWidth, h = w * catalog.world.height / catalog.world.width, dpr = devicePixelRatio || 1;
-  canvas.style.height = h + "px"; canvas.width = w * dpr; canvas.height = h * dpr;
+  if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
+    canvas.style.height = h + "px"; canvas.width = w * dpr; canvas.height = h * dpr;
+  }
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, h);
-  const k = w / catalog.world.width;
-  for (const e of snap?.entities || []) {
+  const k = w / catalog.world.width, ents = snap?.entities || [];
+  const settledCount = {};
+  for (const e of ents.filter(e => e.kind === "habitat")) {
     const x = e.x * k, y = e.y * k;
     ctx.lineWidth = e.id === selected ? 3 : 1; ctx.strokeStyle = e.id === selected ? "#2b2118" : "rgba(0,0,0,.35)";
-    if (e.kind === "habitat") {
-      ctx.fillStyle = HAB_COLORS[e.type]; ctx.fillRect(x - 9, y - 9, 18, 18); ctx.strokeRect(x - 9, y - 9, 18, 18);
-    } else {
-      ctx.beginPath(); ctx.arc(x, y, 5, 0, 2 * Math.PI); ctx.fillStyle = BEE_COLORS[e.species]; ctx.fill(); ctx.stroke();
+    ctx.fillStyle = HAB_COLORS[e.type]; ctx.fillRect(x - 9, y - 9, 18, 18); ctx.strokeRect(x - 9, y - 9, 18, 18);
+    if (e.occupants) { ctx.fillStyle = "#2b2118"; ctx.font = "10px sans-serif"; ctx.fillText(`${e.occupants}/${e.capacity}`, x + 11, y + 4); }
+  }
+  for (const e of ents.filter(e => e.kind !== "habitat")) {
+    const p = shownPos(e.id) || e;
+    let x = p.x * k, y = p.y * k;
+    if (e.state === "flying") {  // trajectory still to fly
+      ctx.setLineDash([4, 4]); ctx.strokeStyle = "rgba(43,33,24,.45)"; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(e.target_x * k, e.target_y * k); ctx.stroke(); ctx.setLineDash([]);
+    }
+    if (e.state === "settled") {  // fan settled bees around their habitat
+      const n = settledCount[e.home_id] = (settledCount[e.home_id] || 0) + 1;
+      x += 12 * Math.cos(n * 1.3); y += 12 * Math.sin(n * 1.3);
+    }
+    ctx.lineWidth = e.id === selected ? 3 : 1; ctx.strokeStyle = e.id === selected ? "#2b2118" : "rgba(0,0,0,.5)";
+    if (e.kind === "swarm") drawSwarm(e, x, y, k);
+    else {
+      ctx.beginPath(); ctx.arc(x, y, e.state === "settled" ? 3.5 : 5, 0, 2 * Math.PI);
+      if (e.state === "waiting") { ctx.setLineDash([2, 2]); ctx.strokeStyle = "#888"; ctx.stroke(); ctx.setLineDash([]); }
+      else { ctx.fillStyle = BEE_COLORS[e.species]; ctx.fill(); ctx.stroke(); }
     }
   }
+  requestAnimationFrame(drawWorld);
 }
-new ResizeObserver(drawWorld).observe(canvas);
+function drawSwarm(e, x, y, k) {
+  if (e.state === "cluster" || e.state === "exposed") {  // the branch it hangs from
+    ctx.strokeStyle = "#6f5a45"; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x - 16, y - 12); ctx.lineTo(x + 16, y - 8); ctx.stroke();
+  }
+  const r = e.state === "settled" ? 6 : 9;
+  ctx.beginPath(); ctx.ellipse(x, y, r * 0.8, r, 0, 0, 2 * Math.PI);
+  ctx.fillStyle = BEE_COLORS.honey_bee; ctx.fill();
+  ctx.lineWidth = e.state === "exposed" ? 2.5 : 1; ctx.strokeStyle = e.state === "exposed" ? "#b5523a" : "rgba(0,0,0,.5)"; ctx.stroke();
+  ctx.beginPath(); ctx.arc(x, y + r * 0.35, 2, 0, 2 * Math.PI); ctx.fillStyle = "#3a2a1a"; ctx.fill();  // the queen
+  if (e.state !== "settled") {
+    ctx.font = "10px sans-serif"; ctx.fillStyle = e.state === "exposed" ? "#b5523a" : "#2b2118";
+    const txt = e.state === "exposed" ? `${(e.population / 1000).toFixed(1)}k · à découvert`
+      : e.state === "flying" ? `${(e.population / 1000).toFixed(1)}k · en vol`
+      : `${(e.population / 1000).toFixed(1)}k · ${e.days_left.toFixed(1)} j${e.waiting ? " · aucune cavité" : ""}`;
+    ctx.fillText(txt, x + 12, y + 14);
+  }
+}
+requestAnimationFrame(drawWorld);
 
 // --- entities ---------------------------------------------------------------
 async function showDetail(id) {
-  selected = id; drawWorld(); renderEntities();
+  selected = id; renderEntities();
   const d = await api("GET", "/api/entities/" + encodeURIComponent(id)).catch(() => null);
   $("detail").hidden = !d; if (d) $("detail").textContent = JSON.stringify(d, null, 2);
 }
@@ -330,11 +440,14 @@ function renderEntities() {
   $("ent-count").textContent = `(${list.length})`;
   $("ent-body").innerHTML = list.map(e => `<tr class="${e.id === selected ? "sel" : ""}">
     <td><a href="#" onclick="showDetail('${e.id}');return false">${e.id}</a></td>
-    <td>${e.kind === "habitat" ? label(e.type) : `${label(e.species)} · ${label(e.role)}${e.name ? " · " + escapeHtml(e.name) : ""}`}</td>
+    <td>${e.kind === "habitat" ? label(e.type) : e.kind === "swarm"
+      ? `Essaim · ${e.population} ouvrières${e.name ? " · " + escapeHtml(e.name) : ""}`
+      : `${label(e.species)} · ${label(e.role)}${e.name ? " · " + escapeHtml(e.name) : ""}`}</td>
+    <td>${e.kind === "habitat" ? "" : `<span class="state ${e.state}">${stateLabel(e)}${e.state === "cluster" ? ` · ${e.days_left.toFixed(1)} j` : ""}${e.state === "flying" ? ` → ${e.target_id}` : ""}</span>`}</td>
     <td>${Math.round(e.x)}, ${Math.round(e.y)}</td>
     <td>${e.kind === "habitat" ? `${e.occupants}/${e.capacity}` : (e.home_id || "—")}</td>
     <td><button class="danger" onclick="removeEntity('${e.id}')" aria-label="Retirer ${e.id}">✕</button></td></tr>`).join("")
-    || `<tr><td colspan="5" class="empty">Le monde est vide.</td></tr>`;
+    || `<tr><td colspan="6" class="empty">Le monde est vide.</td></tr>`;
 }
 const escapeHtml = s => s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
@@ -360,6 +473,11 @@ function evText(ev) {
     case "paused": return "Simulation en pause";
     case "resumed": return "Simulation lancée";
     case "speed_changed": return `Vitesse ×${d.speed}`;
+    case "flight_started": return `${d.id} s'envole vers ${d.habitat_id} (${Math.round(d.distance)} m)`;
+    case "arrived": return `${d.id} arrive et s'installe dans ${d.habitat_id} (vol de ${hours(d.flight_ticks)} h, trouvé en ${d.found_after_days.toFixed(2)} j)`;
+    case "arrival_failed": return `${d.id} : échec à l'arrivée à ${d.habitat_id} (${d.reason === "full" ? "habitat plein" : "habitat retiré"})` +
+      (d.kind === "swarm" ? " — se repose en grappe" : " — reprend sa recherche");
+    case "swarm_exposed": return `${d.id} : délai écoulé, nid à découvert (${d.population} ouvrières exposées)`;
     case "decision": {
       const p = d.probabilities || {}, top = Object.entries(p).sort((a, b) => b[1] - a[1]).slice(0, 3)
         .map(([k, v]) => `${k} ${v.toFixed(2)}`).join(", ");
@@ -378,6 +496,7 @@ function feed(el, events, emptyText) {
     return `<li><span class="t">t${ev.tick}</span>${escapeHtml(evText(ev))}${mark}</li>`;
   }).join("") || `<li class="empty">${emptyText}</li>`;
 }
+const hours = ticks => (ticks / catalog.time.day_ticks * 24).toFixed(1);
 const pct = v => v == null ? "—" : `${Math.round(100 * v)} %`;
 function renderService(svc) {
   const rows = svc?.available
@@ -397,10 +516,18 @@ function render() {
   const s = snap.state, k = snap.kpi;
   $("run").textContent = s.paused ? "en pause" : "en cours"; $("run").className = "pill " + (s.paused ? "pause" : "run");
   $("btn-toggle").textContent = s.paused ? "Lancer" : "Pause";
-  $("tick").textContent = k.sim.tick; $("secs").textContent = k.sim.seconds;
+  $("tick").textContent = k.sim.tick; $("day").textContent = k.sim.day;
+  $("hour").textContent = `${String(Math.floor(k.sim.hour)).padStart(2, "0")}h${String(Math.floor(k.sim.hour % 1 * 60)).padStart(2, "0")}`;
   if (document.activeElement !== $("speed")) $("speed").value = s.speed;
-  $("k-hab").textContent = s.habitats; $("k-bees").textContent = s.bees;
-  $("k-settled").textContent = k.bees_settled; $("k-homeless").textContent = k.bees_homeless;
+  $("k-hab").textContent = s.habitats; $("k-bees").textContent = s.bees; $("k-swarms").textContent = s.swarms;
+  const m = k.movement;
+  $("k-days").textContent = m.avg_days_to_habitat ?? "—"; $("k-flight").textContent = m.avg_flight_hours ?? "—";
+  $("k-arrivals").textContent = m.arrivals; $("k-failures").textContent = m.arrival_failures;
+  $("k-fail-detail").textContent = `${m.failures_by_reason.full} plein · ${m.failures_by_reason.removed} retiré · ${m.swarms_exposed} essaim(s) à découvert`;
+  bars($("k-bee-states"), k.bees_by_state); bars($("k-swarm-states"), k.swarms_by_state);
+  $("k-swarm-list").innerHTML = k.swarms.map(w => `<div class="swarm-row">${w.id}${w.name ? " · " + escapeHtml(w.name) : ""} ·
+    ${w.population} ouvrières · <span class="state ${w.state}">${stateLabel({ kind: "swarm", ...w })}</span>
+    ${w.state === "cluster" ? ` · ${w.days_left} j restants` : ""}</div>`).join("");
   bars($("k-types"), k.habitats_by_type); bars($("k-species"), k.bees_by_species); hist($("k-traits"), k.trait_distribution);
   $("k-occ").innerHTML = k.occupancy.map(o => `<tr><td>${o.id}</td><td>${label(o.type)}</td><td class="num">${o.occupants}/${o.capacity}</td>
     <td class="num">${Math.round(100 * o.rate)} %</td></tr>`).join("") || `<tr><td colspan="4" class="empty">Aucun habitat.</td></tr>`;
@@ -416,7 +543,8 @@ function render() {
   $("d-traits").innerHTML = Object.entries(d.by_trait).map(([t, bins]) => `<div class="hint">${label(t)} : ${bins.map(
     (b, i) => `[${(i / 5).toFixed(1)}–${((i + 1) / 5).toFixed(1)}] ${b.chosen}✓ ${b.refused}✗`).join(" · ")}</div>`).join("");
   feed($("decision-feed"), snap.decision_events, "Aucune décision pour l'instant : lancez la simulation avec des abeilles sans habitat.");
-  renderEntities(); drawWorld();
+  onPositions(snap.entities);
+  renderEntities();
 }
 
 // --- live feed ------------------------------------------------------------------

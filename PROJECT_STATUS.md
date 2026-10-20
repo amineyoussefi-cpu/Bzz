@@ -1,9 +1,9 @@
 # PROJECT_STATUS
 
-_Dernière mise à jour : 2026-10-20 (prompt 5 : décisions des abeilles avec OpenJev)_
+_Dernière mise à jour : 2026-10-20 (prompt 6 : déplacement des abeilles et grappe d'essaimage)_
 
 Référence de reprise entre sessions. Ne décrit que ce qui existe réellement dans le dépôt.
-Spécifications d'origine : [prompts/](prompts/) (`prompt1.txt` à `prompt5.txt`, `github_versioning.txt`, `portability.txt`).
+Spécifications d'origine : [prompts/](prompts/) (`prompt1.txt` à `prompt6.txt`, `github_versioning.txt`, `portability.txt`).
 
 ## Architecture actuelle
 
@@ -16,7 +16,8 @@ Tableau de bord ◄─HTTP+WebSocket─► Backend Python (Docker ou local) ◄�
                                                           modèle alanhuangya/OpenJev-1.7B, CUDA / MPS / CPU
 ```
 
-- **Godot** possède l'état du monde. Il décrit la situation d'une abeille, **valide et applique** les décisions, et
+- **Godot** possède l'état du monde et le temps. Il décrit la situation d'une abeille ou d'un essaim, **valide et
+  applique** les décisions, **fait voler** les abeilles et les essaims dans son cycle natif (`WorldApi.step`), et
   publie les événements.
 - **Le backend** orchestre : situation → requête → OpenJev → comparaison avec la référence → application par Godot.
   Il expose l'API et calcule les KPI.
@@ -28,15 +29,23 @@ Tableau de bord ◄─HTTP+WebSocket─► Backend Python (Docker ou local) ◄�
 
 Fichiers :
 
-- **godot/main.gd** — serveur TCP (`--host`, `--port`, `--world-width`, `--world-height`), délègue à `WorldApi`.
-- **godot/api/world_api.gd** — catalogue, entités (`hab-N`/`bee-N`), horloge (tick, pause, vitesse), journal
-  d'événements, validation. Décisions :
-  - `get_decision_situation` : profil de l'abeille et tous les habitats, avec leur éligibilité ;
-  - `apply_decision` : validation, puis `Bee.settle` ou rejet, et événement `decision` ;
-  - `reference_decision` : `Bee.score_breakdown` + `choose_habitat`, pour comparaison uniquement, jamais appliqué.
-- **godot/entities/** — `Habitat`, `HabitatCatalog`, `Bee` (logique de choix d'origine **inchangée**, utilisée
-  uniquement comme référence), `BeePersonality`, `Preference`, `BeeSpecies`, `DecisionEvent` (format des décisions,
-  avec probabilités, référence, accord, modèle). Rôles dans `roles/` : jamais exécutés.
+- **godot/main.gd** — serveur TCP (`--host`, `--port`, `--world-width`, `--world-height`, et `--day-ticks`,
+  `--flight-speed-factor`, `--swarm-speed-mps`, `--swarm-cluster-days`), délègue à `WorldApi`.
+- **godot/api/world_api.gd** — catalogue, entités (`hab-N`, `bee-N`, `swarm-N`), horloge (tick, pause, vitesse,
+  journée simulée), **vols et délais d'essaim** (`step`), journal d'événements, validation, paramètres
+  (`DEFAULT_CONFIG`, seule source des valeurs par défaut). Décisions :
+  - `get_decision_situation` : profil de l'abeille ou de l'essaim et tous les habitats, avec leur éligibilité ;
+  - `apply_decision` : validation, puis **envol** (installation à l'arrivée) ou rejet, et événements ;
+  - `reference_decision` : `Bee.score_breakdown` + `choose_habitat` (la reine pour un essaim), pour comparaison
+    uniquement, jamais appliqué.
+- **godot/entities/** :
+  - `Habitat`, `HabitatCatalog` ;
+  - `Bee` (logique de choix d'origine **inchangée**, utilisée seulement comme référence ; ajout de `flight` et `fly_to`) ;
+  - `BeeSpecies` (ajout des vitesses de vol, et de l'abeille mellifère qui vit en essaim), `BeePersonality`,
+    `Preference`, `DecisionEvent` (ajout de `context`) ;
+  - **`Flight`** (vol en ligne droite) ;
+  - **`Swarm`** (reine `Bee` de rôle `QUEEN` en nœud enfant, population, grappe, délai, états).
+  - Rôles dans `roles/` : seul `QueenBehavior.move_to_habitat` est exécuté (le vol de l'essaim).
 - **backend/bzz/decision/** :
   - `prompting.py` : construit la situation et les questions envoyées à OpenJev, présélectionne les candidats et lit
     la réponse ;
@@ -65,16 +74,39 @@ Fichiers :
 
 ## Fonctionnalités implémentées
 
-- **Construction du monde** depuis le tableau de bord ou l'API : habitats, abeilles (personnalité par préréglage,
-  traits ou aléatoire, avec **graine facultative pour toutes les formes**), consultation, retrait, remise à zéro,
-  pause, reprise et vitesse.
+- **Construction du monde** depuis le tableau de bord ou l'API :
+  - habitats ;
+  - abeilles individuelles (personnalité par préréglage, traits ou aléatoire, avec graine facultative) ; l'abeille
+    mellifère est refusée en individuel ;
+  - **essaims** d'abeilles mellifères (`add_swarm` : population, personnalité collective, branche) ;
+  - consultation, retrait, remise à zéro, pause, reprise et vitesse.
+- **Temps simulé** : une journée dure `DAY_TICKS` ticks ; le tableau de bord affiche le jour et l'heure. La pause
+  arrête le temps, les vols et les délais ; la vitesse accélère tout.
+- **Déplacement** (prompt 6) :
+  - après une décision, l'abeille ou l'essaim **vole en ligne droite** vers l'habitat, à la vitesse de son espèce
+    × `FLIGHT_SPEED_FACTOR`, et **s'installe à l'arrivée** ;
+  - l'habitat n'est pas réservé : s'il est plein à l'arrivée, c'est un échec (`arrival_failed`) et l'entité reprend
+    sa recherche ;
+  - si l'habitat est retiré pendant le vol, l'entité s'arrête sur place ;
+  - une entité en vol ne demande aucune décision.
+- **États** :
+  - abeille : en recherche, **en attente** (aucun habitat compatible dans le monde), en vol, installée ;
+  - essaim : en grappe, en vol, installé, **nid à découvert**.
+- **Essaim** :
+  - il dispose de `SWARM_CLUSTER_DAYS` jours en grappe ; le délai ne s'écoule qu'en grappe ;
+  - il prend une décision collective unique (OpenJev) ;
+  - la reine suit la `ColonyDecision` et l'emmène en vol ;
+  - il occupe une seule place ;
+  - s'il est en échec à l'arrivée, il se repose en grappe sur place avec le délai qu'il lui restait ;
+  - si le délai expire, il passe en « nid à découvert ».
 - **Décisions par OpenJev**, uniquement quand la simulation tourne :
   - tous les `DECISION_INTERVAL_TICKS` ticks, chaque abeille sans habitat demande une décision, avec au plus
-    `DECISION_CONCURRENCY` décisions à la fois, exécutées dans des threads, sans bloquer l'API ni Godot ;
+    `DECISION_CONCURRENCY` décisions à la fois, exécutées dans des threads, sans bloquer l'API ni Godot
+    (abeilles en recherche et essaims en grappe uniquement) ;
   - OpenJev reçoit les habitats éligibles les plus proches (12 au maximum) et répond à deux questions en une passe :
     « meilleur habitat ? » et « atteint le seuil ? » ;
-  - Godot valide la décision : une décision invalide est rejetée et produit un événement de refus. L'abeille
-    s'installe sans se déplacer.
+  - pour un essaim, OpenJev reçoit aussi la population, le délai restant et la distance depuis la grappe ;
+  - Godot valide la décision : une décision invalide est rejetée et produit un événement de refus.
 - **Comparaison** : à chaque décision, la logique de référence calcule son choix sans l'appliquer. L'événement
   contient les deux choix, les probabilités et l'accord.
 - **Service indisponible** : aucune décision n'est prise, l'état est affiché, et il n'y a **pas de bascule** vers la
@@ -84,10 +116,19 @@ Fichiers :
   - choix, refus et rejets ; probabilité moyenne et score de référence moyen des habitats choisis ;
   - accord global et par espèce ; répartition par espèce et par trait ;
   - état du service : modèle, révision, appareil, temps de réponse, disponibilité ;
+  - **carte animée** : déplacement fluide entre deux captures, trajectoire en pointillés, grappe sur sa branche avec
+    population et jours restants, états distinguables ;
+  - **formulaire d'essaim** ; le formulaire d'abeille ne propose plus l'abeille mellifère ;
+  - **KPI** : abeilles par état, essaims par état (avec jours restants), temps moyen pour trouver un habitat (jours),
+    durée moyenne des vols (heures simulées), arrivées, échecs à l'arrivée, essaims à découvert ;
   - KPI du monde (prompt 4).
 
-Commandes du protocole : voir [docs/api.md](docs/api.md) §2 (ajoutées à cette étape : `get_decision_situation`,
-`apply_decision`, `reference_decision` ; `get_state` ne contient plus `decision_mechanism`).
+Commandes du protocole : voir [docs/api.md](docs/api.md) §2. Ajouts du prompt 6 :
+
+- `add_swarm` ; route HTTP `POST /api/swarms` ;
+- états et informations de vol dans `list_entities` ;
+- événements `flight_started`, `arrived`, `arrival_failed` et `swarm_exposed` ;
+- `apply_decision` renvoie `result: "flying"`.
 
 ## Résultats
 
@@ -103,11 +144,19 @@ Le premier téléchargement (3,2 Go) a pris environ 6 minutes. La configuration 
 **Comparaison avec la logique de référence** (75 scénarios fixes : 5 espèces × 5 profils × 3 jeux d'habitats ;
 [rapport](docs/rapport_comparaison.md)) :
 
-- **53 % d'accord** sur la décision finale ;
-- **75 %** sur le meilleur habitat, en ignorant le seuil d'acceptation.
+- **56 % d'accord** sur la décision finale, dont **60 % pour les essaims** ;
+- **77 %** sur le meilleur habitat, en ignorant le seuil d'acceptation.
 
+Pour les essaims, OpenJev reçoit en plus le délai et la distance, que la référence ignore : le rapport le signale.
 Le désaccord porte surtout sur « assez bon pour s'installer » autour du seuil. Trois formulations ont été essayées
-(41 %, 51 %, puis 53 % pour celle retenue). **Conclusion : la logique de référence ne peut pas encore être supprimée.**
+avant les essaims (41 %, 51 %, puis 53 % pour celle retenue). **Conclusion : la logique de référence ne peut pas
+encore être supprimée.**
+
+**Démonstration (prompt 6)** avec le vrai modèle, sur Mac, à vitesse ×4 :
+
+- un essaim, 5 abeilles solitaires et 6 habitats ;
+- tous ont choisi, volé puis se sont installés à l'arrivée, sans échec ;
+- en moyenne 1,15 jour simulé pour trouver un habitat, et 24 h simulées de vol (`FLIGHT_SPEED_FACTOR` = 0,05).
 
 ## Utilisation
 
@@ -116,7 +165,7 @@ Le désaccord porte surtout sur « assez bon pour s'installer » autour du seuil
 docker compose up -d                    # puis http://localhost:8000 : ajouter habitats et abeilles, « Lancer »
 # sans Docker : cd backend && ../.venv/bin/python -m bzz.server
 cd backend && ../.venv/bin/python -m bzz.decision.compare      # régénère le rapport de comparaison (service requis)
-../.venv/bin/python -m unittest discover tests                 # 36 tests ; le test du vrai modèle n'est lancé que si le service répond
+../.venv/bin/python -m unittest discover tests                 # 44 tests ; le test du vrai modèle n'est lancé que si le service répond
 docker compose run --rm -e GODOT_HOST= backend python -m unittest discover tests   # tests dans Docker (sans modèle)
 ```
 
@@ -137,12 +186,33 @@ docker compose run --rm -e GODOT_HOST= backend python -m unittest discover tests
 - **Pas de bascule silencieuse** vers la référence : `ReferenceProvider` ne sert qu'à comparer.
 - **Graine possible avec un préréglage ou des traits** : elle rend reproductible le bruit de curiosité de la référence,
   ce qui est nécessaire aux scénarios fixes.
+- **Déplacement dans Godot** : `WorldApi.step()` fait avancer les vols (`Flight`) et les délais d'essaim à chaque tick
+  de simulation, donc la pause et la vitesse s'appliquent sans code spécifique.
+- **Deux échelles de temps** :
+  - `DAY_TICKS` fixe la longueur d'une journée (délais d'essaim, temps moyens) ;
+  - `FLIGHT_SPEED_FACTOR` ralentit tous les vols de la même façon pour qu'ils restent visibles (sinon un vol réel de
+    quelques minutes durerait une fraction de seconde à l'écran). Les vitesses relatives entre espèces restent celles
+    du catalogue.
+- **États calculés, pas stockés** : un état se déduit de `home`, `flight`, `exposed` et des habitats existants, ce qui
+  évite les incohérences.
+- **La reine est un nœud enfant de l'essaim** : elle se déplace avec lui. `QueenBehavior.move_to_habitat` lance le vol
+  de l'essaim (première implémentation réelle d'une action de rôle).
+- **Le délai d'essaim ne s'écoule qu'en grappe**, ni pendant le vol ni après l'installation.
+- **Positions vers le navigateur** : une capture au plus toutes les `DASHBOARD_UPDATE_INTERVAL` secondes (0,25),
+  interpolées côté navigateur pour un mouvement fluide.
 - Hérité : TCP JSON en requête/réponse, relevé des événements avec curseur, verrou sur la connexion, validation
   double, noms lisibles générés, configuration par variables d'environnement, entités en GDScript.
 
 ## Problèmes connus / limites
 
-- **Accord avec la référence de 53 %** seulement : le modèle juge mal le seuil d'acceptation.
+- **Accord avec la référence de 56 %** seulement : le modèle juge mal le seuil d'acceptation.
+- **Vols simplifiés** : ligne droite, sans obstacle ni recherche de chemin. La vitesse absolue est un réglage de jeu,
+  et seule la vitesse de l'ouvrière mellifère est bien sourcée. Les durées de vol ne sont pas réalistes par rapport à
+  la journée.
+- **Essaim simplifié** : une décision unique par intervalle, sans éclaireuses, danse ni quorum. La personnalité
+  collective est une invention de jeu. Les essaims se posent à la main (pas d'essaimage depuis une ruche existante).
+- **Abeille en attente** : son état « en attente » se recalcule à chaque capture. Elle ne redemande une décision que
+  lorsqu'un habitat compatible apparaît, ou se libère quand une entité est retirée.
 - **Windows + NVIDIA non testé** : le script installe torch CUDA 12.6, ou 13.0 pour les RTX 50xx. Le modèle 4B n'a
   pas été testé non plus.
 - **Temps de réponse** : ~0,5 à 1,4 s par décision sur MPS. Le service traite une requête à la fois, donc beaucoup
@@ -170,6 +240,8 @@ docker compose run --rm -e GODOT_HOST= backend python -m unittest discover tests
 - Améliorer l'accord sur le seuil d'acceptation : formulation, ou seuil réglable sur P(accepter) mesuré sur un jeu
   de scénarios distinct pour éviter le surapprentissage. Valider sur Windows + NVIDIA et avec le modèle 4B. Supprimer
   ensuite la logique de référence si les résultats le permettent.
-- Déplacements et exploration (interfaces des rôles), puis décision collective des essaims (quorum → `ColonyDecision`).
+- Décision collective réelle des essaims : éclaireuses qui explorent (`explore_habitats`, `visit_habitat`), danse,
+  quorum, produisant la `ColonyDecision` déjà utilisée par la reine.
+- Essaimage depuis une ruche existante (une colonie installée produit un essaim), obstacles et recherche de chemin.
 - Reproduction (`lay_eggs`, `manage_reproduction_cycle`).
 - Sauvegarde et chargement d'un monde ; authentification si le tableau de bord doit être exposé.

@@ -1,4 +1,5 @@
-"""Decision loop: while the simulation runs, every homeless bee asks for a habitat decision at a set interval.
+"""Decision loop: while the simulation runs, every searching bee and every clustered swarm asks for a habitat
+decision at a set interval (bees in flight, settled bees and exposed swarms do not).
 
 Model calls run in worker threads (asyncio.to_thread) behind a semaphore, so they never block the API, the
 WebSocket feed or other Godot commands; GodotEngine's lock keeps each Godot request/response atomic.
@@ -13,6 +14,7 @@ from .prompting import DEFAULT_MAX_CANDIDATES, eligible_candidates
 from .providers import DecisionProvider, ProviderError, ProviderUnavailable, ReferenceProvider
 
 log = logging.getLogger("bzz.decision")
+DECIDING_STATES = ("searching", "cluster")  # bees looking for a habitat, swarms hanging on their branch
 
 
 class DecisionLoop:
@@ -46,7 +48,7 @@ class DecisionLoop:
         """Asks the provider for one bee, compares with the reference, applies through Godot.
         Returns the decision event data, or None when nothing was decided (paused, housed, no candidate)."""
         situation = self.engine.send("get_decision_situation", bee_id=bee_id)
-        if situation["paused"] or situation["bee"]["home_id"] is not None:
+        if situation["paused"] or situation["bee"]["state"] not in DECIDING_STATES:
             return None
         candidates = eligible_candidates(situation, self.max_candidates)
         if not candidates:
@@ -66,7 +68,13 @@ class DecisionLoop:
 
     def event_data(self, situation: dict, candidates: list[dict], decision: dict, reference: dict) -> dict:
         ref_scores = {s["habitat_id"]: s for s in reference.get("scores", [])}
+        bee = situation["bee"]
+        context = {"distances": {h["id"]: round(h["distance"], 1) for h in candidates}}
+        if bee["kind"] == "swarm":
+            # the reference logic ignores both: noted in the comparison report
+            context.update(population=bee["population"], days_left=round(bee["days_left"], 3))
         return {
+            "context": context,
             "bee_id": situation["bee"]["id"],
             "evaluated": [{"habitat_id": h["id"], "score": decision["probabilities"].get(h["id"], 0.0),
                            "reference_score": ref_scores.get(h["id"], {}).get("score"),
@@ -96,7 +104,7 @@ class DecisionLoop:
                     self.last_round_tick = state["tick"]
                     entities = await asyncio.to_thread(self.engine.send, "list_entities")
                     for e in entities:
-                        if e["kind"] == "bee" and e["home_id"] is None and e["id"] not in self.pending:
+                        if e.get("state") in DECIDING_STATES and e["id"] not in self.pending:
                             self.pending.add(e["id"])
                             asyncio.create_task(self._decide(sem, e["id"]))
             except (GodotError, OSError) as e:

@@ -4,10 +4,11 @@ The dashboard is a client of this backend only; every action goes through GodotE
 Godot's events are pulled by polling `get_events` with a cursor (see docs/api.md for why), then pushed to
 every WebSocket client together with the state, entities and KPIs.
 
-Decisions: a DecisionLoop asks the local OpenJev service (DECISION_SERVICE_URL) for every homeless bee while the
+Decisions: a DecisionLoop asks the local OpenJev service (DECISION_SERVICE_URL) for every searching bee or clustered swarm while the
 simulation runs, compares with the reference logic, and has Godot validate and apply the result.
 
-Environment: BZZ_HTTP_HOST (default 127.0.0.1), DASHBOARD_PORT (default 8000), the GODOT_* variables, and
+Environment: BZZ_HTTP_HOST (default 127.0.0.1), DASHBOARD_PORT (default 8000), DASHBOARD_UPDATE_INTERVAL (seconds
+between two snapshots, default 0.25), the GODOT_* and simulation variables (engine.py), and
 DECISION_SERVICE_URL (default http://127.0.0.1:8009), DECISION_INTERVAL_TICKS (120), DECISION_CONCURRENCY (2),
 DECISION_MAX_CANDIDATES (12), DECISION_TIMEOUT (30 s).
 """
@@ -26,9 +27,10 @@ from .decision import DecisionLoop, DecisionProvider, OpenJevProvider
 from .engine import CommandRejected, GodotEngine, GodotError
 
 STATIC_DIR = Path(__file__).parent / "static"
-POLL_INTERVAL = 0.25  # seconds between two event polls
+POLL_INTERVAL = float(os.environ.get("DASHBOARD_UPDATE_INTERVAL") or 0.25)  # seconds between two polls/snapshots
 FEED_SIZE = 200       # events kept for clients that connect later
-KPI_DECISIONS = 20000  # decision events kept for the decision KPIs (shortcut: in memory, reset on backend restart)
+KPI_EVENTS = 20000  # decision/movement events kept for the KPIs (shortcut: in memory, reset on backend restart)
+KPI_EVENT_TYPES = {"decision", "arrived", "arrival_failed", "swarm_exposed"}
 
 
 class Hub:
@@ -41,7 +43,7 @@ class Hub:
         self.cursor = 0
         self.world_events: deque = deque(maxlen=FEED_SIZE)
         self.decision_events: deque = deque(maxlen=FEED_SIZE)
-        self.kpi_decisions: deque = deque(maxlen=KPI_DECISIONS)
+        self.kpi_events: deque = deque(maxlen=KPI_EVENTS)
         self.events_lost = False
         self.snapshot: dict | None = None
 
@@ -51,11 +53,9 @@ class Hub:
         self.cursor = res["last_seq"]
         self.events_lost |= res["lost"]
         for ev in res["events"]:
-            if ev["type"] == "decision":
-                self.decision_events.append(ev)
-                self.kpi_decisions.append(ev)
-            else:
-                self.world_events.append(ev)
+            (self.decision_events if ev["type"] == "decision" else self.world_events).append(ev)
+            if ev["type"] in KPI_EVENT_TYPES:
+                self.kpi_events.append(ev)
         state = self.engine.send("get_state")
         entities = self.engine.send("list_entities")
         service = self.decisions.status()
@@ -64,7 +64,7 @@ class Hub:
             "state": state,
             "entities": entities,
             "decision_service": service,
-            "kpi": kpi.compute(state, entities, list(self.kpi_decisions), self.engine.catalog, service),
+            "kpi": kpi.compute(state, entities, list(self.kpi_events), self.engine.catalog, service),
             "world_events": list(self.world_events),
             "decision_events": list(self.decision_events),
             "events_lost": self.events_lost,
@@ -164,6 +164,10 @@ def create_app(engine: GodotEngine | None = None, provider: DecisionProvider | N
     @app.post("/api/bees", status_code=201)
     def add_bee(payload=Body(...)):
         return body_call("add_bee", payload)
+
+    @app.post("/api/swarms", status_code=201)
+    def add_swarm(payload=Body(...)):
+        return body_call("add_swarm", payload)
 
     @app.post("/api/world/clear")
     def clear_world():

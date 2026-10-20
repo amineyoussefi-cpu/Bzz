@@ -49,6 +49,8 @@ RULES = [
     "Only habitat types the species accepts, with free space, are listed as candidates.",
     "Choose the candidate with the best overall fit if that fit reaches the acceptance threshold; otherwise choose none.",
 ]
+SWARM_RULE = ("A swarm cannot stay exposed for long: choosing none is fine while time remains, but as the time left "
+              "runs out an acceptable cavity is better than none. A distant cavity means a longer flight.")
 
 
 def _num(v: float) -> str:
@@ -65,8 +67,9 @@ def eligible_candidates(situation: dict, max_candidates: int = DEFAULT_MAX_CANDI
     return sorted(eligible, key=lambda h: (h["distance"], h["id"]))[:max_candidates]
 
 
-def describe_habitat(h: dict, preferences: list[dict]) -> str:
-    """Type, each preferred feature with its distance to the ideal (plain arithmetic, no fit score), risk, occupancy."""
+def describe_habitat(h: dict, preferences: list[dict], with_distance: bool = False) -> str:
+    """Type, each preferred feature with its distance to the ideal (plain arithmetic, no fit score), risk, occupancy
+    (and, for a swarm, how far it is from the cluster: 1 world unit = 1 m)."""
     f = h["features"]
     parts = [HABITAT_TYPES.get(h["type"], h["type"])]
     for p in preferences:
@@ -79,6 +82,8 @@ def describe_habitat(h: dict, preferences: list[dict]) -> str:
     parts.append(f"predator risk {_num(f['predator_risk'])}")
     if h["capacity"] > 1:
         parts.append(f"{h['occupants']} of {h['capacity']} nest places taken")
+    if with_distance:
+        parts.append(f"{h['distance']:.0f} m from the cluster")
     return ", ".join(parts)
 
 
@@ -100,7 +105,8 @@ def build_request(situation: dict, candidates: list[dict]) -> dict:
         effect = effects[["high", "medium", "low"].index(level)]
         personality[f"{trait} {v:.2f} ({level})"] = f"{meaning}: {effect}"
     threshold = bee["acceptance_threshold"]
-    candidates_text = {h["id"]: describe_habitat(h, prefs) for h in candidates}
+    swarm = bee["kind"] == "swarm"
+    candidates_text = {h["id"]: describe_habitat(h, prefs, with_distance=swarm) for h in candidates}
     state = {
         "task": "A bee is choosing a habitat to nest in. Judge every candidate with this bee's preferences and "
                 "personality, following the rules.",
@@ -112,12 +118,21 @@ def build_request(situation: dict, candidates: list[dict]) -> dict:
         "rules": RULES,
         "candidates": candidates_text,
     }
+    accept = (f"The best candidate's overall fit reaches this bee's acceptance threshold ({threshold:.2f}).")
+    if swarm:
+        state["task"] = ("A honey bee swarm is choosing its nest cavity. Judge every candidate with the swarm's "
+                         "preferences and collective personality, following the rules.")
+        state["bee"] = (f"a honey bee swarm (Apis mellifera) of about {bee['population']} workers with their queen, "
+                        "clustered on a branch in the open")
+        state["time left"] = (f"{bee['days_left']:.1f} days before the swarm must give up and build its nest in the "
+                              "open, where it is unlikely to survive")
+        state["rules"] = RULES + [SWARM_RULE]
+        accept = (f"The swarm should move into the best candidate now: its fit reaches the acceptance threshold "
+                  f"({threshold:.2f}), or too little time is left to keep looking.")
     return {"state": state, "questions": {
         "best": {"type": "choice", "instructions": "Which candidate has the best overall fit for this bee?",
                  "criteria": candidates_text},
-        "accept": {"type": "noul",
-                   "instructions": f"The best candidate's overall fit reaches this bee's acceptance threshold "
-                                   f"({threshold:.2f}).",
+        "accept": {"type": "noul", "instructions": accept,
                    "criteria": {"true": "Good enough: the bee settles there.",
                                 "false": "Not good enough: the bee keeps looking."}},
     }}

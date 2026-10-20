@@ -19,6 +19,27 @@ static func names() -> Array:
 	return Id.keys().map(func(k): return k.to_lower())
 
 
+## Cruising flight speed in m/s. Only the honey bee value is sourced (Wenner 1963, unloaded foragers,
+## BioNumbers 107550); the others are game values (see docs/reference_abeilles.md).
+static func flight_speed_mps(id: Id) -> float:
+	match id:
+		Id.HONEY_BEE: return 7.5
+		Id.BUMBLEBEE: return 4.5
+		Id.MASON_BEE: return 3.0
+		Id.MINING_BEE: return 3.0
+		Id.CARPENTER_BEE: return 4.0
+	return 3.0
+
+
+static func flight_speed_sourced(id: Id) -> bool:
+	return id == Id.HONEY_BEE
+
+
+## Species added as swarms (a colony with a queen) rather than as individual bees.
+static func lives_in_swarms(id: Id) -> bool:
+	return id == Id.HONEY_BEE
+
+
 static func accepted_types(id: Id) -> Array:
 	match id:
 		Id.HONEY_BEE: return [Habitat.Type.TREE_CAVITY, Habitat.Type.HIVE_BOX]

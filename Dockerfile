@@ -30,8 +30,11 @@ COPY godot/ ./
 RUN godot --headless --import --path . || true
 ENV GODOT_PORT=9876
 EXPOSE 9876
-# world size flags only when set, so Godot keeps the single default (WorldApi.DEFAULT_SIZE)
-CMD ["sh", "-c", "exec godot --headless --path . -- --host=0.0.0.0 --port=${GODOT_PORT} ${WORLD_WIDTH:+--world-width=$WORLD_WIDTH} ${WORLD_HEIGHT:+--world-height=$WORLD_HEIGHT}"]
+# simulation flags only when set, so Godot keeps the single defaults (WorldApi.DEFAULT_SIZE / DEFAULT_CONFIG)
+CMD ["sh", "-c", "exec godot --headless --path . -- --host=0.0.0.0 --port=${GODOT_PORT} \
+${WORLD_WIDTH:+--world-width=$WORLD_WIDTH} ${WORLD_HEIGHT:+--world-height=$WORLD_HEIGHT} \
+${DAY_TICKS:+--day-ticks=$DAY_TICKS} ${FLIGHT_SPEED_FACTOR:+--flight-speed-factor=$FLIGHT_SPEED_FACTOR} \
+${SWARM_SPEED_MPS:+--swarm-speed-mps=$SWARM_SPEED_MPS} ${SWARM_CLUSTER_DAYS:+--swarm-cluster-days=$SWARM_CLUSTER_DAYS}"]
 
 
 FROM python:3.12-slim AS backend

@@ -14,20 +14,25 @@ func _ready() -> void:
 	var port := 9876
 	var host := "127.0.0.1"  # use --host=0.0.0.0 in a container so other services can connect
 	var size := WorldApi.DEFAULT_SIZE
+	var params := {}  # other --key=value args: simulation parameters (WorldApi.DEFAULT_CONFIG)
 	for arg in OS.get_cmdline_user_args():
+		var value := arg.get_slice("=", 1)
 		if arg.begins_with("--port="):
-			port = int(arg.get_slice("=", 1))
+			port = int(value)
 		elif arg.begins_with("--host="):
-			host = arg.get_slice("=", 1)
+			host = value
 		elif arg.begins_with("--world-width="):
-			size.x = float(arg.get_slice("=", 1))
+			size.x = float(value)
 		elif arg.begins_with("--world-height="):
-			size.y = float(arg.get_slice("=", 1))
-	if size.x <= 0 or size.y <= 0:
-		push_error("world size must be positive, got %s" % size)
+			size.y = float(value)
+		elif arg.begins_with("--") and "=" in arg:
+			params[arg.get_slice("=", 0).trim_prefix("--").replace("-", "_")] = value
+	var config_err := WorldApi.config_error(params)
+	if size.x <= 0 or size.y <= 0 or config_err:
+		push_error(config_err if config_err else "world size must be positive, got %s" % size)
 		get_tree().quit(1)
 		return
-	api = WorldApi.new(self, size)
+	api = WorldApi.new(self, size, params)
 	var err := server.listen(port, host)
 	if err != OK:
 		push_error("listen failed on port %d: %s" % [port, error_string(err)])

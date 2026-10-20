@@ -8,22 +8,22 @@
   "revision": "7418ae8b6e3b6a6507a8a58729ae491cd1c732d9",
   "device": "mps",
   "dtype": "float32",
-  "requests": 234,
+  "requests": 968,
   "errors": 0,
-  "avg_latency_ms": 546.2
+  "avg_latency_ms": 559.2
  },
  "summary": {
   "total": 75,
-  "agreement": 40,
+  "agreement": 42,
   "kinds": {
    "accord : refus des deux côtés": 27,
-   "habitats différents": 3,
-   "OpenJev refuse, la référence choisit": 27,
-   "accord : même habitat": 13,
+   "OpenJev refuse, la référence choisit": 26,
+   "habitats différents": 2,
+   "accord : même habitat": 15,
    "OpenJev choisit, la référence refuse": 5
   },
-  "same_best": 56,
-  "latency_ms_median": 553
+  "same_best": 58,
+  "latency_ms_median": 570
  },
  "rows": [
   {
@@ -31,6 +31,7 @@
    "species": "honey_bee",
    "profile": "prudente",
    "seed": 1000,
+   "swarm": true,
    "candidates": {
     "hab-3": "hive_box",
     "hab-4": "hive_box",
@@ -40,13 +41,13 @@
    "openjev": null,
    "openjev_best": "hab-1",
    "probabilities": {
-    "hab-3": 0.1631,
-    "hab-4": 0.0284,
-    "hab-1": 0.1833,
-    "hab-2": 0.0362,
-    "none": 0.5889
+    "hab-3": 0.1216,
+    "hab-4": 0.0383,
+    "hab-1": 0.1754,
+    "hab-2": 0.0765,
+    "none": 0.5882
    },
-   "latency_ms": 895,
+   "latency_ms": 907,
    "reference": null,
    "threshold": 0.7,
    "reference_scores": {
@@ -62,22 +63,23 @@
    "species": "honey_bee",
    "profile": "audacieuse",
    "seed": 1001,
+   "swarm": true,
    "candidates": {
     "hab-3": "hive_box",
     "hab-4": "hive_box",
     "hab-1": "tree_cavity",
     "hab-2": "tree_cavity"
    },
-   "openjev": "hab-3",
+   "openjev": null,
    "openjev_best": "hab-3",
    "probabilities": {
-    "hab-3": 0.2653,
-    "hab-4": 0.0326,
-    "hab-1": 0.1891,
-    "hab-2": 0.0424,
-    "none": 0.4706
+    "hab-3": 0.1986,
+    "hab-4": 0.041,
+    "hab-1": 0.1616,
+    "hab-2": 0.0836,
+    "none": 0.5151
    },
-   "latency_ms": 783,
+   "latency_ms": 894,
    "reference": "hab-1",
    "threshold": 0.45,
    "reference_scores": {
@@ -93,6 +95,7 @@
    "species": "honey_bee",
    "profile": "sociable",
    "seed": 1002,
+   "swarm": true,
    "candidates": {
     "hab-3": "hive_box",
     "hab-4": "hive_box",
@@ -102,13 +105,13 @@
    "openjev": null,
    "openjev_best": "hab-1",
    "probabilities": {
-    "hab-3": 0.1709,
-    "hab-4": 0.0263,
-    "hab-1": 0.1809,
-    "hab-2": 0.0383,
-    "none": 0.5836
+    "hab-3": 0.1492,
+    "hab-4": 0.0373,
+    "hab-1": 0.1691,
+    "hab-2": 0.077,
+    "none": 0.5674
    },
-   "latency_ms": 778,
+   "latency_ms": 896,
    "reference": "hab-1",
    "threshold": 0.55,
    "reference_scores": {
@@ -124,6 +127,7 @@
    "species": "honey_bee",
    "profile": "curieuse",
    "seed": 1003,
+   "swarm": true,
    "candidates": {
     "hab-3": "hive_box",
     "hab-4": "hive_box",
@@ -133,13 +137,13 @@
    "openjev": null,
    "openjev_best": "hab-1",
    "probabilities": {
-    "hab-3": 0.1577,
-    "hab-4": 0.0271,
-    "hab-1": 0.1876,
-    "hab-2": 0.0412,
-    "none": 0.5865
+    "hab-3": 0.1441,
+    "hab-4": 0.0391,
+    "hab-1": 0.1633,
+    "hab-2": 0.0802,
+    "none": 0.5732
    },
-   "latency_ms": 771,
+   "latency_ms": 897,
    "reference": "hab-1",
    "threshold": 0.5,
    "reference_scores": {
@@ -155,6 +159,7 @@
    "species": "honey_bee",
    "profile": "équilibrée",
    "seed": 1004,
+   "swarm": true,
    "candidates": {
     "hab-3": "hive_box",
     "hab-4": "hive_box",
@@ -162,15 +167,15 @@
     "hab-2": "tree_cavity"
    },
    "openjev": null,
-   "openjev_best": "hab-3",
+   "openjev_best": "hab-1",
    "probabilities": {
-    "hab-3": 0.1777,
-    "hab-4": 0.0255,
-    "hab-1": 0.1712,
-    "hab-2": 0.0362,
-    "none": 0.5894
+    "hab-3": 0.1338,
+    "hab-4": 0.0324,
+    "hab-1": 0.1519,
+    "hab-2": 0.0687,
+    "none": 0.6132
    },
-   "latency_ms": 770,
+   "latency_ms": 901,
    "reference": "hab-1",
    "threshold": 0.55,
    "reference_scores": {
@@ -186,6 +191,7 @@
    "species": "bumblebee",
    "profile": "prudente",
    "seed": 1010,
+   "swarm": false,
    "candidates": {
     "hab-3": "hive_box",
     "hab-4": "hive_box",
@@ -203,7 +209,7 @@
     "hab-5": 0.0938,
     "none": 0.5771
    },
-   "latency_ms": 795,
+   "latency_ms": 807,
    "reference": null,
    "threshold": 0.7,
    "reference_scores": {
@@ -220,6 +226,7 @@
    "species": "bumblebee",
    "profile": "audacieuse",
    "seed": 1011,
+   "swarm": false,
    "candidates": {
     "hab-3": "hive_box",
     "hab-4": "hive_box",
@@ -237,7 +244,7 @@
     "hab-5": 0.1139,
     "none": 0.4637
    },
-   "latency_ms": 792,
+   "latency_ms": 795,
    "reference": "hab-5",
    "threshold": 0.45,
    "reference_scores": {
@@ -254,6 +261,7 @@
    "species": "bumblebee",
    "profile": "sociable",
    "seed": 1012,
+   "swarm": false,
    "candidates": {
     "hab-3": "hive_box",
     "hab-4": "hive_box",
@@ -271,7 +279,7 @@
     "hab-5": 0.093,
     "none": 0.5494
    },
-   "latency_ms": 971,
+   "latency_ms": 814,
    "reference": "hab-5",
    "threshold": 0.55,
    "reference_scores": {
@@ -288,6 +296,7 @@
    "species": "bumblebee",
    "profile": "curieuse",
    "seed": 1013,
+   "swarm": false,
    "candidates": {
     "hab-3": "hive_box",
     "hab-4": "hive_box",
@@ -305,7 +314,7 @@
     "hab-5": 0.0918,
     "none": 0.5681
    },
-   "latency_ms": 818,
+   "latency_ms": 825,
    "reference": "hab-5",
    "threshold": 0.5,
    "reference_scores": {
@@ -322,6 +331,7 @@
    "species": "bumblebee",
    "profile": "équilibrée",
    "seed": 1014,
+   "swarm": false,
    "candidates": {
     "hab-3": "hive_box",
     "hab-4": "hive_box",
@@ -339,7 +349,7 @@
     "hab-5": 0.0881,
     "none": 0.5619
    },
-   "latency_ms": 801,
+   "latency_ms": 805,
    "reference": "hab-5",
    "threshold": 0.55,
    "reference_scores": {
@@ -356,6 +366,7 @@
    "species": "mason_bee",
    "profile": "prudente",
    "seed": 1020,
+   "swarm": false,
    "candidates": {
     "hab-7": "hollow_stem",
     "hab-8": "dead_wood"
@@ -367,7 +378,7 @@
     "hab-8": 0.0728,
     "none": 0.5284
    },
-   "latency_ms": 542,
+   "latency_ms": 548,
    "reference": null,
    "threshold": 0.7,
    "reference_scores": {
@@ -381,6 +392,7 @@
    "species": "mason_bee",
    "profile": "audacieuse",
    "seed": 1021,
+   "swarm": false,
    "candidates": {
     "hab-7": "hollow_stem",
     "hab-8": "dead_wood"
@@ -392,7 +404,7 @@
     "hab-8": 0.093,
     "none": 0.4583
    },
-   "latency_ms": 554,
+   "latency_ms": 540,
    "reference": "hab-7",
    "threshold": 0.45,
    "reference_scores": {
@@ -406,6 +418,7 @@
    "species": "mason_bee",
    "profile": "sociable",
    "seed": 1022,
+   "swarm": false,
    "candidates": {
     "hab-7": "hollow_stem",
     "hab-8": "dead_wood"
@@ -417,7 +430,7 @@
     "hab-8": 0.1034,
     "none": 0.4859
    },
-   "latency_ms": 557,
+   "latency_ms": 545,
    "reference": "hab-7",
    "threshold": 0.55,
    "reference_scores": {
@@ -431,6 +444,7 @@
    "species": "mason_bee",
    "profile": "curieuse",
    "seed": 1023,
+   "swarm": false,
    "candidates": {
     "hab-7": "hollow_stem",
     "hab-8": "dead_wood"
@@ -442,7 +456,7 @@
     "hab-8": 0.0845,
     "none": 0.5467
    },
-   "latency_ms": 553,
+   "latency_ms": 545,
    "reference": "hab-7",
    "threshold": 0.5,
    "reference_scores": {
@@ -456,6 +470,7 @@
    "species": "mason_bee",
    "profile": "équilibrée",
    "seed": 1024,
+   "swarm": false,
    "candidates": {
     "hab-7": "hollow_stem",
     "hab-8": "dead_wood"
@@ -467,7 +482,7 @@
     "hab-8": 0.0851,
     "none": 0.5155
    },
-   "latency_ms": 553,
+   "latency_ms": 546,
    "reference": "hab-7",
    "threshold": 0.55,
    "reference_scores": {
@@ -481,6 +496,7 @@
    "species": "mining_bee",
    "profile": "prudente",
    "seed": 1030,
+   "swarm": false,
    "candidates": {
     "hab-6": "bare_soil"
    },
@@ -490,7 +506,7 @@
     "hab-6": 0.6359,
     "none": 0.3641
    },
-   "latency_ms": 394,
+   "latency_ms": 387,
    "reference": null,
    "threshold": 0.7,
    "reference_scores": {
@@ -503,6 +519,7 @@
    "species": "mining_bee",
    "profile": "audacieuse",
    "seed": 1031,
+   "swarm": false,
    "candidates": {
     "hab-6": "bare_soil"
    },
@@ -512,7 +529,7 @@
     "hab-6": 0.7123,
     "none": 0.2877
    },
-   "latency_ms": 381,
+   "latency_ms": 382,
    "reference": "hab-6",
    "threshold": 0.45,
    "reference_scores": {
@@ -525,6 +542,7 @@
    "species": "mining_bee",
    "profile": "sociable",
    "seed": 1032,
+   "swarm": false,
    "candidates": {
     "hab-6": "bare_soil"
    },
@@ -534,7 +552,7 @@
     "hab-6": 0.6419,
     "none": 0.3581
    },
-   "latency_ms": 394,
+   "latency_ms": 386,
    "reference": "hab-6",
    "threshold": 0.55,
    "reference_scores": {
@@ -547,6 +565,7 @@
    "species": "mining_bee",
    "profile": "curieuse",
    "seed": 1033,
+   "swarm": false,
    "candidates": {
     "hab-6": "bare_soil"
    },
@@ -556,7 +575,7 @@
     "hab-6": 0.6059,
     "none": 0.3941
    },
-   "latency_ms": 384,
+   "latency_ms": 388,
    "reference": "hab-6",
    "threshold": 0.5,
    "reference_scores": {
@@ -569,6 +588,7 @@
    "species": "mining_bee",
    "profile": "équilibrée",
    "seed": 1034,
+   "swarm": false,
    "candidates": {
     "hab-6": "bare_soil"
    },
@@ -578,7 +598,7 @@
     "hab-6": 0.6786,
     "none": 0.3214
    },
-   "latency_ms": 387,
+   "latency_ms": 391,
    "reference": "hab-6",
    "threshold": 0.55,
    "reference_scores": {
@@ -591,6 +611,7 @@
    "species": "carpenter_bee",
    "profile": "prudente",
    "seed": 1040,
+   "swarm": false,
    "candidates": {
     "hab-8": "dead_wood"
    },
@@ -600,7 +621,7 @@
     "hab-8": 0.5484,
     "none": 0.4516
    },
-   "latency_ms": 389,
+   "latency_ms": 391,
    "reference": null,
    "threshold": 0.7,
    "reference_scores": {
@@ -613,6 +634,7 @@
    "species": "carpenter_bee",
    "profile": "audacieuse",
    "seed": 1041,
+   "swarm": false,
    "candidates": {
     "hab-8": "dead_wood"
    },
@@ -622,7 +644,7 @@
     "hab-8": 0.5751,
     "none": 0.4249
    },
-   "latency_ms": 381,
+   "latency_ms": 383,
    "reference": "hab-8",
    "threshold": 0.45,
    "reference_scores": {
@@ -635,6 +657,7 @@
    "species": "carpenter_bee",
    "profile": "sociable",
    "seed": 1042,
+   "swarm": false,
    "candidates": {
     "hab-8": "dead_wood"
    },
@@ -644,7 +667,7 @@
     "hab-8": 0.4781,
     "none": 0.5219
    },
-   "latency_ms": 382,
+   "latency_ms": 385,
    "reference": "hab-8",
    "threshold": 0.55,
    "reference_scores": {
@@ -657,6 +680,7 @@
    "species": "carpenter_bee",
    "profile": "curieuse",
    "seed": 1043,
+   "swarm": false,
    "candidates": {
     "hab-8": "dead_wood"
    },
@@ -666,7 +690,7 @@
     "hab-8": 0.4429,
     "none": 0.5571
    },
-   "latency_ms": 382,
+   "latency_ms": 385,
    "reference": "hab-8",
    "threshold": 0.5,
    "reference_scores": {
@@ -679,6 +703,7 @@
    "species": "carpenter_bee",
    "profile": "équilibrée",
    "seed": 1044,
+   "swarm": false,
    "candidates": {
     "hab-8": "dead_wood"
    },
@@ -688,7 +713,7 @@
     "hab-8": 0.5136,
     "none": 0.4864
    },
-   "latency_ms": 382,
+   "latency_ms": 394,
    "reference": "hab-8",
    "threshold": 0.55,
    "reference_scores": {
@@ -701,18 +726,19 @@
    "species": "honey_bee",
    "profile": "prudente",
    "seed": 1100,
+   "swarm": true,
    "candidates": {
     "hab-7": "tree_cavity",
     "hab-8": "hive_box"
    },
    "openjev": null,
-   "openjev_best": "hab-7",
+   "openjev_best": "hab-8",
    "probabilities": {
-    "hab-7": 0.2526,
-    "hab-8": 0.1479,
-    "none": 0.5995
+    "hab-7": 0.2332,
+    "hab-8": 0.2663,
+    "none": 0.5005
    },
-   "latency_ms": 552,
+   "latency_ms": 630,
    "reference": "hab-8",
    "threshold": 0.7,
    "reference_scores": {
@@ -726,6 +752,7 @@
    "species": "honey_bee",
    "profile": "audacieuse",
    "seed": 1101,
+   "swarm": true,
    "candidates": {
     "hab-7": "tree_cavity",
     "hab-8": "hive_box"
@@ -733,11 +760,11 @@
    "openjev": "hab-8",
    "openjev_best": "hab-8",
    "probabilities": {
-    "hab-7": 0.2584,
-    "hab-8": 0.2775,
-    "none": 0.4641
+    "hab-7": 0.2087,
+    "hab-8": 0.4096,
+    "none": 0.3817
    },
-   "latency_ms": 510,
+   "latency_ms": 616,
    "reference": "hab-8",
    "threshold": 0.45,
    "reference_scores": {
@@ -751,56 +778,59 @@
    "species": "honey_bee",
    "profile": "sociable",
    "seed": 1102,
+   "swarm": true,
    "candidates": {
     "hab-7": "tree_cavity",
     "hab-8": "hive_box"
    },
-   "openjev": null,
+   "openjev": "hab-8",
    "openjev_best": "hab-8",
    "probabilities": {
-    "hab-7": 0.2205,
-    "hab-8": 0.2237,
-    "none": 0.5558
+    "hab-7": 0.1991,
+    "hab-8": 0.3019,
+    "none": 0.499
    },
-   "latency_ms": 516,
+   "latency_ms": 643,
    "reference": "hab-8",
    "threshold": 0.55,
    "reference_scores": {
     "hab-7": 0.477,
     "hab-8": 0.761
    },
-   "agreement": false
+   "agreement": true
   },
   {
    "set": "contrastés",
    "species": "honey_bee",
    "profile": "curieuse",
    "seed": 1103,
+   "swarm": true,
    "candidates": {
     "hab-7": "tree_cavity",
     "hab-8": "hive_box"
    },
-   "openjev": null,
+   "openjev": "hab-8",
    "openjev_best": "hab-8",
    "probabilities": {
-    "hab-7": 0.1935,
-    "hab-8": 0.2105,
-    "none": 0.596
+    "hab-7": 0.202,
+    "hab-8": 0.3049,
+    "none": 0.4931
    },
-   "latency_ms": 527,
+   "latency_ms": 633,
    "reference": "hab-8",
    "threshold": 0.5,
    "reference_scores": {
     "hab-7": 0.606,
     "hab-8": 0.712
    },
-   "agreement": false
+   "agreement": true
   },
   {
    "set": "contrastés",
    "species": "honey_bee",
    "profile": "équilibrée",
    "seed": 1104,
+   "swarm": true,
    "candidates": {
     "hab-7": "tree_cavity",
     "hab-8": "hive_box"
@@ -808,11 +838,11 @@
    "openjev": null,
    "openjev_best": "hab-8",
    "probabilities": {
-    "hab-7": 0.2065,
-    "hab-8": 0.2105,
-    "none": 0.583
+    "hab-7": 0.1541,
+    "hab-8": 0.284,
+    "none": 0.5619
    },
-   "latency_ms": 514,
+   "latency_ms": 620,
    "reference": "hab-8",
    "threshold": 0.55,
    "reference_scores": {
@@ -826,6 +856,7 @@
    "species": "bumblebee",
    "profile": "prudente",
    "seed": 1110,
+   "swarm": false,
    "candidates": {
     "hab-7": "tree_cavity",
     "hab-8": "hive_box",
@@ -841,7 +872,7 @@
     "hab-9": 0.0568,
     "none": 0.6009
    },
-   "latency_ms": 687,
+   "latency_ms": 690,
    "reference": null,
    "threshold": 0.7,
    "reference_scores": {
@@ -857,6 +888,7 @@
    "species": "bumblebee",
    "profile": "audacieuse",
    "seed": 1111,
+   "swarm": false,
    "candidates": {
     "hab-7": "tree_cavity",
     "hab-8": "hive_box",
@@ -872,7 +904,7 @@
     "hab-9": 0.0629,
     "none": 0.465
    },
-   "latency_ms": 684,
+   "latency_ms": 699,
    "reference": "hab-10",
    "threshold": 0.45,
    "reference_scores": {
@@ -888,6 +920,7 @@
    "species": "bumblebee",
    "profile": "sociable",
    "seed": 1112,
+   "swarm": false,
    "candidates": {
     "hab-7": "tree_cavity",
     "hab-8": "hive_box",
@@ -903,7 +936,7 @@
     "hab-9": 0.0585,
     "none": 0.5601
    },
-   "latency_ms": 699,
+   "latency_ms": 701,
    "reference": "hab-10",
    "threshold": 0.55,
    "reference_scores": {
@@ -919,6 +952,7 @@
    "species": "bumblebee",
    "profile": "curieuse",
    "seed": 1113,
+   "swarm": false,
    "candidates": {
     "hab-7": "tree_cavity",
     "hab-8": "hive_box",
@@ -934,7 +968,7 @@
     "hab-9": 0.0542,
     "none": 0.5822
    },
-   "latency_ms": 698,
+   "latency_ms": 699,
    "reference": "hab-10",
    "threshold": 0.5,
    "reference_scores": {
@@ -950,6 +984,7 @@
    "species": "bumblebee",
    "profile": "équilibrée",
    "seed": 1114,
+   "swarm": false,
    "candidates": {
     "hab-7": "tree_cavity",
     "hab-8": "hive_box",
@@ -965,7 +1000,7 @@
     "hab-9": 0.0541,
     "none": 0.5838
    },
-   "latency_ms": 690,
+   "latency_ms": 692,
    "reference": "hab-10",
    "threshold": 0.55,
    "reference_scores": {
@@ -981,6 +1016,7 @@
    "species": "mason_bee",
    "profile": "prudente",
    "seed": 1120,
+   "swarm": false,
    "candidates": {
     "hab-3": "hollow_stem",
     "hab-4": "hollow_stem",
@@ -996,7 +1032,7 @@
     "hab-6": 0.0454,
     "none": 0.536
    },
-   "latency_ms": 793,
+   "latency_ms": 796,
    "reference": "hab-3",
    "threshold": 0.7,
    "reference_scores": {
@@ -1012,6 +1048,7 @@
    "species": "mason_bee",
    "profile": "audacieuse",
    "seed": 1121,
+   "swarm": false,
    "candidates": {
     "hab-3": "hollow_stem",
     "hab-4": "hollow_stem",
@@ -1027,7 +1064,7 @@
     "hab-6": 0.0478,
     "none": 0.5078
    },
-   "latency_ms": 791,
+   "latency_ms": 792,
    "reference": "hab-3",
    "threshold": 0.45,
    "reference_scores": {
@@ -1043,6 +1080,7 @@
    "species": "mason_bee",
    "profile": "sociable",
    "seed": 1122,
+   "swarm": false,
    "candidates": {
     "hab-3": "hollow_stem",
     "hab-4": "hollow_stem",
@@ -1058,7 +1096,7 @@
     "hab-6": 0.0469,
     "none": 0.5394
    },
-   "latency_ms": 808,
+   "latency_ms": 815,
    "reference": "hab-3",
    "threshold": 0.55,
    "reference_scores": {
@@ -1074,6 +1112,7 @@
    "species": "mason_bee",
    "profile": "curieuse",
    "seed": 1123,
+   "swarm": false,
    "candidates": {
     "hab-3": "hollow_stem",
     "hab-4": "hollow_stem",
@@ -1089,7 +1128,7 @@
     "hab-6": 0.0426,
     "none": 0.5631
    },
-   "latency_ms": 810,
+   "latency_ms": 819,
    "reference": "hab-3",
    "threshold": 0.5,
    "reference_scores": {
@@ -1105,6 +1144,7 @@
    "species": "mason_bee",
    "profile": "équilibrée",
    "seed": 1124,
+   "swarm": false,
    "candidates": {
     "hab-3": "hollow_stem",
     "hab-4": "hollow_stem",
@@ -1120,7 +1160,7 @@
     "hab-6": 0.0456,
     "none": 0.5303
    },
-   "latency_ms": 813,
+   "latency_ms": 805,
    "reference": "hab-3",
    "threshold": 0.55,
    "reference_scores": {
@@ -1136,6 +1176,7 @@
    "species": "mining_bee",
    "profile": "prudente",
    "seed": 1130,
+   "swarm": false,
    "candidates": {
     "hab-1": "bare_soil",
     "hab-2": "bare_soil"
@@ -1147,7 +1188,7 @@
     "hab-2": 0.1318,
     "none": 0.4902
    },
-   "latency_ms": 500,
+   "latency_ms": 502,
    "reference": null,
    "threshold": 0.7,
    "reference_scores": {
@@ -1161,6 +1202,7 @@
    "species": "mining_bee",
    "profile": "audacieuse",
    "seed": 1131,
+   "swarm": false,
    "candidates": {
     "hab-1": "bare_soil",
     "hab-2": "bare_soil"
@@ -1172,7 +1214,7 @@
     "hab-2": 0.124,
     "none": 0.3961
    },
-   "latency_ms": 504,
+   "latency_ms": 499,
    "reference": "hab-1",
    "threshold": 0.45,
    "reference_scores": {
@@ -1186,6 +1228,7 @@
    "species": "mining_bee",
    "profile": "sociable",
    "seed": 1132,
+   "swarm": false,
    "candidates": {
     "hab-1": "bare_soil",
     "hab-2": "bare_soil"
@@ -1197,7 +1240,7 @@
     "hab-2": 0.1291,
     "none": 0.4304
    },
-   "latency_ms": 500,
+   "latency_ms": 510,
    "reference": "hab-1",
    "threshold": 0.55,
    "reference_scores": {
@@ -1211,6 +1254,7 @@
    "species": "mining_bee",
    "profile": "curieuse",
    "seed": 1133,
+   "swarm": false,
    "candidates": {
     "hab-1": "bare_soil",
     "hab-2": "bare_soil"
@@ -1222,7 +1266,7 @@
     "hab-2": 0.1176,
     "none": 0.5041
    },
-   "latency_ms": 513,
+   "latency_ms": 503,
    "reference": "hab-1",
    "threshold": 0.5,
    "reference_scores": {
@@ -1236,6 +1280,7 @@
    "species": "mining_bee",
    "profile": "équilibrée",
    "seed": 1134,
+   "swarm": false,
    "candidates": {
     "hab-1": "bare_soil",
     "hab-2": "bare_soil"
@@ -1247,7 +1292,7 @@
     "hab-2": 0.1331,
     "none": 0.447
    },
-   "latency_ms": 502,
+   "latency_ms": 503,
    "reference": "hab-1",
    "threshold": 0.55,
    "reference_scores": {
@@ -1261,6 +1306,7 @@
    "species": "carpenter_bee",
    "profile": "prudente",
    "seed": 1140,
+   "swarm": false,
    "candidates": {
     "hab-5": "dead_wood",
     "hab-6": "dead_wood"
@@ -1272,7 +1318,7 @@
     "hab-6": 0.1063,
     "none": 0.5631
    },
-   "latency_ms": 508,
+   "latency_ms": 525,
    "reference": null,
    "threshold": 0.7,
    "reference_scores": {
@@ -1286,6 +1332,7 @@
    "species": "carpenter_bee",
    "profile": "audacieuse",
    "seed": 1141,
+   "swarm": false,
    "candidates": {
     "hab-5": "dead_wood",
     "hab-6": "dead_wood"
@@ -1297,7 +1344,7 @@
     "hab-6": 0.0923,
     "none": 0.4883
    },
-   "latency_ms": 515,
+   "latency_ms": 505,
    "reference": "hab-5",
    "threshold": 0.45,
    "reference_scores": {
@@ -1311,6 +1358,7 @@
    "species": "carpenter_bee",
    "profile": "sociable",
    "seed": 1142,
+   "swarm": false,
    "candidates": {
     "hab-5": "dead_wood",
     "hab-6": "dead_wood"
@@ -1322,7 +1370,7 @@
     "hab-6": 0.1151,
     "none": 0.5393
    },
-   "latency_ms": 508,
+   "latency_ms": 512,
    "reference": "hab-5",
    "threshold": 0.55,
    "reference_scores": {
@@ -1336,6 +1384,7 @@
    "species": "carpenter_bee",
    "profile": "curieuse",
    "seed": 1143,
+   "swarm": false,
    "candidates": {
     "hab-5": "dead_wood",
     "hab-6": "dead_wood"
@@ -1347,7 +1396,7 @@
     "hab-6": 0.111,
     "none": 0.5687
    },
-   "latency_ms": 507,
+   "latency_ms": 510,
    "reference": "hab-5",
    "threshold": 0.5,
    "reference_scores": {
@@ -1361,6 +1410,7 @@
    "species": "carpenter_bee",
    "profile": "équilibrée",
    "seed": 1144,
+   "swarm": false,
    "candidates": {
     "hab-5": "dead_wood",
     "hab-6": "dead_wood"
@@ -1372,7 +1422,7 @@
     "hab-6": 0.1025,
     "none": 0.5529
    },
-   "latency_ms": 515,
+   "latency_ms": 510,
    "reference": "hab-5",
    "threshold": 0.55,
    "reference_scores": {
@@ -1386,6 +1436,7 @@
    "species": "honey_bee",
    "profile": "prudente",
    "seed": 1200,
+   "swarm": true,
    "candidates": {
     "hab-1": "tree_cavity",
     "hab-2": "hive_box"
@@ -1393,11 +1444,11 @@
    "openjev": null,
    "openjev_best": "hab-1",
    "probabilities": {
-    "hab-1": 0.1403,
-    "hab-2": 0.0788,
-    "none": 0.7809
+    "hab-1": 0.1901,
+    "hab-2": 0.1501,
+    "none": 0.6598
    },
-   "latency_ms": 566,
+   "latency_ms": 650,
    "reference": null,
    "threshold": 0.7,
    "reference_scores": {
@@ -1411,6 +1462,7 @@
    "species": "honey_bee",
    "profile": "audacieuse",
    "seed": 1201,
+   "swarm": true,
    "candidates": {
     "hab-1": "tree_cavity",
     "hab-2": "hive_box"
@@ -1418,11 +1470,11 @@
    "openjev": null,
    "openjev_best": "hab-1",
    "probabilities": {
-    "hab-1": 0.1973,
-    "hab-2": 0.1158,
-    "none": 0.6869
+    "hab-1": 0.2211,
+    "hab-2": 0.1997,
+    "none": 0.5792
    },
-   "latency_ms": 559,
+   "latency_ms": 646,
    "reference": null,
    "threshold": 0.45,
    "reference_scores": {
@@ -1436,6 +1488,7 @@
    "species": "honey_bee",
    "profile": "sociable",
    "seed": 1202,
+   "swarm": true,
    "candidates": {
     "hab-1": "tree_cavity",
     "hab-2": "hive_box"
@@ -1443,11 +1496,11 @@
    "openjev": null,
    "openjev_best": "hab-1",
    "probabilities": {
-    "hab-1": 0.1511,
-    "hab-2": 0.0913,
-    "none": 0.7576
+    "hab-1": 0.1872,
+    "hab-2": 0.1568,
+    "none": 0.656
    },
-   "latency_ms": 561,
+   "latency_ms": 651,
    "reference": null,
    "threshold": 0.55,
    "reference_scores": {
@@ -1461,6 +1514,7 @@
    "species": "honey_bee",
    "profile": "curieuse",
    "seed": 1203,
+   "swarm": true,
    "candidates": {
     "hab-1": "tree_cavity",
     "hab-2": "hive_box"
@@ -1468,11 +1522,11 @@
    "openjev": null,
    "openjev_best": "hab-1",
    "probabilities": {
-    "hab-1": 0.1415,
-    "hab-2": 0.1003,
-    "none": 0.7582
+    "hab-1": 0.1851,
+    "hab-2": 0.1469,
+    "none": 0.668
    },
-   "latency_ms": 555,
+   "latency_ms": 652,
    "reference": null,
    "threshold": 0.5,
    "reference_scores": {
@@ -1486,6 +1540,7 @@
    "species": "honey_bee",
    "profile": "équilibrée",
    "seed": 1204,
+   "swarm": true,
    "candidates": {
     "hab-1": "tree_cavity",
     "hab-2": "hive_box"
@@ -1493,11 +1548,11 @@
    "openjev": null,
    "openjev_best": "hab-1",
    "probabilities": {
-    "hab-1": 0.1531,
-    "hab-2": 0.0974,
-    "none": 0.7495
+    "hab-1": 0.1651,
+    "hab-2": 0.1461,
+    "none": 0.6888
    },
-   "latency_ms": 556,
+   "latency_ms": 653,
    "reference": null,
    "threshold": 0.55,
    "reference_scores": {
@@ -1511,6 +1566,7 @@
    "species": "bumblebee",
    "profile": "prudente",
    "seed": 1210,
+   "swarm": false,
    "candidates": {
     "hab-1": "tree_cavity",
     "hab-2": "hive_box",
@@ -1524,7 +1580,7 @@
     "hab-3": 0.1111,
     "none": 0.7193
    },
-   "latency_ms": 599,
+   "latency_ms": 605,
    "reference": null,
    "threshold": 0.7,
    "reference_scores": {
@@ -1539,6 +1595,7 @@
    "species": "bumblebee",
    "profile": "audacieuse",
    "seed": 1211,
+   "swarm": false,
    "candidates": {
     "hab-1": "tree_cavity",
     "hab-2": "hive_box",
@@ -1552,7 +1609,7 @@
     "hab-3": 0.1599,
     "none": 0.5921
    },
-   "latency_ms": 595,
+   "latency_ms": 603,
    "reference": "hab-2",
    "threshold": 0.45,
    "reference_scores": {
@@ -1567,6 +1624,7 @@
    "species": "bumblebee",
    "profile": "sociable",
    "seed": 1212,
+   "swarm": false,
    "candidates": {
     "hab-1": "tree_cavity",
     "hab-2": "hive_box",
@@ -1580,7 +1638,7 @@
     "hab-3": 0.1268,
     "none": 0.6503
    },
-   "latency_ms": 602,
+   "latency_ms": 608,
    "reference": null,
    "threshold": 0.55,
    "reference_scores": {
@@ -1595,6 +1653,7 @@
    "species": "bumblebee",
    "profile": "curieuse",
    "seed": 1213,
+   "swarm": false,
    "candidates": {
     "hab-1": "tree_cavity",
     "hab-2": "hive_box",
@@ -1608,7 +1667,7 @@
     "hab-3": 0.1276,
     "none": 0.672
    },
-   "latency_ms": 603,
+   "latency_ms": 612,
    "reference": null,
    "threshold": 0.5,
    "reference_scores": {
@@ -1623,6 +1682,7 @@
    "species": "bumblebee",
    "profile": "équilibrée",
    "seed": 1214,
+   "swarm": false,
    "candidates": {
     "hab-1": "tree_cavity",
     "hab-2": "hive_box",
@@ -1636,7 +1696,7 @@
     "hab-3": 0.1322,
     "none": 0.6516
    },
-   "latency_ms": 605,
+   "latency_ms": 610,
    "reference": null,
    "threshold": 0.55,
    "reference_scores": {
@@ -1651,6 +1711,7 @@
    "species": "mason_bee",
    "profile": "prudente",
    "seed": 1220,
+   "swarm": false,
    "candidates": {
     "hab-5": "hollow_stem",
     "hab-6": "dead_wood"
@@ -1662,7 +1723,7 @@
     "hab-6": 0.0584,
     "none": 0.791
    },
-   "latency_ms": 574,
+   "latency_ms": 568,
    "reference": null,
    "threshold": 0.7,
    "reference_scores": {
@@ -1676,6 +1737,7 @@
    "species": "mason_bee",
    "profile": "audacieuse",
    "seed": 1221,
+   "swarm": false,
    "candidates": {
     "hab-5": "hollow_stem",
     "hab-6": "dead_wood"
@@ -1687,7 +1749,7 @@
     "hab-6": 0.0836,
     "none": 0.7359
    },
-   "latency_ms": 560,
+   "latency_ms": 566,
    "reference": null,
    "threshold": 0.45,
    "reference_scores": {
@@ -1701,6 +1763,7 @@
    "species": "mason_bee",
    "profile": "sociable",
    "seed": 1222,
+   "swarm": false,
    "candidates": {
     "hab-5": "hollow_stem",
     "hab-6": "dead_wood"
@@ -1712,7 +1775,7 @@
     "hab-6": 0.0785,
     "none": 0.7537
    },
-   "latency_ms": 566,
+   "latency_ms": 570,
    "reference": null,
    "threshold": 0.55,
    "reference_scores": {
@@ -1726,6 +1789,7 @@
    "species": "mason_bee",
    "profile": "curieuse",
    "seed": 1223,
+   "swarm": false,
    "candidates": {
     "hab-5": "hollow_stem",
     "hab-6": "dead_wood"
@@ -1737,7 +1801,7 @@
     "hab-6": 0.0681,
     "none": 0.7722
    },
-   "latency_ms": 567,
+   "latency_ms": 571,
    "reference": null,
    "threshold": 0.5,
    "reference_scores": {
@@ -1751,6 +1815,7 @@
    "species": "mason_bee",
    "profile": "équilibrée",
    "seed": 1224,
+   "swarm": false,
    "candidates": {
     "hab-5": "hollow_stem",
     "hab-6": "dead_wood"
@@ -1762,7 +1827,7 @@
     "hab-6": 0.0747,
     "none": 0.7592
    },
-   "latency_ms": 566,
+   "latency_ms": 570,
    "reference": null,
    "threshold": 0.55,
    "reference_scores": {
@@ -1776,6 +1841,7 @@
    "species": "mining_bee",
    "profile": "prudente",
    "seed": 1230,
+   "swarm": false,
    "candidates": {
     "hab-4": "bare_soil"
    },
@@ -1785,7 +1851,7 @@
     "hab-4": 0.4027,
     "none": 0.5973
    },
-   "latency_ms": 392,
+   "latency_ms": 397,
    "reference": null,
    "threshold": 0.7,
    "reference_scores": {
@@ -1798,6 +1864,7 @@
    "species": "mining_bee",
    "profile": "audacieuse",
    "seed": 1231,
+   "swarm": false,
    "candidates": {
     "hab-4": "bare_soil"
    },
@@ -1807,7 +1874,7 @@
     "hab-4": 0.561,
     "none": 0.439
    },
-   "latency_ms": 389,
+   "latency_ms": 399,
    "reference": null,
    "threshold": 0.45,
    "reference_scores": {
@@ -1820,6 +1887,7 @@
    "species": "mining_bee",
    "profile": "sociable",
    "seed": 1232,
+   "swarm": false,
    "candidates": {
     "hab-4": "bare_soil"
    },
@@ -1829,7 +1897,7 @@
     "hab-4": 0.4479,
     "none": 0.5521
    },
-   "latency_ms": 393,
+   "latency_ms": 401,
    "reference": null,
    "threshold": 0.55,
    "reference_scores": {
@@ -1842,6 +1910,7 @@
    "species": "mining_bee",
    "profile": "curieuse",
    "seed": 1233,
+   "swarm": false,
    "candidates": {
     "hab-4": "bare_soil"
    },
@@ -1851,7 +1920,7 @@
     "hab-4": 0.3895,
     "none": 0.6105
    },
-   "latency_ms": 392,
+   "latency_ms": 396,
    "reference": null,
    "threshold": 0.5,
    "reference_scores": {
@@ -1864,6 +1933,7 @@
    "species": "mining_bee",
    "profile": "équilibrée",
    "seed": 1234,
+   "swarm": false,
    "candidates": {
     "hab-4": "bare_soil"
    },
@@ -1886,6 +1956,7 @@
    "species": "carpenter_bee",
    "profile": "prudente",
    "seed": 1240,
+   "swarm": false,
    "candidates": {
     "hab-6": "dead_wood"
    },
@@ -1895,7 +1966,7 @@
     "hab-6": 0.2138,
     "none": 0.7862
    },
-   "latency_ms": 392,
+   "latency_ms": 408,
    "reference": null,
    "threshold": 0.7,
    "reference_scores": {
@@ -1908,6 +1979,7 @@
    "species": "carpenter_bee",
    "profile": "audacieuse",
    "seed": 1241,
+   "swarm": false,
    "candidates": {
     "hab-6": "dead_wood"
    },
@@ -1917,7 +1989,7 @@
     "hab-6": 0.2817,
     "none": 0.7183
    },
-   "latency_ms": 394,
+   "latency_ms": 402,
    "reference": null,
    "threshold": 0.45,
    "reference_scores": {
@@ -1930,6 +2002,7 @@
    "species": "carpenter_bee",
    "profile": "sociable",
    "seed": 1242,
+   "swarm": false,
    "candidates": {
     "hab-6": "dead_wood"
    },
@@ -1939,7 +2012,7 @@
     "hab-6": 0.2239,
     "none": 0.7761
    },
-   "latency_ms": 394,
+   "latency_ms": 395,
    "reference": null,
    "threshold": 0.55,
    "reference_scores": {
@@ -1952,6 +2025,7 @@
    "species": "carpenter_bee",
    "profile": "curieuse",
    "seed": 1243,
+   "swarm": false,
    "candidates": {
     "hab-6": "dead_wood"
    },
@@ -1961,7 +2035,7 @@
     "hab-6": 0.1929,
     "none": 0.8071
    },
-   "latency_ms": 392,
+   "latency_ms": 393,
    "reference": null,
    "threshold": 0.5,
    "reference_scores": {
@@ -1974,6 +2048,7 @@
    "species": "carpenter_bee",
    "profile": "équilibrée",
    "seed": 1244,
+   "swarm": false,
    "candidates": {
     "hab-6": "dead_wood"
    },
@@ -1983,7 +2058,7 @@
     "hab-6": 0.246,
     "none": 0.754
    },
-   "latency_ms": 395,
+   "latency_ms": 399,
    "reference": null,
    "threshold": 0.55,
    "reference_scores": {
