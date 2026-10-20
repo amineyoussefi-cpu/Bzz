@@ -68,5 +68,5 @@ python3 -m unittest discover tests -v            # tests d'intégration (Godot r
 ## Prochaines étapes possibles
 
 - Commandes de création/suppression d'objets dans le monde (`spawn`, `remove`) et `get_state` détaillé.
-- Pas de simulation piloté par Python (pause / `step N`) si un déterminisme est requis.
+- Pas-à-pas de la simulation piloté par Python (pause / `step N`) si un déterminisme est requis.
 - Source de données entrantes réelle (HTTP, file, fichier) à la place de stdin.
