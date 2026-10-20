@@ -52,6 +52,8 @@ Fichiers :
 - **Tests** — `godot/tests/test_entities.gd` ; `backend/tests/` : `test_engine`, `test_protocol`, `test_server`,
   `test_decisions` (avec `fakes.FakeProvider`), `test_entities`.
 - **Docs** :
+  - [docs/guide_installation.md](docs/guide_installation.md) (+ PDF) : préparer un Mac ou un PC Windows NVIDIA et
+    lancer le projet, pas à pas ;
   - [docs/api.md](docs/api.md) : commandes, routes, événements, KPI ;
   - [docs/decision_service.md](docs/decision_service.md) : installation macOS et Windows, paramètres, mesures,
     format des requêtes, conditions d'utilisation ;
