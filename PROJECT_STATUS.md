@@ -4,7 +4,8 @@ _Dernière mise à jour : 2026-10-20_
 
 Référence de reprise entre sessions. Ne décrit que ce qui existe réellement dans le dépôt.
 Spécifications d'origine : [prompts/prompt1.txt](prompts/prompt1.txt),
-[prompts/github_versioning.txt](prompts/github_versioning.txt), [prompts/portability.txt](prompts/portability.txt).
+[prompts/github_versioning.txt](prompts/github_versioning.txt), [prompts/portability.txt](prompts/portability.txt),
+[prompts/prompt2.txt](prompts/prompt2.txt).
 
 ## Architecture actuelle
 
@@ -26,6 +27,12 @@ Fichiers :
 - **godot/** — projet Godot 4.7. Scène unique `main.tscn` (Node2D vide) avec `main.gd`, qui ouvre un
   `TCPServer` (`-- --host=H --port=N`, défaut `127.0.0.1:9876`) et traite les commandes dans `_process`.
   `run/max_fps=60` pour ne pas saturer un CPU en headless.
+- **godot/entities/** — modèle abeilles/habitats, **conçu mais non instancié dans le monde** (le monde reste vide,
+  `node_count` = 0) : `Habitat` (Node2D, 6 types, caractéristiques, occupants), `Bee` (Node2D : évaluation,
+  choix, installation), `BeePersonality` (Resource, 4 traits), `Preference` (Resource, un critère pondéré),
+  `BeeSpecies` (catalogue de 5 espèces : types acceptés et préférences par défaut).
+  Référence illustrée et sourcée : [docs/reference_abeilles.md](docs/reference_abeilles.md).
+- **godot/tests/test_entities.gd** — tests unitaires du modèle (lancés par `backend/tests/test_entities.py`).
 - **backend/bzz/engine.py** — `GodotEngine` : démarrage/connexion, `send`, `stop`, `restart`, utilisable en `with`.
   Toute la configuration vient des variables d'environnement (liste en tête du fichier et dans `.env.example`).
 - **backend/bzz/commands.py** — liste blanche des commandes et de leurs arguments, validée avant envoi.
@@ -42,6 +49,12 @@ Fichiers :
 - Réponse : `{"id": 1, "ok": true, "result": ...}` ou `{"id": 1, "ok": false, "error": "..."}`
 
 ## Fonctionnalités implémentées
+
+- Modèle d'entités (non relié au protocole ni au monde) : une abeille évalue un habitat
+  (`Bee.evaluate_habitat` / `score_breakdown`), choisit le meilleur au-dessus de son seuil (`choose_habitat`),
+  s'y installe ou le quitte (`settle`, `leave_home`). Formules dans docs/reference_abeilles.md §3–5.
+
+Commandes du protocole :
 
 | Commande    | Effet                                                           |
 |-------------|-----------------------------------------------------------------|
@@ -81,6 +94,13 @@ python3 -m unittest discover tests -v
 - **Une seule image Dockerfile multi-cible** plutôt que deux Dockerfiles : le binaire Godot n'est téléchargé qu'une fois.
 - En mode distant, la fin du backend ne fait que se déconnecter (Godot reste vivant) ; seul `restart`/`quit` l'arrête.
 - La simulation tourne en continu (pas de pas-à-pas piloté) : Godot garde son cycle natif.
+- **Entités en GDScript dans Godot**, pas en Python : le moteur reste propriétaire de l'état du monde ;
+  Python les pilotera plus tard via de nouvelles commandes.
+- `Bee`/`Habitat` héritent de `Node2D` (position dans le monde dès qu'ils y seront ajoutés) ;
+  personnalité et préférences sont des `Resource` (sauvegardables, éditables, copiées par individu).
+- Évaluation = moyenne pondérée de critères « triangulaires » (idéal ± tolérance), puis modulée par la personnalité.
+  Valeurs idéales issues des sources quand elles existent ; tolérances et poids = réglages de jeu.
+- Choix d'habitat **individuel** ; la décision collective des essaims d'abeilles mellifères n'est pas modélisée.
 
 ## Problèmes connus / limites
 
@@ -89,6 +109,9 @@ python3 -m unittest discover tests -v
 - `send()` est synchrone et un seul client à la fois côté Python (Godot accepte plusieurs connexions).
 - Le port Godot n'est pas publié sur l'hôte dans `compose.yaml` (accès réservé au réseau Compose).
 - Les tests supposent le mode local (ils vérifient le PID du sous-processus) : lancer avec `GODOT_HOST=` vide.
+- Les tests GDScript nécessitent un `godot --import` préalable (fait automatiquement par le test Python),
+  sinon les `class_name` ne sont pas reconnus en mode `--script`.
+- `floral_abundance` et `predator_risk` sont des valeurs fixées à la main ; rien ne les calcule encore depuis le monde.
 - `.godot/` (cache d'import) n'est pas versionné ; il est régénéré au premier lancement (pré-généré dans l'image).
 
 ## Tâches en cours
@@ -97,6 +120,8 @@ python3 -m unittest discover tests -v
 
 ## Prochaines étapes possibles
 
-- Commandes de création/suppression d'objets dans le monde (`spawn`, `remove`) et `get_state` détaillé.
+- Instancier abeilles et habitats dans le monde : commandes `spawn_habitat`, `spawn_bee`, `remove`
+  et `get_state` détaillé (liste des entités), puis comportements (recherche, déplacement, installation).
+- Décision collective pour les essaims d'abeilles mellifères (éclaireuses + quorum).
 - Pas-à-pas de la simulation piloté par Python (pause / `step N`) si un déterminisme est requis.
 - Source de données entrantes réelle (HTTP, file de messages, fichier) à la place de stdin, en nouveau service Compose.
