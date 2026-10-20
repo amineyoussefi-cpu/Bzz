@@ -1,0 +1,2 @@
+# Only for building the PDF documents (docs/build_pdf.py); not needed to run the simulation.
+markdown==3.11.2

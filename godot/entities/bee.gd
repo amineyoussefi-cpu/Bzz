@@ -11,6 +11,8 @@ extends Node2D
 
 var home: Habitat = null
 var rng := RandomNumberGenerator.new()
+var role: BeeRole.Id = BeeRole.Id.FOLLOWER
+var behavior: BeeBehavior  # actions of the current role; set by set_role()
 
 
 ## Builds a bee with its species defaults; pass a personality to override the random one.
@@ -22,7 +24,14 @@ static func create(p_species: BeeSpecies.Id, p_personality: BeePersonality = nul
 	if rng_seed != 0:
 		bee.rng.seed = rng_seed
 	bee.personality = p_personality if p_personality else BeePersonality.random(bee.rng)
+	bee.set_role(BeeRole.Id.FOLLOWER)
 	return bee
+
+
+## Gives the bee a role and the matching behavior component. Runs no action.
+func set_role(p_role: BeeRole.Id) -> void:
+	role = p_role
+	behavior = BeeRole.create_behavior(p_role, self)
 
 
 ## Per-criterion scores plus the final score in "total" (0..1). 0 if the habitat is unusable.

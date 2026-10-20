@@ -189,6 +189,7 @@ BeeSpecies (catalogue)        Bee (Node2D)                       Habitat (Node2D
                                 score_breakdown(h) / evaluate_habitat(h)
                                 choose_habitat([h…]) -> Habitat | null
                                 settle(h), leave_home()
+                                role: BeeRole.Id, behavior: BeeBehavior, set_role(id)
 ```
 
 Évaluation d'un habitat par une abeille (`Bee.score_breakdown`) :
@@ -204,6 +205,13 @@ Chaque abeille a son propre générateur aléatoire (graine optionnelle via `Bee
 ses propres copies de préférences et sa propre personnalité : les instances sont indépendantes.
 
 Tests : [`godot/tests/test_entities.gd`](../godot/tests/test_entities.gd), lancé par `backend/tests/test_entities.py`.
+
+### Rôles
+
+Chaque abeille porte un **rôle** (`SCOUT` éclaireuse, `FOLLOWER` suiveuse, `QUEEN` reine), indépendant de son
+espèce et de sa personnalité, et un composant de comportement qui déclare les actions de ce rôle
+(classes dans [`godot/entities/roles/`](../godot/entities/roles/)). Ces actions ne sont encore que des interfaces :
+voir le document dédié [Rôles et comportements](roles_comportements.md).
 
 ---
 

@@ -80,5 +80,62 @@ func _init() -> void:
 		for pref in b.preferences:
 			check(pref.criterion in Habitat.new().features(), "criterion %s exists" % pref.criterion)
 
+	test_roles()
 	print("entity tests: %s" % ("OK" if failures == 0 else "%d failure(s)" % failures))
 	quit(1 if failures else 0)
+
+
+func test_roles() -> void:
+	var expected := {
+		BeeRole.Id.SCOUT: ["explore_habitats", "evaluate_habitat", "remember_habitat", "return_to_colony", "perform_dance"],
+		BeeRole.Id.FOLLOWER: ["receive_dance", "evaluate_signal", "decide_to_follow", "visit_habitat", "evaluate_habitat"],
+		BeeRole.Id.QUEEN: ["receive_colony_decision", "follow_colony_decision", "move_to_habitat", "lay_eggs",
+			"manage_reproduction_cycle"],
+	}
+	check(BeeRole.Id.size() == 3, "exactly three roles")
+	# roles are species-independent: every species gets every role with the same interface
+	for species in BeeSpecies.Id.values():
+		var bee := Bee.create(species, calm())
+		check(bee.role == BeeRole.Id.FOLLOWER and bee.behavior is FollowerBehavior, "default role is follower")
+		for id in expected:
+			bee.set_role(id)
+			check(bee.role == id and bee.behavior.role() == id and bee.behavior.bee == bee, "set_role %s" % BeeRole.role_name(id))
+			check(Array(bee.behavior.actions()) == expected[id], "%s action list" % BeeRole.role_name(id))
+			for action in expected[id]:
+				check(bee.behavior.has_method(action), "%s has %s()" % [BeeRole.role_name(id), action])
+
+	# the queen never selects a habitat on her own
+	var queen := Bee.create(BeeSpecies.Id.HONEY_BEE, calm())
+	queen.set_role(BeeRole.Id.QUEEN)
+	for forbidden in ["evaluate_habitat", "explore_habitats", "choose_habitat"]:
+		check(not queen.behavior.has_method(forbidden), "queen behavior has no %s()" % forbidden)
+
+	# evaluation is delegated to Bee, not duplicated
+	var site := cavity(40, 40, 5)
+	site.position = Vector2(30, 40)
+	var scout := Bee.create(BeeSpecies.Id.HONEY_BEE, calm())
+	scout.set_role(BeeRole.Id.SCOUT)
+	check(scout.behavior.evaluate_habitat(site) == scout.evaluate_habitat(site), "scout evaluation reuses Bee")
+	scout.behavior.remember_habitat(site)
+	check(site in scout.behavior.known_habitats, "scout remembers habitat")
+	var dance: DanceSignal = scout.behavior.perform_dance(site)
+	check(dance.scout == scout and dance.habitat == site and dance.location == site.position
+		and dance.quality == scout.evaluate_habitat(site), "dance signal carries habitat and quality")
+
+	# interface-only actions change nothing in the world
+	check(scout.behavior.explore_habitats().is_empty(), "explore_habitats finds nothing yet")
+	var follower := Bee.create(BeeSpecies.Id.HONEY_BEE, calm())
+	follower.behavior.receive_dance(dance)
+	check(follower.behavior.received_signals == [dance], "follower stores received dance")
+	check(not follower.behavior.decide_to_follow(dance), "decide_to_follow not implemented yet")
+	follower.behavior.visit_habitat(site)
+	check(follower.position == Vector2.ZERO and follower.home == null, "visit_habitat does not move")
+
+	var decision := ColonyDecision.make(site, 20)
+	queen.behavior.follow_colony_decision(decision)
+	check(queen.behavior.decision == decision and queen.behavior.target_habitat == site, "queen adopts colony decision")
+	queen.behavior.move_to_habitat(site)
+	queen.behavior.lay_eggs()
+	queen.behavior.manage_reproduction_cycle()
+	check(queen.home == null and queen.position == Vector2.ZERO and site.occupants.is_empty(),
+		"queen actions do not move her or create bees")

@@ -1,0 +1,96 @@
+# Développement des classes de rôles et de comportements des abeilles
+
+## Objectif
+
+Faire évoluer l'architecture existante en définissant les classes nécessaires pour représenter les rôles des abeilles et les actions associées à chacun de ces rôles.
+
+**Pour cette étape, je souhaite uniquement créer les classes, leurs attributs, leurs méthodes et leurs interfaces. Aucune abeille ni aucun habitat ne doit être instancié, et aucun comportement ne doit être exécuté dans la simulation.**
+
+## 1. Système de rôles
+
+Créer une structure dédiée aux rôles, par exemple `BeeRole`, indépendante de `BeeSpecies` et de `BeePersonality`.
+
+Le système devra prendre en charge les trois rôles suivants :
+
+- `SCOUT` : éclaireuse.
+- `FOLLOWER` : suiveuse.
+- `QUEEN` : reine.
+
+Les rôles devront être définis indépendamment des espèces. Toutes les espèces utiliseront la même structure de rôles, sans restrictions propres à une espèce dans l'architecture logicielle.
+
+## 2. Actions associées aux rôles
+
+Prévoir les actions suivantes sous forme de méthodes et d'interfaces, sans les exécuter.
+
+### SCOUT — Éclaireuse
+
+La classe ou le composant associé devra prévoir les actions suivantes :
+
+- `explore_habitats()` : rechercher les habitats disponibles.
+- `evaluate_habitat(habitat)` : évaluer un habitat à partir des préférences et de la personnalité de l'abeille.
+- `remember_habitat(habitat)` : conserver les informations relatives à un habitat découvert.
+- `return_to_colony()` : représenter le retour vers la colonie.
+- `perform_dance(habitat)` : préparer un signal de danse contenant les informations relatives à l'habitat et à sa qualité estimée.
+
+### FOLLOWER — Suiveuse
+
+La classe ou le composant associé devra prévoir les actions suivantes :
+
+- `receive_dance(signal)` : recevoir un signal de danse.
+- `evaluate_signal(signal)` : analyser les informations transmises.
+- `decide_to_follow(signal)` : déterminer si le signal justifie un déplacement.
+- `visit_habitat(habitat)` : représenter la visite d'un habitat indiqué.
+- `evaluate_habitat(habitat)` : évaluer indépendamment l'habitat visité.
+
+### QUEEN — Reine
+
+La reine suivra la décision collective de la colonie. Elle ne sélectionnera pas indépendamment un habitat de destination.
+
+La classe ou le composant associé devra prévoir les actions suivantes :
+
+- `receive_colony_decision(decision)` : recevoir la destination validée par le mécanisme de décision collective.
+- `follow_colony_decision(decision)` : prendre en compte la décision collective.
+- `move_to_habitat(habitat)` : représenter le déplacement vers l'habitat retenu.
+- `lay_eggs()` : représenter l'action de ponte.
+- `manage_reproduction_cycle()` : prévoir la gestion du cycle de reproduction et du développement des nouvelles abeilles.
+
+Ces méthodes devront uniquement définir les interfaces des comportements futurs. Elles ne devront pas encore déclencher de déplacement, créer d'œufs ou générer de nouvelles abeilles.
+
+## 3. Séparation des responsabilités
+
+Les rôles définissent les actions possibles, tandis que les mécanismes qui exécutent ces actions seront développés ultérieurement.
+
+Il faudra conserver une séparation claire entre :
+
+- `BeeSpecies` : caractéristiques et préférences par défaut de l'espèce.
+- `BeePersonality` : traits individuels et tendances comportementales.
+- `BeeRole` : rôle attribué à l'abeille.
+- Les composants de comportement : interfaces des actions associées aux rôles.
+- Le futur mécanisme de décision collective : détermination de l'habitat retenu par la colonie.
+- Le futur mécanisme de reproduction : gestion du cycle de ponte et du développement.
+
+Éviter de dupliquer les mécanismes d'évaluation des habitats déjà présents dans l'architecture.
+
+## 4. Contraintes d'implémentation
+
+Avant toute modification, examiner le dépôt existant, les classes disponibles et les conventions du projet.
+
+- Réutiliser les classes et structures déjà présentes lorsqu'elles conviennent.
+- Créer uniquement les classes et méthodes manquantes.
+- Ne pas instancier d'abeilles, d'habitats, de colonies ou d'autres entités.
+- Ne pas lancer de simulation et ne déclencher aucune action.
+- Ne pas ajouter de logique de déplacement, de communication ou de reproduction opérationnelle.
+- Ne pas introduire de frontend ni modifier l'architecture générale Godot/Python.
+- Prévoir des interfaces suffisamment claires pour permettre une implémentation progressive ultérieure.
+
+## 5. Tests et documentation
+
+Créer ou adapter les tests nécessaires pour vérifier la définition des rôles, la disponibilité des interfaces et la cohérence des responsabilités, sans lancer de comportements dans le monde simulé.
+
+Mettre à jour le document de référence ainsi que `PROJECT_STATUS.md` afin de préciser les classes créées, les méthodes définies et les comportements qui restent à implémenter.
+
+## Résultat attendu
+
+Une architecture logicielle dans laquelle les rôles `SCOUT`, `FOLLOWER` et `QUEEN` sont définis, leurs actions futures sont décrites par des classes et des interfaces, et les responsabilités sont clairement séparées.
+
+**À la fin de cette étape, le code doit définir ce que chaque rôle pourra faire, mais aucune abeille ne devra exister dans la simulation et aucune action ne devra être exécutée. Fais moi un document pdf qui illustre les roles et les comprtements**
