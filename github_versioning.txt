@@ -1,0 +1,13 @@
+Suivi du projet et continuité avec GitHub : https://github.com/amineyoussefi-cpu/Bzz.git
+
+Le projet sera versionné sur GitHub afin de conserver un historique fiable de son évolution 
+et de faciliter la reprise du travail entre différentes sessions de développement et conversations 
+avec l'IA. Le dépôt devra inclure un fichier `PROJECT_STATUS.md`, maintenu à jour, décrivant
+l'architecture actuelle, les fonctionnalités implémentées, les décisions techniques prises, 
+les problèmes connus, les prochaines étapes et les tâches en cours. Lors de chaque nouvelle 
+session, ce fichier servira de référence pour comprendre l'état réel du projet et poursuivre 
+le développement sans repartir de zéro ni supposer que des fonctionnalités non implémentées
+existent déjà. À chaque étape significative, le statut devra être actualisé pour refléter
+fidèlement l'avancement du projet.
+
+

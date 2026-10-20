@@ -1,0 +1,68 @@
+# Intention du projet : Simulation 2D avec Godot et Python
+
+## 1. Objectif du projet
+
+Développer un environnement de simulation 2D vide reposant sur le moteur Godot, 
+exécuté en arrière-plan sans interface graphique visible.
+
+Le projet utilisera Python comme backend, chargé de faire le lien entre les données entrantes et 
+les mécanismes internes de Godot. Le moteur conservera la responsabilité de l'environnement, de 
+son état et de l'ensemble de ses fonctionnalités natives.
+
+## 2. Architecture technique
+
+### Godot — Moteur de simulation
+
+Godot constituera le cœur du projet. Il sera responsable de l'ensemble des mécanismes nécessaires 
+à la simulation 2D, notamment :
+
+- La gestion de l'environnement et de ses coordonnées.
+- Le cycle d'exécution de la simulation.
+- La gestion des objets et de leurs états.
+- La physique, les collisions et les interactions, si elles deviennent nécessaires.
+- L'exécution des règles et des comportements définis dans l'environnement.
+
+Godot devra fonctionner en arrière-plan, idéalement en mode headless, sans ouvrir de fenêtre graphique. 
+L'objectif est de conserver les mécanismes du moteur sans dépendre d'une interface utilisateur visible.
+
+### Python — Backend et couche de communication
+
+Python constituera la couche intermédiaire entre les données externes et le moteur Godot.
+
+Ses responsabilités seront les suivantes :
+
+- Recevoir et traiter les données entrantes.
+- Valider et structurer les commandes destinées à la simulation.
+- Transmettre les commandes à Godot par un mécanisme de communication adapté.
+- Récupérer les résultats et l'état de la simulation lorsque nécessaire.
+- Gérer le lancement, l'arrêt et le redémarrage du processus Godot.
+
+Python ne remplacera pas les mécanismes internes de Godot : il permettra de les piloter depuis 
+l'extérieur.
+
+## 3. Environnement initial
+
+La première version de l'environnement sera entièrement vide, sans objets, personnages, obstacles 
+ni comportements particuliers.
+
+Elle servira à mettre en place et à tester la communication entre Python et Godot, ainsi que le 
+cycle de vie du moteur et de la simulation.
+
+## 4. Principes de conception
+
+- Conserver Godot comme moteur central de simulation.
+- Supprimer le frontend distinct de l'architecture.
+- Utiliser Python comme backend et intermédiaire de communication.
+- Exécuter Godot en arrière-plan, sans fenêtre visible.
+- Préserver l'accès aux mécanismes natifs du moteur.
+- Concevoir une architecture modulaire, permettant d'ajouter progressivement de nouvelles 
+fonctionnalités.
+
+## 5. Résultat attendu
+
+Obtenir un système dans lequel Python reçoit des données, les transforme en commandes et les 
+transmet à une instance de Godot exécutant la simulation 2D. Godot applique les mécanismes 
+correspondants et peut renvoyer les résultats au backend.
+
+Le système devra fonctionner sans frontend web et sans interface graphique visible, tout en 
+conservant la possibilité d'étendre ultérieurement les capacités de simulation.

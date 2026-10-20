@@ -1,0 +1,9 @@
+config_version=5
+
+[application]
+
+config/name="Bzz"
+run/main_scene="res://main.tscn"
+; headless has no vsync: cap the loop so it doesn't spin a CPU core
+run/max_fps=60
+config/features=PackedStringArray("4.7")
