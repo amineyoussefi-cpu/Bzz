@@ -10,15 +10,18 @@ var buffers := {}  # StreamPeerTCP -> PackedByteArray
 
 func _ready() -> void:
 	var port := 9876
+	var host := "127.0.0.1"  # use --host=0.0.0.0 in a container so other services can connect
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--port="):
 			port = int(arg.get_slice("=", 1))
-	var err := server.listen(port, "127.0.0.1")
+		elif arg.begins_with("--host="):
+			host = arg.get_slice("=", 1)
+	var err := server.listen(port, host)
 	if err != OK:
 		push_error("listen failed on port %d: %s" % [port, error_string(err)])
 		get_tree().quit(1)
 		return
-	print("BZZ READY port=%d" % port)
+	print("BZZ READY %s:%d" % [host, port])
 
 
 func _process(_delta: float) -> void:
