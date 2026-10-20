@@ -103,6 +103,9 @@ class ProtocolTest(unittest.TestCase):
         seed = self.send("get_entity", id=d["id"])["seed"]
         e = self.send("add_bee", species="honey_bee", x=1, y=1, personality={"random": True, "seed": seed})
         self.assertEqual(d["personality"], e["personality"])
+        # a seed can accompany a preset or traits: it fixes the bee's random generator (curiosity noise)
+        f = self.send("add_bee", species="honey_bee", x=1, y=1, personality={"preset": "sociable", "seed": 5})
+        self.assertEqual(self.send("get_entity", id=f["id"])["seed"], 5)
 
     def test_add_bee_refusals_python_and_godot(self):
         bad = [
@@ -115,7 +118,9 @@ class ProtocolTest(unittest.TestCase):
             dict(species="honey_bee", x=1, y=1, personality={"traits": {"pickiness": 0.5}}),
             dict(species="honey_bee", x=1, y=1, personality={"traits": {**TRAITS, "anger": 0.5}}),
             dict(species="honey_bee", x=1, y=1, personality={"random": True, "seed": 0}),
-            dict(species="honey_bee", x=1, y=1, personality={"preset": "sociable", "seed": 3}),
+            dict(species="honey_bee", x=1, y=1, personality={"preset": "sociable", "mood": 3}),
+            dict(species="honey_bee", x=1, y=1, personality={"preset": "sociable", "random": True}),
+            dict(species="honey_bee", x=1, y=1, personality={"random": False}),
             dict(species="honey_bee", x=1, y=1, personality={"mood": "happy"}),
         ]
         for args in bad:
@@ -185,7 +190,7 @@ class ProtocolTest(unittest.TestCase):
         self.assertEqual([e["seq"] for e in later["events"]], [4, 5])
         self.assertEqual(self.send("get_events", since=5)["events"], [])
 
-    # --- no decision yet ------------------------------------------------------------------
+    # --- Godot never decides on its own (decisions come from the backend loop) ---
     def test_no_decision_is_taken(self):
         for t, x in [("tree_cavity", 100), ("hive_box", 200), ("bare_soil", 300), ("hollow_stem", 400), ("dead_wood", 500)]:
             self.send("add_habitat", type=t, x=x, y=100)
@@ -197,7 +202,6 @@ class ProtocolTest(unittest.TestCase):
         time.sleep(1.0)
         state = self.send("get_state")
         self.assertGreater(state["tick"], 200)
-        self.assertIsNone(state["decision_mechanism"])
         after = {e["id"]: e for e in self.send("list_entities")}
         for b in bees:
             self.assertIsNone(after[b["id"]]["home_id"])

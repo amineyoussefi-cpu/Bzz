@@ -1,0 +1,1995 @@
+{
+ "model": {
+  "provider": "openjev",
+  "url": "http://127.0.0.1:8009",
+  "available": true,
+  "status": "ok",
+  "model": "alanhuangya/OpenJev-1.7B",
+  "revision": "7418ae8b6e3b6a6507a8a58729ae491cd1c732d9",
+  "device": "mps",
+  "dtype": "float32",
+  "requests": 234,
+  "errors": 0,
+  "avg_latency_ms": 546.2
+ },
+ "summary": {
+  "total": 75,
+  "agreement": 40,
+  "kinds": {
+   "accord : refus des deux côtés": 27,
+   "habitats différents": 3,
+   "OpenJev refuse, la référence choisit": 27,
+   "accord : même habitat": 13,
+   "OpenJev choisit, la référence refuse": 5
+  },
+  "same_best": 56,
+  "latency_ms_median": 553
+ },
+ "rows": [
+  {
+   "set": "variés",
+   "species": "honey_bee",
+   "profile": "prudente",
+   "seed": 1000,
+   "candidates": {
+    "hab-3": "hive_box",
+    "hab-4": "hive_box",
+    "hab-1": "tree_cavity",
+    "hab-2": "tree_cavity"
+   },
+   "openjev": null,
+   "openjev_best": "hab-1",
+   "probabilities": {
+    "hab-3": 0.1631,
+    "hab-4": 0.0284,
+    "hab-1": 0.1833,
+    "hab-2": 0.0362,
+    "none": 0.5889
+   },
+   "latency_ms": 895,
+   "reference": null,
+   "threshold": 0.7,
+   "reference_scores": {
+    "hab-3": 0.615,
+    "hab-4": 0.328,
+    "hab-1": 0.679,
+    "hab-2": 0.261
+   },
+   "agreement": true
+  },
+  {
+   "set": "variés",
+   "species": "honey_bee",
+   "profile": "audacieuse",
+   "seed": 1001,
+   "candidates": {
+    "hab-3": "hive_box",
+    "hab-4": "hive_box",
+    "hab-1": "tree_cavity",
+    "hab-2": "tree_cavity"
+   },
+   "openjev": "hab-3",
+   "openjev_best": "hab-3",
+   "probabilities": {
+    "hab-3": 0.2653,
+    "hab-4": 0.0326,
+    "hab-1": 0.1891,
+    "hab-2": 0.0424,
+    "none": 0.4706
+   },
+   "latency_ms": 783,
+   "reference": "hab-1",
+   "threshold": 0.45,
+   "reference_scores": {
+    "hab-3": 0.701,
+    "hab-4": 0.434,
+    "hab-1": 0.782,
+    "hab-2": 0.309
+   },
+   "agreement": false
+  },
+  {
+   "set": "variés",
+   "species": "honey_bee",
+   "profile": "sociable",
+   "seed": 1002,
+   "candidates": {
+    "hab-3": "hive_box",
+    "hab-4": "hive_box",
+    "hab-1": "tree_cavity",
+    "hab-2": "tree_cavity"
+   },
+   "openjev": null,
+   "openjev_best": "hab-1",
+   "probabilities": {
+    "hab-3": 0.1709,
+    "hab-4": 0.0263,
+    "hab-1": 0.1809,
+    "hab-2": 0.0383,
+    "none": 0.5836
+   },
+   "latency_ms": 778,
+   "reference": "hab-1",
+   "threshold": 0.55,
+   "reference_scores": {
+    "hab-3": 0.622,
+    "hab-4": 0.38,
+    "hab-1": 0.747,
+    "hab-2": 0.317
+   },
+   "agreement": false
+  },
+  {
+   "set": "variés",
+   "species": "honey_bee",
+   "profile": "curieuse",
+   "seed": 1003,
+   "candidates": {
+    "hab-3": "hive_box",
+    "hab-4": "hive_box",
+    "hab-1": "tree_cavity",
+    "hab-2": "tree_cavity"
+   },
+   "openjev": null,
+   "openjev_best": "hab-1",
+   "probabilities": {
+    "hab-3": 0.1577,
+    "hab-4": 0.0271,
+    "hab-1": 0.1876,
+    "hab-2": 0.0412,
+    "none": 0.5865
+   },
+   "latency_ms": 771,
+   "reference": "hab-1",
+   "threshold": 0.5,
+   "reference_scores": {
+    "hab-3": 0.721,
+    "hab-4": 0.361,
+    "hab-1": 0.775,
+    "hab-2": 0.348
+   },
+   "agreement": false
+  },
+  {
+   "set": "variés",
+   "species": "honey_bee",
+   "profile": "équilibrée",
+   "seed": 1004,
+   "candidates": {
+    "hab-3": "hive_box",
+    "hab-4": "hive_box",
+    "hab-1": "tree_cavity",
+    "hab-2": "tree_cavity"
+   },
+   "openjev": null,
+   "openjev_best": "hab-3",
+   "probabilities": {
+    "hab-3": 0.1777,
+    "hab-4": 0.0255,
+    "hab-1": 0.1712,
+    "hab-2": 0.0362,
+    "none": 0.5894
+   },
+   "latency_ms": 770,
+   "reference": "hab-1",
+   "threshold": 0.55,
+   "reference_scores": {
+    "hab-3": 0.679,
+    "hab-4": 0.408,
+    "hab-1": 0.717,
+    "hab-2": 0.265
+   },
+   "agreement": false
+  },
+  {
+   "set": "variés",
+   "species": "bumblebee",
+   "profile": "prudente",
+   "seed": 1010,
+   "candidates": {
+    "hab-3": "hive_box",
+    "hab-4": "hive_box",
+    "hab-1": "tree_cavity",
+    "hab-2": "tree_cavity",
+    "hab-5": "rodent_burrow"
+   },
+   "openjev": null,
+   "openjev_best": "hab-4",
+   "probabilities": {
+    "hab-3": 0.0894,
+    "hab-4": 0.1067,
+    "hab-1": 0.0962,
+    "hab-2": 0.0368,
+    "hab-5": 0.0938,
+    "none": 0.5771
+   },
+   "latency_ms": 795,
+   "reference": null,
+   "threshold": 0.7,
+   "reference_scores": {
+    "hab-3": 0.288,
+    "hab-4": 0.264,
+    "hab-1": 0.274,
+    "hab-2": 0.274,
+    "hab-5": 0.635
+   },
+   "agreement": true
+  },
+  {
+   "set": "variés",
+   "species": "bumblebee",
+   "profile": "audacieuse",
+   "seed": 1011,
+   "candidates": {
+    "hab-3": "hive_box",
+    "hab-4": "hive_box",
+    "hab-1": "tree_cavity",
+    "hab-2": "tree_cavity",
+    "hab-5": "rodent_burrow"
+   },
+   "openjev": "hab-4",
+   "openjev_best": "hab-4",
+   "probabilities": {
+    "hab-3": 0.124,
+    "hab-4": 0.1515,
+    "hab-1": 0.1035,
+    "hab-2": 0.0434,
+    "hab-5": 0.1139,
+    "none": 0.4637
+   },
+   "latency_ms": 792,
+   "reference": "hab-5",
+   "threshold": 0.45,
+   "reference_scores": {
+    "hab-3": 0.338,
+    "hab-4": 0.351,
+    "hab-1": 0.371,
+    "hab-2": 0.334,
+    "hab-5": 0.781
+   },
+   "agreement": false
+  },
+  {
+   "set": "variés",
+   "species": "bumblebee",
+   "profile": "sociable",
+   "seed": 1012,
+   "candidates": {
+    "hab-3": "hive_box",
+    "hab-4": "hive_box",
+    "hab-1": "tree_cavity",
+    "hab-2": "tree_cavity",
+    "hab-5": "rodent_burrow"
+   },
+   "openjev": null,
+   "openjev_best": "hab-4",
+   "probabilities": {
+    "hab-3": 0.0973,
+    "hab-4": 0.1218,
+    "hab-1": 0.0986,
+    "hab-2": 0.0397,
+    "hab-5": 0.093,
+    "none": 0.5494
+   },
+   "latency_ms": 971,
+   "reference": "hab-5",
+   "threshold": 0.55,
+   "reference_scores": {
+    "hab-3": 0.32,
+    "hab-4": 0.283,
+    "hab-1": 0.352,
+    "hab-2": 0.311,
+    "hab-5": 0.736
+   },
+   "agreement": false
+  },
+  {
+   "set": "variés",
+   "species": "bumblebee",
+   "profile": "curieuse",
+   "seed": 1013,
+   "candidates": {
+    "hab-3": "hive_box",
+    "hab-4": "hive_box",
+    "hab-1": "tree_cavity",
+    "hab-2": "tree_cavity",
+    "hab-5": "rodent_burrow"
+   },
+   "openjev": null,
+   "openjev_best": "hab-4",
+   "probabilities": {
+    "hab-3": 0.0948,
+    "hab-4": 0.1133,
+    "hab-1": 0.0957,
+    "hab-2": 0.0364,
+    "hab-5": 0.0918,
+    "none": 0.5681
+   },
+   "latency_ms": 818,
+   "reference": "hab-5",
+   "threshold": 0.5,
+   "reference_scores": {
+    "hab-3": 0.217,
+    "hab-4": 0.255,
+    "hab-1": 0.299,
+    "hab-2": 0.326,
+    "hab-5": 0.747
+   },
+   "agreement": false
+  },
+  {
+   "set": "variés",
+   "species": "bumblebee",
+   "profile": "équilibrée",
+   "seed": 1014,
+   "candidates": {
+    "hab-3": "hive_box",
+    "hab-4": "hive_box",
+    "hab-1": "tree_cavity",
+    "hab-2": "tree_cavity",
+    "hab-5": "rodent_burrow"
+   },
+   "openjev": null,
+   "openjev_best": "hab-4",
+   "probabilities": {
+    "hab-3": 0.0952,
+    "hab-4": 0.1132,
+    "hab-1": 0.1016,
+    "hab-2": 0.04,
+    "hab-5": 0.0881,
+    "none": 0.5619
+   },
+   "latency_ms": 801,
+   "reference": "hab-5",
+   "threshold": 0.55,
+   "reference_scores": {
+    "hab-3": 0.312,
+    "hab-4": 0.329,
+    "hab-1": 0.32,
+    "hab-2": 0.357,
+    "hab-5": 0.691
+   },
+   "agreement": false
+  },
+  {
+   "set": "variés",
+   "species": "mason_bee",
+   "profile": "prudente",
+   "seed": 1020,
+   "candidates": {
+    "hab-7": "hollow_stem",
+    "hab-8": "dead_wood"
+   },
+   "openjev": null,
+   "openjev_best": "hab-7",
+   "probabilities": {
+    "hab-7": 0.3988,
+    "hab-8": 0.0728,
+    "none": 0.5284
+   },
+   "latency_ms": 542,
+   "reference": null,
+   "threshold": 0.7,
+   "reference_scores": {
+    "hab-7": 0.687,
+    "hab-8": 0.277
+   },
+   "agreement": true
+  },
+  {
+   "set": "variés",
+   "species": "mason_bee",
+   "profile": "audacieuse",
+   "seed": 1021,
+   "candidates": {
+    "hab-7": "hollow_stem",
+    "hab-8": "dead_wood"
+   },
+   "openjev": "hab-7",
+   "openjev_best": "hab-7",
+   "probabilities": {
+    "hab-7": 0.4487,
+    "hab-8": 0.093,
+    "none": 0.4583
+   },
+   "latency_ms": 554,
+   "reference": "hab-7",
+   "threshold": 0.45,
+   "reference_scores": {
+    "hab-7": 0.881,
+    "hab-8": 0.351
+   },
+   "agreement": true
+  },
+  {
+   "set": "variés",
+   "species": "mason_bee",
+   "profile": "sociable",
+   "seed": 1022,
+   "candidates": {
+    "hab-7": "hollow_stem",
+    "hab-8": "dead_wood"
+   },
+   "openjev": "hab-7",
+   "openjev_best": "hab-7",
+   "probabilities": {
+    "hab-7": 0.4107,
+    "hab-8": 0.1034,
+    "none": 0.4859
+   },
+   "latency_ms": 557,
+   "reference": "hab-7",
+   "threshold": 0.55,
+   "reference_scores": {
+    "hab-7": 0.768,
+    "hab-8": 0.346
+   },
+   "agreement": true
+  },
+  {
+   "set": "variés",
+   "species": "mason_bee",
+   "profile": "curieuse",
+   "seed": 1023,
+   "candidates": {
+    "hab-7": "hollow_stem",
+    "hab-8": "dead_wood"
+   },
+   "openjev": null,
+   "openjev_best": "hab-7",
+   "probabilities": {
+    "hab-7": 0.3688,
+    "hab-8": 0.0845,
+    "none": 0.5467
+   },
+   "latency_ms": 553,
+   "reference": "hab-7",
+   "threshold": 0.5,
+   "reference_scores": {
+    "hab-7": 0.839,
+    "hab-8": 0.323
+   },
+   "agreement": false
+  },
+  {
+   "set": "variés",
+   "species": "mason_bee",
+   "profile": "équilibrée",
+   "seed": 1024,
+   "candidates": {
+    "hab-7": "hollow_stem",
+    "hab-8": "dead_wood"
+   },
+   "openjev": null,
+   "openjev_best": "hab-7",
+   "probabilities": {
+    "hab-7": 0.3994,
+    "hab-8": 0.0851,
+    "none": 0.5155
+   },
+   "latency_ms": 553,
+   "reference": "hab-7",
+   "threshold": 0.55,
+   "reference_scores": {
+    "hab-7": 0.788,
+    "hab-8": 0.279
+   },
+   "agreement": false
+  },
+  {
+   "set": "variés",
+   "species": "mining_bee",
+   "profile": "prudente",
+   "seed": 1030,
+   "candidates": {
+    "hab-6": "bare_soil"
+   },
+   "openjev": "hab-6",
+   "openjev_best": "hab-6",
+   "probabilities": {
+    "hab-6": 0.6359,
+    "none": 0.3641
+   },
+   "latency_ms": 394,
+   "reference": null,
+   "threshold": 0.7,
+   "reference_scores": {
+    "hab-6": 0.623
+   },
+   "agreement": false
+  },
+  {
+   "set": "variés",
+   "species": "mining_bee",
+   "profile": "audacieuse",
+   "seed": 1031,
+   "candidates": {
+    "hab-6": "bare_soil"
+   },
+   "openjev": "hab-6",
+   "openjev_best": "hab-6",
+   "probabilities": {
+    "hab-6": 0.7123,
+    "none": 0.2877
+   },
+   "latency_ms": 381,
+   "reference": "hab-6",
+   "threshold": 0.45,
+   "reference_scores": {
+    "hab-6": 0.831
+   },
+   "agreement": true
+  },
+  {
+   "set": "variés",
+   "species": "mining_bee",
+   "profile": "sociable",
+   "seed": 1032,
+   "candidates": {
+    "hab-6": "bare_soil"
+   },
+   "openjev": "hab-6",
+   "openjev_best": "hab-6",
+   "probabilities": {
+    "hab-6": 0.6419,
+    "none": 0.3581
+   },
+   "latency_ms": 394,
+   "reference": "hab-6",
+   "threshold": 0.55,
+   "reference_scores": {
+    "hab-6": 0.695
+   },
+   "agreement": true
+  },
+  {
+   "set": "variés",
+   "species": "mining_bee",
+   "profile": "curieuse",
+   "seed": 1033,
+   "candidates": {
+    "hab-6": "bare_soil"
+   },
+   "openjev": "hab-6",
+   "openjev_best": "hab-6",
+   "probabilities": {
+    "hab-6": 0.6059,
+    "none": 0.3941
+   },
+   "latency_ms": 384,
+   "reference": "hab-6",
+   "threshold": 0.5,
+   "reference_scores": {
+    "hab-6": 0.679
+   },
+   "agreement": true
+  },
+  {
+   "set": "variés",
+   "species": "mining_bee",
+   "profile": "équilibrée",
+   "seed": 1034,
+   "candidates": {
+    "hab-6": "bare_soil"
+   },
+   "openjev": "hab-6",
+   "openjev_best": "hab-6",
+   "probabilities": {
+    "hab-6": 0.6786,
+    "none": 0.3214
+   },
+   "latency_ms": 387,
+   "reference": "hab-6",
+   "threshold": 0.55,
+   "reference_scores": {
+    "hab-6": 0.733
+   },
+   "agreement": true
+  },
+  {
+   "set": "variés",
+   "species": "carpenter_bee",
+   "profile": "prudente",
+   "seed": 1040,
+   "candidates": {
+    "hab-8": "dead_wood"
+   },
+   "openjev": "hab-8",
+   "openjev_best": "hab-8",
+   "probabilities": {
+    "hab-8": 0.5484,
+    "none": 0.4516
+   },
+   "latency_ms": 389,
+   "reference": null,
+   "threshold": 0.7,
+   "reference_scores": {
+    "hab-8": 0.658
+   },
+   "agreement": false
+  },
+  {
+   "set": "variés",
+   "species": "carpenter_bee",
+   "profile": "audacieuse",
+   "seed": 1041,
+   "candidates": {
+    "hab-8": "dead_wood"
+   },
+   "openjev": "hab-8",
+   "openjev_best": "hab-8",
+   "probabilities": {
+    "hab-8": 0.5751,
+    "none": 0.4249
+   },
+   "latency_ms": 381,
+   "reference": "hab-8",
+   "threshold": 0.45,
+   "reference_scores": {
+    "hab-8": 0.818
+   },
+   "agreement": true
+  },
+  {
+   "set": "variés",
+   "species": "carpenter_bee",
+   "profile": "sociable",
+   "seed": 1042,
+   "candidates": {
+    "hab-8": "dead_wood"
+   },
+   "openjev": null,
+   "openjev_best": "hab-8",
+   "probabilities": {
+    "hab-8": 0.4781,
+    "none": 0.5219
+   },
+   "latency_ms": 382,
+   "reference": "hab-8",
+   "threshold": 0.55,
+   "reference_scores": {
+    "hab-8": 0.709
+   },
+   "agreement": false
+  },
+  {
+   "set": "variés",
+   "species": "carpenter_bee",
+   "profile": "curieuse",
+   "seed": 1043,
+   "candidates": {
+    "hab-8": "dead_wood"
+   },
+   "openjev": null,
+   "openjev_best": "hab-8",
+   "probabilities": {
+    "hab-8": 0.4429,
+    "none": 0.5571
+   },
+   "latency_ms": 382,
+   "reference": "hab-8",
+   "threshold": 0.5,
+   "reference_scores": {
+    "hab-8": 0.789
+   },
+   "agreement": false
+  },
+  {
+   "set": "variés",
+   "species": "carpenter_bee",
+   "profile": "équilibrée",
+   "seed": 1044,
+   "candidates": {
+    "hab-8": "dead_wood"
+   },
+   "openjev": "hab-8",
+   "openjev_best": "hab-8",
+   "probabilities": {
+    "hab-8": 0.5136,
+    "none": 0.4864
+   },
+   "latency_ms": 382,
+   "reference": "hab-8",
+   "threshold": 0.55,
+   "reference_scores": {
+    "hab-8": 0.778
+   },
+   "agreement": true
+  },
+  {
+   "set": "contrastés",
+   "species": "honey_bee",
+   "profile": "prudente",
+   "seed": 1100,
+   "candidates": {
+    "hab-7": "tree_cavity",
+    "hab-8": "hive_box"
+   },
+   "openjev": null,
+   "openjev_best": "hab-7",
+   "probabilities": {
+    "hab-7": 0.2526,
+    "hab-8": 0.1479,
+    "none": 0.5995
+   },
+   "latency_ms": 552,
+   "reference": "hab-8",
+   "threshold": 0.7,
+   "reference_scores": {
+    "hab-7": 0.243,
+    "hab-8": 0.693
+   },
+   "agreement": false
+  },
+  {
+   "set": "contrastés",
+   "species": "honey_bee",
+   "profile": "audacieuse",
+   "seed": 1101,
+   "candidates": {
+    "hab-7": "tree_cavity",
+    "hab-8": "hive_box"
+   },
+   "openjev": "hab-8",
+   "openjev_best": "hab-8",
+   "probabilities": {
+    "hab-7": 0.2584,
+    "hab-8": 0.2775,
+    "none": 0.4641
+   },
+   "latency_ms": 510,
+   "reference": "hab-8",
+   "threshold": 0.45,
+   "reference_scores": {
+    "hab-7": 0.725,
+    "hab-8": 0.828
+   },
+   "agreement": true
+  },
+  {
+   "set": "contrastés",
+   "species": "honey_bee",
+   "profile": "sociable",
+   "seed": 1102,
+   "candidates": {
+    "hab-7": "tree_cavity",
+    "hab-8": "hive_box"
+   },
+   "openjev": null,
+   "openjev_best": "hab-8",
+   "probabilities": {
+    "hab-7": 0.2205,
+    "hab-8": 0.2237,
+    "none": 0.5558
+   },
+   "latency_ms": 516,
+   "reference": "hab-8",
+   "threshold": 0.55,
+   "reference_scores": {
+    "hab-7": 0.477,
+    "hab-8": 0.761
+   },
+   "agreement": false
+  },
+  {
+   "set": "contrastés",
+   "species": "honey_bee",
+   "profile": "curieuse",
+   "seed": 1103,
+   "candidates": {
+    "hab-7": "tree_cavity",
+    "hab-8": "hive_box"
+   },
+   "openjev": null,
+   "openjev_best": "hab-8",
+   "probabilities": {
+    "hab-7": 0.1935,
+    "hab-8": 0.2105,
+    "none": 0.596
+   },
+   "latency_ms": 527,
+   "reference": "hab-8",
+   "threshold": 0.5,
+   "reference_scores": {
+    "hab-7": 0.606,
+    "hab-8": 0.712
+   },
+   "agreement": false
+  },
+  {
+   "set": "contrastés",
+   "species": "honey_bee",
+   "profile": "équilibrée",
+   "seed": 1104,
+   "candidates": {
+    "hab-7": "tree_cavity",
+    "hab-8": "hive_box"
+   },
+   "openjev": null,
+   "openjev_best": "hab-8",
+   "probabilities": {
+    "hab-7": 0.2065,
+    "hab-8": 0.2105,
+    "none": 0.583
+   },
+   "latency_ms": 514,
+   "reference": "hab-8",
+   "threshold": 0.55,
+   "reference_scores": {
+    "hab-7": 0.536,
+    "hab-8": 0.7
+   },
+   "agreement": false
+  },
+  {
+   "set": "contrastés",
+   "species": "bumblebee",
+   "profile": "prudente",
+   "seed": 1110,
+   "candidates": {
+    "hab-7": "tree_cavity",
+    "hab-8": "hive_box",
+    "hab-10": "rodent_burrow",
+    "hab-9": "rodent_burrow"
+   },
+   "openjev": null,
+   "openjev_best": "hab-7",
+   "probabilities": {
+    "hab-7": 0.1726,
+    "hab-8": 0.0833,
+    "hab-10": 0.0865,
+    "hab-9": 0.0568,
+    "none": 0.6009
+   },
+   "latency_ms": 687,
+   "reference": null,
+   "threshold": 0.7,
+   "reference_scores": {
+    "hab-7": 0.113,
+    "hab-8": 0.267,
+    "hab-10": 0.638,
+    "hab-9": 0.517
+   },
+   "agreement": true
+  },
+  {
+   "set": "contrastés",
+   "species": "bumblebee",
+   "profile": "audacieuse",
+   "seed": 1111,
+   "candidates": {
+    "hab-7": "tree_cavity",
+    "hab-8": "hive_box",
+    "hab-10": "rodent_burrow",
+    "hab-9": "rodent_burrow"
+   },
+   "openjev": "hab-7",
+   "openjev_best": "hab-7",
+   "probabilities": {
+    "hab-7": 0.2018,
+    "hab-8": 0.1372,
+    "hab-10": 0.1331,
+    "hab-9": 0.0629,
+    "none": 0.465
+   },
+   "latency_ms": 684,
+   "reference": "hab-10",
+   "threshold": 0.45,
+   "reference_scores": {
+    "hab-7": 0.297,
+    "hab-8": 0.262,
+    "hab-10": 0.833,
+    "hab-9": 0.684
+   },
+   "agreement": false
+  },
+  {
+   "set": "contrastés",
+   "species": "bumblebee",
+   "profile": "sociable",
+   "seed": 1112,
+   "candidates": {
+    "hab-7": "tree_cavity",
+    "hab-8": "hive_box",
+    "hab-10": "rodent_burrow",
+    "hab-9": "rodent_burrow"
+   },
+   "openjev": null,
+   "openjev_best": "hab-7",
+   "probabilities": {
+    "hab-7": 0.1525,
+    "hab-8": 0.1223,
+    "hab-10": 0.1067,
+    "hab-9": 0.0585,
+    "none": 0.5601
+   },
+   "latency_ms": 699,
+   "reference": "hab-10",
+   "threshold": 0.55,
+   "reference_scores": {
+    "hab-7": 0.21,
+    "hab-8": 0.312,
+    "hab-10": 0.714,
+    "hab-9": 0.546
+   },
+   "agreement": false
+  },
+  {
+   "set": "contrastés",
+   "species": "bumblebee",
+   "profile": "curieuse",
+   "seed": 1113,
+   "candidates": {
+    "hab-7": "tree_cavity",
+    "hab-8": "hive_box",
+    "hab-10": "rodent_burrow",
+    "hab-9": "rodent_burrow"
+   },
+   "openjev": null,
+   "openjev_best": "hab-7",
+   "probabilities": {
+    "hab-7": 0.1559,
+    "hab-8": 0.1081,
+    "hab-10": 0.0997,
+    "hab-9": 0.0542,
+    "none": 0.5822
+   },
+   "latency_ms": 698,
+   "reference": "hab-10",
+   "threshold": 0.5,
+   "reference_scores": {
+    "hab-7": 0.297,
+    "hab-8": 0.296,
+    "hab-10": 0.738,
+    "hab-9": 0.657
+   },
+   "agreement": false
+  },
+  {
+   "set": "contrastés",
+   "species": "bumblebee",
+   "profile": "équilibrée",
+   "seed": 1114,
+   "candidates": {
+    "hab-7": "tree_cavity",
+    "hab-8": "hive_box",
+    "hab-10": "rodent_burrow",
+    "hab-9": "rodent_burrow"
+   },
+   "openjev": null,
+   "openjev_best": "hab-7",
+   "probabilities": {
+    "hab-7": 0.1488,
+    "hab-8": 0.1122,
+    "hab-10": 0.1012,
+    "hab-9": 0.0541,
+    "none": 0.5838
+   },
+   "latency_ms": 690,
+   "reference": "hab-10",
+   "threshold": 0.55,
+   "reference_scores": {
+    "hab-7": 0.168,
+    "hab-8": 0.335,
+    "hab-10": 0.734,
+    "hab-9": 0.619
+   },
+   "agreement": false
+  },
+  {
+   "set": "contrastés",
+   "species": "mason_bee",
+   "profile": "prudente",
+   "seed": 1120,
+   "candidates": {
+    "hab-3": "hollow_stem",
+    "hab-4": "hollow_stem",
+    "hab-5": "dead_wood",
+    "hab-6": "dead_wood"
+   },
+   "openjev": null,
+   "openjev_best": "hab-3",
+   "probabilities": {
+    "hab-3": 0.2968,
+    "hab-4": 0.0534,
+    "hab-5": 0.0684,
+    "hab-6": 0.0454,
+    "none": 0.536
+   },
+   "latency_ms": 793,
+   "reference": "hab-3",
+   "threshold": 0.7,
+   "reference_scores": {
+    "hab-3": 0.717,
+    "hab-4": 0.236,
+    "hab-5": 0.312,
+    "hab-6": 0.206
+   },
+   "agreement": false
+  },
+  {
+   "set": "contrastés",
+   "species": "mason_bee",
+   "profile": "audacieuse",
+   "seed": 1121,
+   "candidates": {
+    "hab-3": "hollow_stem",
+    "hab-4": "hollow_stem",
+    "hab-5": "dead_wood",
+    "hab-6": "dead_wood"
+   },
+   "openjev": null,
+   "openjev_best": "hab-3",
+   "probabilities": {
+    "hab-3": 0.3189,
+    "hab-4": 0.0512,
+    "hab-5": 0.0742,
+    "hab-6": 0.0478,
+    "none": 0.5078
+   },
+   "latency_ms": 791,
+   "reference": "hab-3",
+   "threshold": 0.45,
+   "reference_scores": {
+    "hab-3": 0.884,
+    "hab-4": 0.285,
+    "hab-5": 0.366,
+    "hab-6": 0.288
+   },
+   "agreement": false
+  },
+  {
+   "set": "contrastés",
+   "species": "mason_bee",
+   "profile": "sociable",
+   "seed": 1122,
+   "candidates": {
+    "hab-3": "hollow_stem",
+    "hab-4": "hollow_stem",
+    "hab-5": "dead_wood",
+    "hab-6": "dead_wood"
+   },
+   "openjev": null,
+   "openjev_best": "hab-3",
+   "probabilities": {
+    "hab-3": 0.2841,
+    "hab-4": 0.0551,
+    "hab-5": 0.0745,
+    "hab-6": 0.0469,
+    "none": 0.5394
+   },
+   "latency_ms": 808,
+   "reference": "hab-3",
+   "threshold": 0.55,
+   "reference_scores": {
+    "hab-3": 0.833,
+    "hab-4": 0.282,
+    "hab-5": 0.371,
+    "hab-6": 0.214
+   },
+   "agreement": false
+  },
+  {
+   "set": "contrastés",
+   "species": "mason_bee",
+   "profile": "curieuse",
+   "seed": 1123,
+   "candidates": {
+    "hab-3": "hollow_stem",
+    "hab-4": "hollow_stem",
+    "hab-5": "dead_wood",
+    "hab-6": "dead_wood"
+   },
+   "openjev": null,
+   "openjev_best": "hab-3",
+   "probabilities": {
+    "hab-3": 0.2769,
+    "hab-4": 0.0508,
+    "hab-5": 0.0666,
+    "hab-6": 0.0426,
+    "none": 0.5631
+   },
+   "latency_ms": 810,
+   "reference": "hab-3",
+   "threshold": 0.5,
+   "reference_scores": {
+    "hab-3": 0.865,
+    "hab-4": 0.225,
+    "hab-5": 0.356,
+    "hab-6": 0.158
+   },
+   "agreement": false
+  },
+  {
+   "set": "contrastés",
+   "species": "mason_bee",
+   "profile": "équilibrée",
+   "seed": 1124,
+   "candidates": {
+    "hab-3": "hollow_stem",
+    "hab-4": "hollow_stem",
+    "hab-5": "dead_wood",
+    "hab-6": "dead_wood"
+   },
+   "openjev": null,
+   "openjev_best": "hab-3",
+   "probabilities": {
+    "hab-3": 0.3069,
+    "hab-4": 0.0509,
+    "hab-5": 0.0664,
+    "hab-6": 0.0456,
+    "none": 0.5303
+   },
+   "latency_ms": 813,
+   "reference": "hab-3",
+   "threshold": 0.55,
+   "reference_scores": {
+    "hab-3": 0.812,
+    "hab-4": 0.208,
+    "hab-5": 0.375,
+    "hab-6": 0.26
+   },
+   "agreement": false
+  },
+  {
+   "set": "contrastés",
+   "species": "mining_bee",
+   "profile": "prudente",
+   "seed": 1130,
+   "candidates": {
+    "hab-1": "bare_soil",
+    "hab-2": "bare_soil"
+   },
+   "openjev": "hab-1",
+   "openjev_best": "hab-1",
+   "probabilities": {
+    "hab-1": 0.378,
+    "hab-2": 0.1318,
+    "none": 0.4902
+   },
+   "latency_ms": 500,
+   "reference": null,
+   "threshold": 0.7,
+   "reference_scores": {
+    "hab-1": 0.62,
+    "hab-2": 0.131
+   },
+   "agreement": false
+  },
+  {
+   "set": "contrastés",
+   "species": "mining_bee",
+   "profile": "audacieuse",
+   "seed": 1131,
+   "candidates": {
+    "hab-1": "bare_soil",
+    "hab-2": "bare_soil"
+   },
+   "openjev": "hab-1",
+   "openjev_best": "hab-1",
+   "probabilities": {
+    "hab-1": 0.4799,
+    "hab-2": 0.124,
+    "none": 0.3961
+   },
+   "latency_ms": 504,
+   "reference": "hab-1",
+   "threshold": 0.45,
+   "reference_scores": {
+    "hab-1": 0.799,
+    "hab-2": 0.147
+   },
+   "agreement": true
+  },
+  {
+   "set": "contrastés",
+   "species": "mining_bee",
+   "profile": "sociable",
+   "seed": 1132,
+   "candidates": {
+    "hab-1": "bare_soil",
+    "hab-2": "bare_soil"
+   },
+   "openjev": "hab-1",
+   "openjev_best": "hab-1",
+   "probabilities": {
+    "hab-1": 0.4405,
+    "hab-2": 0.1291,
+    "none": 0.4304
+   },
+   "latency_ms": 500,
+   "reference": "hab-1",
+   "threshold": 0.55,
+   "reference_scores": {
+    "hab-1": 0.722,
+    "hab-2": 0.142
+   },
+   "agreement": true
+  },
+  {
+   "set": "contrastés",
+   "species": "mining_bee",
+   "profile": "curieuse",
+   "seed": 1133,
+   "candidates": {
+    "hab-1": "bare_soil",
+    "hab-2": "bare_soil"
+   },
+   "openjev": null,
+   "openjev_best": "hab-1",
+   "probabilities": {
+    "hab-1": 0.3783,
+    "hab-2": 0.1176,
+    "none": 0.5041
+   },
+   "latency_ms": 513,
+   "reference": "hab-1",
+   "threshold": 0.5,
+   "reference_scores": {
+    "hab-1": 0.664,
+    "hab-2": 0.249
+   },
+   "agreement": false
+  },
+  {
+   "set": "contrastés",
+   "species": "mining_bee",
+   "profile": "équilibrée",
+   "seed": 1134,
+   "candidates": {
+    "hab-1": "bare_soil",
+    "hab-2": "bare_soil"
+   },
+   "openjev": "hab-1",
+   "openjev_best": "hab-1",
+   "probabilities": {
+    "hab-1": 0.4199,
+    "hab-2": 0.1331,
+    "none": 0.447
+   },
+   "latency_ms": 502,
+   "reference": "hab-1",
+   "threshold": 0.55,
+   "reference_scores": {
+    "hab-1": 0.705,
+    "hab-2": 0.181
+   },
+   "agreement": true
+  },
+  {
+   "set": "contrastés",
+   "species": "carpenter_bee",
+   "profile": "prudente",
+   "seed": 1140,
+   "candidates": {
+    "hab-5": "dead_wood",
+    "hab-6": "dead_wood"
+   },
+   "openjev": null,
+   "openjev_best": "hab-5",
+   "probabilities": {
+    "hab-5": 0.3306,
+    "hab-6": 0.1063,
+    "none": 0.5631
+   },
+   "latency_ms": 508,
+   "reference": null,
+   "threshold": 0.7,
+   "reference_scores": {
+    "hab-5": 0.666,
+    "hab-6": 0.322
+   },
+   "agreement": true
+  },
+  {
+   "set": "contrastés",
+   "species": "carpenter_bee",
+   "profile": "audacieuse",
+   "seed": 1141,
+   "candidates": {
+    "hab-5": "dead_wood",
+    "hab-6": "dead_wood"
+   },
+   "openjev": "hab-5",
+   "openjev_best": "hab-5",
+   "probabilities": {
+    "hab-5": 0.4194,
+    "hab-6": 0.0923,
+    "none": 0.4883
+   },
+   "latency_ms": 515,
+   "reference": "hab-5",
+   "threshold": 0.45,
+   "reference_scores": {
+    "hab-5": 0.791,
+    "hab-6": 0.317
+   },
+   "agreement": true
+  },
+  {
+   "set": "contrastés",
+   "species": "carpenter_bee",
+   "profile": "sociable",
+   "seed": 1142,
+   "candidates": {
+    "hab-5": "dead_wood",
+    "hab-6": "dead_wood"
+   },
+   "openjev": null,
+   "openjev_best": "hab-5",
+   "probabilities": {
+    "hab-5": 0.3456,
+    "hab-6": 0.1151,
+    "none": 0.5393
+   },
+   "latency_ms": 508,
+   "reference": "hab-5",
+   "threshold": 0.55,
+   "reference_scores": {
+    "hab-5": 0.697,
+    "hab-6": 0.32
+   },
+   "agreement": false
+  },
+  {
+   "set": "contrastés",
+   "species": "carpenter_bee",
+   "profile": "curieuse",
+   "seed": 1143,
+   "candidates": {
+    "hab-5": "dead_wood",
+    "hab-6": "dead_wood"
+   },
+   "openjev": null,
+   "openjev_best": "hab-5",
+   "probabilities": {
+    "hab-5": 0.3203,
+    "hab-6": 0.111,
+    "none": 0.5687
+   },
+   "latency_ms": 507,
+   "reference": "hab-5",
+   "threshold": 0.5,
+   "reference_scores": {
+    "hab-5": 0.817,
+    "hab-6": 0.341
+   },
+   "agreement": false
+  },
+  {
+   "set": "contrastés",
+   "species": "carpenter_bee",
+   "profile": "équilibrée",
+   "seed": 1144,
+   "candidates": {
+    "hab-5": "dead_wood",
+    "hab-6": "dead_wood"
+   },
+   "openjev": null,
+   "openjev_best": "hab-5",
+   "probabilities": {
+    "hab-5": 0.3446,
+    "hab-6": 0.1025,
+    "none": 0.5529
+   },
+   "latency_ms": 515,
+   "reference": "hab-5",
+   "threshold": 0.55,
+   "reference_scores": {
+    "hab-5": 0.736,
+    "hab-6": 0.349
+   },
+   "agreement": false
+  },
+  {
+   "set": "médiocres",
+   "species": "honey_bee",
+   "profile": "prudente",
+   "seed": 1200,
+   "candidates": {
+    "hab-1": "tree_cavity",
+    "hab-2": "hive_box"
+   },
+   "openjev": null,
+   "openjev_best": "hab-1",
+   "probabilities": {
+    "hab-1": 0.1403,
+    "hab-2": 0.0788,
+    "none": 0.7809
+   },
+   "latency_ms": 566,
+   "reference": null,
+   "threshold": 0.7,
+   "reference_scores": {
+    "hab-1": 0.364,
+    "hab-2": 0.264
+   },
+   "agreement": true
+  },
+  {
+   "set": "médiocres",
+   "species": "honey_bee",
+   "profile": "audacieuse",
+   "seed": 1201,
+   "candidates": {
+    "hab-1": "tree_cavity",
+    "hab-2": "hive_box"
+   },
+   "openjev": null,
+   "openjev_best": "hab-1",
+   "probabilities": {
+    "hab-1": 0.1973,
+    "hab-2": 0.1158,
+    "none": 0.6869
+   },
+   "latency_ms": 559,
+   "reference": null,
+   "threshold": 0.45,
+   "reference_scores": {
+    "hab-1": 0.461,
+    "hab-2": 0.316
+   },
+   "agreement": true
+  },
+  {
+   "set": "médiocres",
+   "species": "honey_bee",
+   "profile": "sociable",
+   "seed": 1202,
+   "candidates": {
+    "hab-1": "tree_cavity",
+    "hab-2": "hive_box"
+   },
+   "openjev": null,
+   "openjev_best": "hab-1",
+   "probabilities": {
+    "hab-1": 0.1511,
+    "hab-2": 0.0913,
+    "none": 0.7576
+   },
+   "latency_ms": 561,
+   "reference": null,
+   "threshold": 0.55,
+   "reference_scores": {
+    "hab-1": 0.402,
+    "hab-2": 0.254
+   },
+   "agreement": true
+  },
+  {
+   "set": "médiocres",
+   "species": "honey_bee",
+   "profile": "curieuse",
+   "seed": 1203,
+   "candidates": {
+    "hab-1": "tree_cavity",
+    "hab-2": "hive_box"
+   },
+   "openjev": null,
+   "openjev_best": "hab-1",
+   "probabilities": {
+    "hab-1": 0.1415,
+    "hab-2": 0.1003,
+    "none": 0.7582
+   },
+   "latency_ms": 555,
+   "reference": null,
+   "threshold": 0.5,
+   "reference_scores": {
+    "hab-1": 0.35,
+    "hab-2": 0.348
+   },
+   "agreement": true
+  },
+  {
+   "set": "médiocres",
+   "species": "honey_bee",
+   "profile": "équilibrée",
+   "seed": 1204,
+   "candidates": {
+    "hab-1": "tree_cavity",
+    "hab-2": "hive_box"
+   },
+   "openjev": null,
+   "openjev_best": "hab-1",
+   "probabilities": {
+    "hab-1": 0.1531,
+    "hab-2": 0.0974,
+    "none": 0.7495
+   },
+   "latency_ms": 556,
+   "reference": null,
+   "threshold": 0.55,
+   "reference_scores": {
+    "hab-1": 0.443,
+    "hab-2": 0.319
+   },
+   "agreement": true
+  },
+  {
+   "set": "médiocres",
+   "species": "bumblebee",
+   "profile": "prudente",
+   "seed": 1210,
+   "candidates": {
+    "hab-1": "tree_cavity",
+    "hab-2": "hive_box",
+    "hab-3": "rodent_burrow"
+   },
+   "openjev": null,
+   "openjev_best": "hab-3",
+   "probabilities": {
+    "hab-1": 0.0926,
+    "hab-2": 0.0769,
+    "hab-3": 0.1111,
+    "none": 0.7193
+   },
+   "latency_ms": 599,
+   "reference": null,
+   "threshold": 0.7,
+   "reference_scores": {
+    "hab-1": 0.298,
+    "hab-2": 0.451,
+    "hab-3": 0.328
+   },
+   "agreement": true
+  },
+  {
+   "set": "médiocres",
+   "species": "bumblebee",
+   "profile": "audacieuse",
+   "seed": 1211,
+   "candidates": {
+    "hab-1": "tree_cavity",
+    "hab-2": "hive_box",
+    "hab-3": "rodent_burrow"
+   },
+   "openjev": null,
+   "openjev_best": "hab-3",
+   "probabilities": {
+    "hab-1": 0.1304,
+    "hab-2": 0.1176,
+    "hab-3": 0.1599,
+    "none": 0.5921
+   },
+   "latency_ms": 595,
+   "reference": "hab-2",
+   "threshold": 0.45,
+   "reference_scores": {
+    "hab-1": 0.339,
+    "hab-2": 0.49,
+    "hab-3": 0.484
+   },
+   "agreement": false
+  },
+  {
+   "set": "médiocres",
+   "species": "bumblebee",
+   "profile": "sociable",
+   "seed": 1212,
+   "candidates": {
+    "hab-1": "tree_cavity",
+    "hab-2": "hive_box",
+    "hab-3": "rodent_burrow"
+   },
+   "openjev": null,
+   "openjev_best": "hab-3",
+   "probabilities": {
+    "hab-1": 0.1092,
+    "hab-2": 0.1138,
+    "hab-3": 0.1268,
+    "none": 0.6503
+   },
+   "latency_ms": 602,
+   "reference": null,
+   "threshold": 0.55,
+   "reference_scores": {
+    "hab-1": 0.334,
+    "hab-2": 0.473,
+    "hab-3": 0.41
+   },
+   "agreement": true
+  },
+  {
+   "set": "médiocres",
+   "species": "bumblebee",
+   "profile": "curieuse",
+   "seed": 1213,
+   "candidates": {
+    "hab-1": "tree_cavity",
+    "hab-2": "hive_box",
+    "hab-3": "rodent_burrow"
+   },
+   "openjev": null,
+   "openjev_best": "hab-3",
+   "probabilities": {
+    "hab-1": 0.099,
+    "hab-2": 0.1015,
+    "hab-3": 0.1276,
+    "none": 0.672
+   },
+   "latency_ms": 603,
+   "reference": null,
+   "threshold": 0.5,
+   "reference_scores": {
+    "hab-1": 0.243,
+    "hab-2": 0.514,
+    "hab-3": 0.404
+   },
+   "agreement": true
+  },
+  {
+   "set": "médiocres",
+   "species": "bumblebee",
+   "profile": "équilibrée",
+   "seed": 1214,
+   "candidates": {
+    "hab-1": "tree_cavity",
+    "hab-2": "hive_box",
+    "hab-3": "rodent_burrow"
+   },
+   "openjev": null,
+   "openjev_best": "hab-3",
+   "probabilities": {
+    "hab-1": 0.1062,
+    "hab-2": 0.11,
+    "hab-3": 0.1322,
+    "none": 0.6516
+   },
+   "latency_ms": 605,
+   "reference": null,
+   "threshold": 0.55,
+   "reference_scores": {
+    "hab-1": 0.365,
+    "hab-2": 0.422,
+    "hab-3": 0.424
+   },
+   "agreement": true
+  },
+  {
+   "set": "médiocres",
+   "species": "mason_bee",
+   "profile": "prudente",
+   "seed": 1220,
+   "candidates": {
+    "hab-5": "hollow_stem",
+    "hab-6": "dead_wood"
+   },
+   "openjev": null,
+   "openjev_best": "hab-5",
+   "probabilities": {
+    "hab-5": 0.1506,
+    "hab-6": 0.0584,
+    "none": 0.791
+   },
+   "latency_ms": 574,
+   "reference": null,
+   "threshold": 0.7,
+   "reference_scores": {
+    "hab-5": 0.186,
+    "hab-6": 0.175
+   },
+   "agreement": true
+  },
+  {
+   "set": "médiocres",
+   "species": "mason_bee",
+   "profile": "audacieuse",
+   "seed": 1221,
+   "candidates": {
+    "hab-5": "hollow_stem",
+    "hab-6": "dead_wood"
+   },
+   "openjev": null,
+   "openjev_best": "hab-5",
+   "probabilities": {
+    "hab-5": 0.1805,
+    "hab-6": 0.0836,
+    "none": 0.7359
+   },
+   "latency_ms": 560,
+   "reference": null,
+   "threshold": 0.45,
+   "reference_scores": {
+    "hab-5": 0.208,
+    "hab-6": 0.286
+   },
+   "agreement": true
+  },
+  {
+   "set": "médiocres",
+   "species": "mason_bee",
+   "profile": "sociable",
+   "seed": 1222,
+   "candidates": {
+    "hab-5": "hollow_stem",
+    "hab-6": "dead_wood"
+   },
+   "openjev": null,
+   "openjev_best": "hab-5",
+   "probabilities": {
+    "hab-5": 0.1678,
+    "hab-6": 0.0785,
+    "none": 0.7537
+   },
+   "latency_ms": 566,
+   "reference": null,
+   "threshold": 0.55,
+   "reference_scores": {
+    "hab-5": 0.205,
+    "hab-6": 0.249
+   },
+   "agreement": true
+  },
+  {
+   "set": "médiocres",
+   "species": "mason_bee",
+   "profile": "curieuse",
+   "seed": 1223,
+   "candidates": {
+    "hab-5": "hollow_stem",
+    "hab-6": "dead_wood"
+   },
+   "openjev": null,
+   "openjev_best": "hab-5",
+   "probabilities": {
+    "hab-5": 0.1597,
+    "hab-6": 0.0681,
+    "none": 0.7722
+   },
+   "latency_ms": 567,
+   "reference": null,
+   "threshold": 0.5,
+   "reference_scores": {
+    "hab-5": 0.298,
+    "hab-6": 0.196
+   },
+   "agreement": true
+  },
+  {
+   "set": "médiocres",
+   "species": "mason_bee",
+   "profile": "équilibrée",
+   "seed": 1224,
+   "candidates": {
+    "hab-5": "hollow_stem",
+    "hab-6": "dead_wood"
+   },
+   "openjev": null,
+   "openjev_best": "hab-5",
+   "probabilities": {
+    "hab-5": 0.1661,
+    "hab-6": 0.0747,
+    "none": 0.7592
+   },
+   "latency_ms": 566,
+   "reference": null,
+   "threshold": 0.55,
+   "reference_scores": {
+    "hab-5": 0.252,
+    "hab-6": 0.184
+   },
+   "agreement": true
+  },
+  {
+   "set": "médiocres",
+   "species": "mining_bee",
+   "profile": "prudente",
+   "seed": 1230,
+   "candidates": {
+    "hab-4": "bare_soil"
+   },
+   "openjev": null,
+   "openjev_best": "hab-4",
+   "probabilities": {
+    "hab-4": 0.4027,
+    "none": 0.5973
+   },
+   "latency_ms": 392,
+   "reference": null,
+   "threshold": 0.7,
+   "reference_scores": {
+    "hab-4": 0.26
+   },
+   "agreement": true
+  },
+  {
+   "set": "médiocres",
+   "species": "mining_bee",
+   "profile": "audacieuse",
+   "seed": 1231,
+   "candidates": {
+    "hab-4": "bare_soil"
+   },
+   "openjev": "hab-4",
+   "openjev_best": "hab-4",
+   "probabilities": {
+    "hab-4": 0.561,
+    "none": 0.439
+   },
+   "latency_ms": 389,
+   "reference": null,
+   "threshold": 0.45,
+   "reference_scores": {
+    "hab-4": 0.34
+   },
+   "agreement": false
+  },
+  {
+   "set": "médiocres",
+   "species": "mining_bee",
+   "profile": "sociable",
+   "seed": 1232,
+   "candidates": {
+    "hab-4": "bare_soil"
+   },
+   "openjev": null,
+   "openjev_best": "hab-4",
+   "probabilities": {
+    "hab-4": 0.4479,
+    "none": 0.5521
+   },
+   "latency_ms": 393,
+   "reference": null,
+   "threshold": 0.55,
+   "reference_scores": {
+    "hab-4": 0.296
+   },
+   "agreement": true
+  },
+  {
+   "set": "médiocres",
+   "species": "mining_bee",
+   "profile": "curieuse",
+   "seed": 1233,
+   "candidates": {
+    "hab-4": "bare_soil"
+   },
+   "openjev": null,
+   "openjev_best": "hab-4",
+   "probabilities": {
+    "hab-4": 0.3895,
+    "none": 0.6105
+   },
+   "latency_ms": 392,
+   "reference": null,
+   "threshold": 0.5,
+   "reference_scores": {
+    "hab-4": 0.247
+   },
+   "agreement": true
+  },
+  {
+   "set": "médiocres",
+   "species": "mining_bee",
+   "profile": "équilibrée",
+   "seed": 1234,
+   "candidates": {
+    "hab-4": "bare_soil"
+   },
+   "openjev": "hab-4",
+   "openjev_best": "hab-4",
+   "probabilities": {
+    "hab-4": 0.5177,
+    "none": 0.4823
+   },
+   "latency_ms": 396,
+   "reference": null,
+   "threshold": 0.55,
+   "reference_scores": {
+    "hab-4": 0.274
+   },
+   "agreement": false
+  },
+  {
+   "set": "médiocres",
+   "species": "carpenter_bee",
+   "profile": "prudente",
+   "seed": 1240,
+   "candidates": {
+    "hab-6": "dead_wood"
+   },
+   "openjev": null,
+   "openjev_best": "hab-6",
+   "probabilities": {
+    "hab-6": 0.2138,
+    "none": 0.7862
+   },
+   "latency_ms": 392,
+   "reference": null,
+   "threshold": 0.7,
+   "reference_scores": {
+    "hab-6": 0.338
+   },
+   "agreement": true
+  },
+  {
+   "set": "médiocres",
+   "species": "carpenter_bee",
+   "profile": "audacieuse",
+   "seed": 1241,
+   "candidates": {
+    "hab-6": "dead_wood"
+   },
+   "openjev": null,
+   "openjev_best": "hab-6",
+   "probabilities": {
+    "hab-6": 0.2817,
+    "none": 0.7183
+   },
+   "latency_ms": 394,
+   "reference": null,
+   "threshold": 0.45,
+   "reference_scores": {
+    "hab-6": 0.356
+   },
+   "agreement": true
+  },
+  {
+   "set": "médiocres",
+   "species": "carpenter_bee",
+   "profile": "sociable",
+   "seed": 1242,
+   "candidates": {
+    "hab-6": "dead_wood"
+   },
+   "openjev": null,
+   "openjev_best": "hab-6",
+   "probabilities": {
+    "hab-6": 0.2239,
+    "none": 0.7761
+   },
+   "latency_ms": 394,
+   "reference": null,
+   "threshold": 0.55,
+   "reference_scores": {
+    "hab-6": 0.38
+   },
+   "agreement": true
+  },
+  {
+   "set": "médiocres",
+   "species": "carpenter_bee",
+   "profile": "curieuse",
+   "seed": 1243,
+   "candidates": {
+    "hab-6": "dead_wood"
+   },
+   "openjev": null,
+   "openjev_best": "hab-6",
+   "probabilities": {
+    "hab-6": 0.1929,
+    "none": 0.8071
+   },
+   "latency_ms": 392,
+   "reference": null,
+   "threshold": 0.5,
+   "reference_scores": {
+    "hab-6": 0.408
+   },
+   "agreement": true
+  },
+  {
+   "set": "médiocres",
+   "species": "carpenter_bee",
+   "profile": "équilibrée",
+   "seed": 1244,
+   "candidates": {
+    "hab-6": "dead_wood"
+   },
+   "openjev": null,
+   "openjev_best": "hab-6",
+   "probabilities": {
+    "hab-6": 0.246,
+    "none": 0.754
+   },
+   "latency_ms": 395,
+   "reference": null,
+   "threshold": 0.55,
+   "reference_scores": {
+    "hab-6": 0.379
+   },
+   "agreement": true
+  }
+ ]
+}

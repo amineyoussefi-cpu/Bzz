@@ -2,8 +2,9 @@ class_name WorldApi
 extends RefCounted
 ## World toolbox behind the TCP protocol: catalogue, adding/removing habitats and bees,
 ## simulation clock (pause/resume/speed) and the event log polled by the backend.
-## It never calls the choice logic (Bee.evaluate_habitat, choose_habitat, settle, role behaviors):
-## decisions come with the next step. Commands are documented in docs/api.md.
+## Decisions are taken outside Godot (backend + OpenJev): Godot describes the situation, validates and applies them.
+## The original choice logic (Bee.score_breakdown / choose_habitat) only runs in reference_decision, for comparison.
+## Role behaviors are never executed. Commands are documented in docs/api.md.
 
 const DEFAULT_SIZE := Vector2(1000, 700)  # world size unless --world-width/--world-height are given
 const EVENT_LOG_SIZE := 1000
@@ -19,6 +20,8 @@ const ARGS := {
 	"add_bee": ["species", "x", "y", "personality", "name", "role"],
 	"get_entity": ["id"], "remove_entity": ["id"],
 	"set_speed": ["speed"], "get_events": ["since"],
+	"get_decision_situation": ["bee_id"], "apply_decision": ["bee_id", "habitat_id", "decision"],
+	"reference_decision": ["bee_id", "habitat_ids"],
 }
 
 var world: Node2D
@@ -81,7 +84,6 @@ func _cmd_get_state(_args: Dictionary) -> Dictionary:
 		"world": {"width": size.x, "height": size.y},
 		"habitats": habitats, "bees": entities.size() - habitats,
 		"last_event_seq": next_seq - 1,
-		"decision_mechanism": null,  # no decision mechanism yet (next step); the dashboard shows this
 	})
 
 
@@ -184,36 +186,38 @@ func _cmd_add_bee(args: Dictionary) -> Dictionary:
 
 
 ## {"personality": BeePersonality|null, "seed": int, "source": String} or {"error": String}.
-## Forms: {"preset": name} | {"traits": {...}} | {"random": true, "seed"?: int >= 1}.
+## Forms: {"preset": name} | {"traits": {...}} | {"random": true}, each with an optional "seed" (int >= 1)
+## that seeds the bee's random generator (random traits, curiosity noise), so the same bee can be recreated.
 func _parse_personality(p) -> Dictionary:
+	const FORMS := "personality must be {\"preset\": name}, {\"traits\": {...}} or {\"random\": true}, plus an optional \"seed\""
 	if typeof(p) != TYPE_DICTIONARY or p.size() == 0:
-		return {"error": "personality must be {\"preset\": name}, {\"traits\": {...}} or {\"random\": true, \"seed\": n}"}
+		return {"error": FORMS}
 	var seed_value := randi_range(1, 2147483647)  # a fresh seed is always recorded, so any bee can be reproduced
-	if "preset" in p:
-		if p.size() != 1:
-			return {"error": "personality preset takes no other key"}
-		if typeof(p.preset) != TYPE_STRING or p.preset not in BeePersonality.PRESETS:
-			return {"error": "unknown personality preset %s; accepted: %s" % [p.preset, ", ".join(BeePersonality.PRESETS.keys())]}
-		return {"personality": BeePersonality.from_traits(BeePersonality.PRESETS[p.preset]), "seed": seed_value, "source": "preset:" + p.preset}
-	if "traits" in p:
-		if p.size() != 1:
-			return {"error": "personality traits take no other key"}
-		if typeof(p.traits) != TYPE_DICTIONARY:
-			return {"error": "traits must be an object"}
-		var err := BeePersonality.validate_traits(p.traits)
-		if err:
-			return {"error": err}
-		return {"personality": BeePersonality.from_traits(p.traits), "seed": seed_value, "source": "traits"}
-	if p.get("random") == true:
-		for key in p:
-			if key not in ["random", "seed"]:
-				return {"error": "unexpected personality key %s" % key}
-		if "seed" in p:
-			if typeof(p.seed) not in [TYPE_INT, TYPE_FLOAT] or p.seed != floorf(p.seed) or p.seed < 1 or p.seed > 2147483647:
-				return {"error": "seed must be an integer between 1 and 2147483647"}
-			seed_value = int(p.seed)
-		return {"personality": null, "seed": seed_value, "source": "random"}
-	return {"error": "personality must be {\"preset\": name}, {\"traits\": {...}} or {\"random\": true, \"seed\": n}"}
+	if "seed" in p:
+		if typeof(p.seed) not in [TYPE_INT, TYPE_FLOAT] or p.seed != floorf(p.seed) or p.seed < 1 or p.seed > 2147483647:
+			return {"error": "seed must be an integer between 1 and 2147483647"}
+		seed_value = int(p.seed)
+	var forms := ["preset", "traits", "random"].filter(func(k): return k in p)
+	if forms.size() != 1:
+		return {"error": FORMS}
+	for key in p:
+		if key not in [forms[0], "seed"]:
+			return {"error": "unexpected personality key %s" % key}
+	match forms[0]:
+		"preset":
+			if typeof(p.preset) != TYPE_STRING or p.preset not in BeePersonality.PRESETS:
+				return {"error": "unknown personality preset %s; accepted: %s" % [p.preset, ", ".join(BeePersonality.PRESETS.keys())]}
+			return {"personality": BeePersonality.from_traits(BeePersonality.PRESETS[p.preset]), "seed": seed_value, "source": "preset:" + p.preset}
+		"traits":
+			if typeof(p.traits) != TYPE_DICTIONARY:
+				return {"error": "traits must be an object"}
+			var err := BeePersonality.validate_traits(p.traits)
+			if err:
+				return {"error": err}
+			return {"personality": BeePersonality.from_traits(p.traits), "seed": seed_value, "source": "traits"}
+	if p.random != true:
+		return {"error": FORMS}
+	return {"personality": null, "seed": seed_value, "source": "random"}
 
 
 func _register(node: Node2D, prefix: String, pos: Vector2) -> void:
@@ -330,3 +334,101 @@ func _cmd_get_events(args: Dictionary) -> Dictionary:
 		"last_seq": next_seq - 1,
 		"lost": since + 1 < oldest,  # the caller missed events dropped from the log
 	})
+
+
+# --- decisions ------------------------------------------------------------------------
+
+func _bee(id) -> Bee:
+	var e = entities.get(id)
+	return e if e is Bee else null
+
+
+## Everything a decision maker needs about one bee and every habitat (eligible = type accepted and not full).
+func _cmd_get_decision_situation(args: Dictionary) -> Dictionary:
+	var bee := _bee(args.get("bee_id"))
+	if bee == null:
+		return _err("unknown bee %s" % args.get("bee_id"))
+	var b := _summary(bee)
+	b.merge({"accepted_habitat_types": bee.accepted_types.map(func(t): return HabitatCatalog.type_name(t)),
+		"preferences": bee.preferences.map(_pref_dict),
+		"acceptance_threshold": bee.personality.acceptance_threshold()})
+	var habitats := []
+	for e in entities.values():
+		if e is Habitat:
+			var h := _summary(e)
+			var accepted: bool = e.habitat_type in bee.accepted_types
+			h.merge({"features": HabitatCatalog.features_of(e), "distance": bee.position.distance_to(e.position),
+				"type_accepted": accepted, "full": e.is_full(), "eligible": accepted and not e.is_full()})
+			habitats.append(h)
+	return _ok({"tick": tick, "paused": paused, "bee": b, "habitats": habitats})
+
+
+## Validates then applies a decision; every decision (applied, refused or rejected) becomes a "decision" event.
+## `habitat_id` null means the bee chose no habitat. Nothing is applied while the simulation is paused.
+func _cmd_apply_decision(args: Dictionary) -> Dictionary:
+	if paused:
+		return _err("simulation is paused: decision not applied")
+	for key in ["bee_id", "habitat_id"]:
+		if key not in args:
+			return _err("missing %s" % key)
+	var info = args.get("decision", {})
+	if typeof(info) != TYPE_DICTIONARY:
+		return _err("decision must be an object")
+	var event := DecisionEvent.from_dict(info)
+	event.bee_id = str(args.bee_id)
+	var habitat_id = args.habitat_id
+	var bee := _bee(args.bee_id)
+	var error := ""
+	var h = entities.get(habitat_id) if typeof(habitat_id) == TYPE_STRING else null
+	if bee == null:
+		error = "unknown bee %s" % args.bee_id
+	elif bee.home != null:
+		error = "bee %s already lives in %s" % [args.bee_id, bee.home.get_meta("id")]
+	elif habitat_id != null and typeof(habitat_id) != TYPE_STRING:
+		error = "habitat_id must be a string or null"
+	elif habitat_id != null and not h is Habitat:
+		error = "unknown habitat %s" % habitat_id
+	elif habitat_id != null and h.habitat_type not in bee.accepted_types:
+		error = "%s does not accept habitat type %s" % [BeeSpecies.species_name(bee.species), HabitatCatalog.type_name(h.habitat_type)]
+	elif habitat_id != null and h.is_full():
+		error = "habitat %s is full" % habitat_id
+	if error:
+		event.chosen_habitat_id = null
+		event.result = "rejected"
+		event.reason = "rejected by Godot: %s (proposed %s)" % [error, habitat_id]
+		_emit("decision", event.to_dict())
+		return _err(error)
+	event.chosen_habitat_id = habitat_id
+	if habitat_id == null:
+		event.result = "none"
+	else:
+		bee.settle(h)
+		event.result = "settled"
+	var data := event.to_dict()
+	_emit("decision", data)
+	return _ok({"bee_id": event.bee_id, "habitat_id": habitat_id, "result": event.result})
+
+
+## The original choice logic, for comparison only: scores and choice, never applied.
+## Curiosity noise is drawn per evaluation, so the choice may occasionally differ from the best listed score.
+func _cmd_reference_decision(args: Dictionary) -> Dictionary:
+	var bee := _bee(args.get("bee_id"))
+	if bee == null:
+		return _err("unknown bee %s" % args.get("bee_id"))
+	var ids = args.get("habitat_ids")
+	if typeof(ids) != TYPE_ARRAY:
+		return _err("habitat_ids must be a list")
+	var habitats := []
+	for id in ids:
+		if not entities.get(id) is Habitat:
+			return _err("unknown habitat %s" % id)
+		habitats.append(entities[id])
+	var scores := []
+	for h in habitats:
+		var bd: Dictionary = bee.score_breakdown(h)
+		var total: float = bd.total
+		bd.erase("total")
+		scores.append({"habitat_id": h.get_meta("id"), "score": total, "breakdown": bd})
+	var choice: Habitat = bee.choose_habitat(habitats)
+	return _ok({"choice": choice.get_meta("id") if choice else null, "scores": scores,
+		"threshold": bee.personality.acceptance_threshold()})

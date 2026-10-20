@@ -10,6 +10,7 @@ Tableau de bord (navigateur) ──HTTP + WebSocket──► Backend Python ─�
   ([`backend/bzz/`](../backend/bzz/)).
 - **Le tableau de bord** ([`backend/bzz/static/index.html`](../backend/bzz/static/index.html)) n'affiche que ce que
   le backend lui fournit.
+- **Les décisions** viennent du service OpenJev local : voir [decision_service.md](decision_service.md).
 
 Lancer : `cd backend && python -m bzz.server` puis ouvrir <http://localhost:8000>, ou `docker compose up`.
 
@@ -58,16 +59,17 @@ Ces commandes sont accessibles en Python (`GodotEngine.send(cmd, **args)`) et pa
 | `pause`, `resume` | — |
 | `set_speed` | `speed` (0.25 à 8) |
 | `get_events` | `since?` (curseur, défaut 0) |
+| `get_decision_situation` | `bee_id` |
+| `apply_decision` | `bee_id`, `habitat_id` (ou `null`), `decision?` |
+| `reference_decision` | `bee_id`, `habitat_ids` |
 
 ### `get_state`
 
 ```json
 ← {"tick": 1435, "paused": false, "speed": 1.0, "ticks_per_second": 60,
    "world": {"width": 1000, "height": 700}, "habitats": 5, "bees": 5, "node_count": 10,
-   "last_event_seq": 12, "decision_mechanism": null, "physics_frames": 2210, "process_frames": 2205}
+   "last_event_seq": 12, "physics_frames": 2210, "process_frames": 2205}
 ```
-
-`decision_mechanism` vaut `null` : aucun mécanisme de décision n'existe encore.
 
 ### `get_catalog`
 
@@ -131,17 +133,18 @@ valeur hors bornes.
    "personality": {"pickiness": 0.4, "boldness": 0.6, "sociability": 0.5, "curiosity": 0.9}, "home_id": null}
 ```
 
-La personnalité s'écrit sous l'une de ces trois formes :
+La personnalité s'écrit sous l'une de ces trois formes, chacune avec une graine `seed` facultative (entier de 1 à 2³¹−1) :
 
 | Forme | Exemple |
 |---|---|
-| préréglage | `{"preset": "prudente"}` |
+| préréglage | `{"preset": "prudente"}` ou `{"preset": "prudente", "seed": 7}` |
 | traits explicites (les 4, entre 0 et 1) | `{"traits": {"pickiness": 0.2, "boldness": 0.4, "sociability": 0.6, "curiosity": 0.8}}` |
-| aléatoire, graine facultative (entier de 1 à 2³¹−1) | `{"random": true, "seed": 1234}` |
+| aléatoire | `{"random": true, "seed": 1234}` |
 
 - Sans `personality`, la personnalité est aléatoire.
-- La graine utilisée est toujours enregistrée (`get_entity` → `seed`). Une abeille aléatoire peut donc être recréée à
-  l'identique : même espèce et même graine donnent la même personnalité.
+- La graine initialise le générateur aléatoire de l'abeille : tirage des traits aléatoires et bruit de curiosité de la
+  logique de référence. Elle est toujours enregistrée (`get_entity` → `seed`), donc une abeille peut être recréée à
+  l'identique : même espèce, même forme et même graine.
 - L'abeille reçoit les préférences par défaut de son espèce (`Bee.create`) et le rôle `follower`, sauf si `role` est donné.
 - Elle est créée **sans habitat** (`home_id: null`).
 
@@ -197,6 +200,53 @@ Retirer un habitat libère ses occupants (`Bee.leave_home`) ; leurs identifiants
 `since` est le dernier `seq` déjà reçu. Godot garde les 1000 derniers événements. Si le curseur est trop ancien,
 `lost` passe à `true`.
 
+### `get_decision_situation`
+
+Ce dont un décideur a besoin pour une abeille : son profil complet et **tous** les habitats. `eligible` signifie que le
+type est accepté par l'espèce et qu'il reste de la place.
+
+```json
+→ {"bee_id": "bee-3"}
+← {"tick": 240, "paused": false,
+   "bee": {"id": "bee-3", "species": "honey_bee", "personality": {...}, "home_id": null, "role": "follower", "x": 330.0, "y": 240.0,
+           "accepted_habitat_types": ["tree_cavity", "hive_box"], "preferences": [{"criterion": "cavity_volume_l", "ideal": 40.0, ...}],
+           "acceptance_threshold": 0.7},
+   "habitats": [{"id": "hab-1", "type": "tree_cavity", "x": 300.0, "y": 200.0, "capacity": 1, "occupants": 0,
+                 "features": {...}, "distance": 50.0, "type_accepted": true, "full": false, "eligible": true}, ...]}
+```
+
+### `apply_decision`
+
+Godot **valide puis applique** une décision prise ailleurs (par OpenJev) : l'abeille existe et n'a pas d'habitat,
+l'habitat existe, son type est accepté par l'espèce et il reste de la place. `habitat_id: null` signifie qu'aucun
+habitat n'est choisi. `decision` porte les champs de l'événement (§3) ; Godot impose lui-même `bee_id`,
+`chosen_habitat_id`, `outcome` et `result`.
+
+```json
+→ {"bee_id": "bee-3", "habitat_id": "hab-1", "decision": {"source": "openjev", "probabilities": {...}, ...}}
+← {"bee_id": "bee-3", "habitat_id": "hab-1", "result": "settled"}
+→ {"bee_id": "bee-4", "habitat_id": "hab-6"}
+← {"ok": false, "error": "honey_bee does not accept habitat type bare_soil"}
+```
+
+- **Décision valide** : un événement `decision` est publié (`result` vaut `"settled"`, ou `"none"` sans choix).
+- **Décision invalide** : elle est refusée, et un événement `decision` est quand même publié avec `result: "rejected"`,
+  `outcome: "refused"` et le motif dans `reason`.
+- **Simulation en pause** : la décision est refusée (`simulation is paused`) sans événement.
+
+### `reference_decision`
+
+La logique de choix d'origine (`Bee.score_breakdown` + `Bee.choose_habitat`), **calculée pour comparaison, jamais
+appliquée**.
+
+```json
+→ {"bee_id": "bee-3", "habitat_ids": ["hab-1", "hab-2"]}
+← {"choice": "hab-1", "threshold": 0.7,
+   "scores": [{"habitat_id": "hab-1", "score": 0.68, "breakdown": {"cavity_volume_l": 1.0, ...}}, ...]}
+```
+
+Le bruit de curiosité est tiré à chaque évaluation. Le choix peut donc, rarement, différer du meilleur score listé.
+
 ---
 
 ## 3. Événements
@@ -210,38 +260,45 @@ Chaque événement a la forme `{"seq": int, "tick": int, "type": str, "data": {.
 | `world_cleared` | `{"removed": n}` |
 | `paused`, `resumed` | `{}` |
 | `speed_changed` | `{"speed"}` |
-| `decision` | voir ci-dessous — **jamais émis à cette étape** |
+| `decision` | voir ci-dessous (publié par `apply_decision`) |
 
 ### Format d'un événement de décision
 
-Défini dans [`godot/entities/decision_event.gd`](../godot/entities/decision_event.gd), il est déjà lu par les KPI et
-par le tableau de bord. Il ne dépend pas de la source de la décision : un mécanisme individuel ou collectif
-le remplit de la même façon.
+Défini dans [`godot/entities/decision_event.gd`](../godot/entities/decision_event.gd), il ne dépend pas de la source
+de la décision. Le backend le remplit (source `"openjev"`), Godot le publie. Exemple :
 
 ```json
-{"seq": 42, "tick": 900, "type": "decision", "data": {
-  "bee_id": "bee-7",
+{"seq": 21, "tick": 596, "type": "decision", "data": {
+  "bee_id": "bee-8",
   "evaluated": [
-    {"habitat_id": "hab-1", "score": 0.82, "breakdown": {"cavity_volume_l": 1.0, "entrance_height_m": 0.9, "...": 0}},
-    {"habitat_id": "hab-4", "score": 0.31, "breakdown": {"...": 0}}
+    {"habitat_id": "hab-1", "score": 0.24, "reference_score": 0.66, "breakdown": {"cavity_volume_l": 1.0, "entrance_height_m": 1.0, "...": 0}},
+    {"habitat_id": "hab-2", "score": 0.10, "reference_score": 0.39, "breakdown": {"...": 0}}
   ],
-  "chosen_habitat_id": "hab-1",
-  "outcome": "chosen",
-  "reason": "meilleur score au-dessus du seuil d'exigence",
-  "source": "individual",
-  "result": "settled"
+  "chosen_habitat_id": null,
+  "outcome": "refused",
+  "reason": "best fit hab-1 judged below the threshold (p accept=0.34)",
+  "source": "openjev",
+  "result": "none",
+  "probabilities": {"hab-1": 0.24, "hab-2": 0.10, "none": 0.66},
+  "reference": {"choice": null, "threshold": 0.7},
+  "agreement": true,
+  "model": {"model": "alanhuangya/OpenJev-1.7B", "revision": "7418ae8b6e3b6a6507a8a58729ae491cd1c732d9", "device": "mps", "latency_ms": 612}
 }}
 ```
 
 | Champ | Contenu |
 |---|---|
 | `bee_id` | abeille qui décide |
-| `evaluated` | habitats évalués : score total et détail par critère (forme de `Bee.score_breakdown`) |
-| `chosen_habitat_id` | habitat retenu, ou `null` en cas de refus |
+| `evaluated` | habitats évalués : `score` = probabilité donnée par la source, `reference_score` et `breakdown` = score total et détail par critère de la logique de référence |
+| `chosen_habitat_id` | habitat retenu, ou `null` en cas de refus ou de rejet |
 | `outcome` | `"chosen"` ou `"refused"` (déduit de `chosen_habitat_id`) |
-| `reason` | justification libre (facultative) |
-| `source` | origine de la décision : `"individual"`, `"collective"`… |
-| `result` | ce qui a suivi : `"settled"`, `"pending"`, `"none"`… |
+| `reason` | justification (pour un rejet : le motif donné par Godot) |
+| `source` | origine de la décision : `"openjev"` ; `"collective"` plus tard |
+| `result` | ce qui a suivi : `"settled"`, `"none"` (aucun choix), `"rejected"` (refusée par Godot) |
+| `probabilities` | probabilité de chaque option, `"none"` compris |
+| `reference` | choix de la logique de référence (`choice`) et seuil d'acceptation, pour comparaison |
+| `agreement` | `true` si la source et la référence font le même choix |
+| `model` | modèle, révision, appareil et temps de réponse |
 
 ---
 
@@ -268,6 +325,7 @@ Toutes les réponses sont en JSON. En cas d'erreur, la réponse est `{"error": "
 | `POST /api/simulation/resume` | `resume` | 200 |
 | `POST /api/simulation/speed` | `set_speed` (`{"speed": 2}`) | 200 |
 | `GET /api/events?since=N` | `get_events` | 200 |
+| `GET /api/decision/status` | état du service de décision (voir §5) | 200 |
 | `GET /api/kpi` | KPI de la dernière capture | 200 |
 | `WS /ws` | flux temps réel (voir §5) | — |
 
@@ -301,6 +359,10 @@ curl -X POST localhost:8000/api/simulation/speed -H 'content-type: application/j
  "kpi": {...voir §6...},
  "world_events": [...200 derniers événements du monde...],
  "decision_events": [...200 derniers événements "decision"...],
+ "decision_service": {"provider": "openjev", "available": true, "model": "alanhuangya/OpenJev-1.7B",
+                      "revision": "7418ae8b…", "device": "mps", "dtype": "float32", "avg_latency_ms": 559.2,
+                      "decisions": 20, "pending": 0, "interval_ticks": 120, "concurrency": 2, "max_candidates": 12,
+                      "last_error": null},
  "events_lost": false}
 ```
 
@@ -336,7 +398,6 @@ Calculés par le backend ([`backend/bzz/kpi.py`](../backend/bzz/kpi.py)) à part
 | `trait_distribution` | pour chaque trait, nombre d'abeilles dans 5 classes : 0–0,2 … 0,8–1 |
 | `bees_settled`, `bees_homeless` | abeilles avec ou sans habitat (toutes sans habitat tant qu'il n'y a pas de décision) |
 | `occupancy` | pour chaque habitat : `occupants`, `capacity`, `rate` |
-| `decisions` | `mechanism` (`null`), `count`, `chosen`, `refused`, `avg_chosen_score`, `by_species`, `by_trait` |
+| `decisions` | `service` (état du service), `count`, `chosen`, `refused`, `rejected`, `avg_chosen_score` (probabilité moyenne des habitats choisis), `avg_chosen_reference_score`, `agreement_rate`, `agreement_by_species`, `by_species`, `by_trait` |
 
-Les KPI de décision sont déjà calculés à partir du format du §3 (un test le vérifie avec des événements fictifs) ;
-ils restent à zéro tant qu'aucun mécanisme n'émet de décision.
+Les KPI de décision portent sur les 20 000 dernières décisions reçues depuis le démarrage du backend.

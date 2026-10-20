@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parent))  # fakes.py
 
 try:
     from fastapi.testclient import TestClient
@@ -18,7 +19,9 @@ except ImportError:  # web dependencies not installed: the stdlib-only tests sti
 @unittest.skipIf(TestClient is None, "fastapi/httpx not installed")
 class ServerTest(unittest.TestCase):
     def setUp(self):
-        self.client = TestClient(create_app())
+        from fakes import FakeProvider
+
+        self.client = TestClient(create_app(provider=FakeProvider(default=None)))  # never the real model
         self.client.__enter__()  # runs the lifespan: starts Godot and the event poller
 
     def tearDown(self):
@@ -51,6 +54,23 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(c.delete(f"/api/entities/{hab}").json()["kind"], "habitat")
         self.assertEqual(c.delete(f"/api/entities/{hab}").status_code, 404)
         self.assertEqual(c.post("/api/world/clear").json(), {"removed": 1})
+
+    def test_decisions_flow_to_the_feed_when_running(self):
+        c = self.client
+        c.post("/api/habitats", json={"type": "tree_cavity", "x": 5, "y": 5})
+        bee = c.post("/api/bees", json={"species": "honey_bee", "x": 6, "y": 6}).json()["id"]
+        self.assertEqual(c.get("/api/decision/status").json()["provider"], "fake")
+        c.post("/api/simulation/resume")
+        with c.websocket_connect("/ws") as ws:
+            deadline = time.monotonic() + 8
+            while time.monotonic() < deadline:
+                snap = ws.receive_json()
+                if snap["decision_events"]:
+                    break
+        ev = snap["decision_events"][0]
+        self.assertEqual((ev["type"], ev["data"]["bee_id"], ev["data"]["source"]), ("decision", bee, "fake"))
+        self.assertEqual(snap["kpi"]["decisions"]["refused"], 1)  # FakeProvider(default=None) always refuses
+        self.assertIsNotNone(snap["kpi"]["decisions"]["agreement_rate"])
 
     def test_simulation_control_and_events(self):
         c = self.client
@@ -86,8 +106,9 @@ class ServerTest(unittest.TestCase):
             self.assertEqual(k["occupancy"][0]["rate"], 0)
             self.assertEqual([e["type"] for e in snap["world_events"]], ["entity_added", "entity_added"])
             self.assertEqual(snap["decision_events"], [])
-            self.assertEqual(k["decisions"]["count"], 0)
-            self.assertIsNone(k["decisions"]["mechanism"])
+            self.assertEqual(k["decisions"]["count"], 0)  # paused: no decision
+            self.assertEqual(snap["decision_service"]["provider"], "fake")
+            self.assertTrue(k["decisions"]["service"]["available"])
 
 
 class KpiDecisionFormatTest(unittest.TestCase):
@@ -102,13 +123,16 @@ class KpiDecisionFormatTest(unittest.TestCase):
         bees = [{"id": "bee-1", "kind": "bee", "species": "honey_bee", "personality": {"boldness": 0.9}, "home_id": "hab-2"}]
         ev = lambda outcome, chosen, score: {"seq": 1, "tick": 10, "type": "decision", "data": {
             "bee_id": "bee-1", "evaluated": [{"habitat_id": "hab-2", "score": score, "breakdown": {}}],
-            "chosen_habitat_id": chosen, "outcome": outcome, "reason": "", "source": "test", "result": "none"}}
+            "chosen_habitat_id": chosen, "outcome": outcome, "reason": "", "source": "test", "result": "none",
+            "agreement": outcome == "chosen"}}
         k = kpi.compute(state, bees, [ev("chosen", "hab-2", 0.8), ev("refused", None, 0.2)], catalog)
         self.assertEqual(k["sim"]["seconds"], 2)
         d = k["decisions"]
         self.assertEqual((d["count"], d["chosen"], d["refused"], d["avg_chosen_score"]), (2, 1, 1, 0.8))
         self.assertEqual(d["by_species"]["honey_bee"], {"chosen": 1, "refused": 1})
         self.assertEqual(d["by_trait"]["boldness"][4], {"chosen": 1, "refused": 1})
+        self.assertEqual(d["agreement_rate"], 0.5)
+        self.assertEqual(d["agreement_by_species"]["honey_bee"], {"agree": 1, "total": 2, "rate": 0.5})
 
 
 if __name__ == "__main__":

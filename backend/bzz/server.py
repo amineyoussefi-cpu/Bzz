@@ -4,7 +4,12 @@ The dashboard is a client of this backend only; every action goes through GodotE
 Godot's events are pulled by polling `get_events` with a cursor (see docs/api.md for why), then pushed to
 every WebSocket client together with the state, entities and KPIs.
 
-Environment: BZZ_HTTP_HOST (default 127.0.0.1), DASHBOARD_PORT (default 8000), plus the GODOT_* variables.
+Decisions: a DecisionLoop asks the local OpenJev service (DECISION_SERVICE_URL) for every homeless bee while the
+simulation runs, compares with the reference logic, and has Godot validate and apply the result.
+
+Environment: BZZ_HTTP_HOST (default 127.0.0.1), DASHBOARD_PORT (default 8000), the GODOT_* variables, and
+DECISION_SERVICE_URL (default http://127.0.0.1:8009), DECISION_INTERVAL_TICKS (120), DECISION_CONCURRENCY (2),
+DECISION_MAX_CANDIDATES (12), DECISION_TIMEOUT (30 s).
 """
 
 import asyncio
@@ -17,22 +22,26 @@ from fastapi import Body, FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse
 
 from . import kpi
+from .decision import DecisionLoop, DecisionProvider, OpenJevProvider
 from .engine import CommandRejected, GodotEngine, GodotError
 
 STATIC_DIR = Path(__file__).parent / "static"
 POLL_INTERVAL = 0.25  # seconds between two event polls
 FEED_SIZE = 200       # events kept for clients that connect later
+KPI_DECISIONS = 20000  # decision events kept for the decision KPIs (shortcut: in memory, reset on backend restart)
 
 
 class Hub:
     """Polls Godot, keeps recent feeds, and pushes snapshots to the WebSocket clients."""
 
-    def __init__(self, engine: GodotEngine):
+    def __init__(self, engine: GodotEngine, decisions: DecisionLoop):
         self.engine = engine
+        self.decisions = decisions
         self.clients: set[WebSocket] = set()
         self.cursor = 0
         self.world_events: deque = deque(maxlen=FEED_SIZE)
         self.decision_events: deque = deque(maxlen=FEED_SIZE)
+        self.kpi_decisions: deque = deque(maxlen=KPI_DECISIONS)
         self.events_lost = False
         self.snapshot: dict | None = None
 
@@ -42,14 +51,20 @@ class Hub:
         self.cursor = res["last_seq"]
         self.events_lost |= res["lost"]
         for ev in res["events"]:
-            (self.decision_events if ev["type"] == "decision" else self.world_events).append(ev)
+            if ev["type"] == "decision":
+                self.decision_events.append(ev)
+                self.kpi_decisions.append(ev)
+            else:
+                self.world_events.append(ev)
         state = self.engine.send("get_state")
         entities = self.engine.send("list_entities")
+        service = self.decisions.status()
         self.snapshot = {
             "type": "snapshot",
             "state": state,
             "entities": entities,
-            "kpi": kpi.compute(state, entities, list(self.decision_events), self.engine.catalog),
+            "decision_service": service,
+            "kpi": kpi.compute(state, entities, list(self.kpi_decisions), self.engine.catalog, service),
             "world_events": list(self.world_events),
             "decision_events": list(self.decision_events),
             "events_lost": self.events_lost,
@@ -61,8 +76,9 @@ class Hub:
         while True:
             try:
                 new = await asyncio.to_thread(self.poll)
-                if new or self.snapshot["state"]["tick"] != last_tick:
-                    last_tick = self.snapshot["state"]["tick"]
+                key = (self.snapshot["state"]["tick"], self.snapshot["decision_service"].get("available"))
+                if new or key != last_tick:
+                    last_tick = key
                     await self.broadcast(self.snapshot)
             except (GodotError, OSError):
                 pass  # Godot restarting: keep polling
@@ -76,21 +92,34 @@ class Hub:
                 self.clients.discard(ws)
 
 
-def create_app(engine: GodotEngine | None = None) -> FastAPI:
+def decision_loop_from_env(engine: GodotEngine, provider: DecisionProvider | None = None) -> DecisionLoop:
+    env = os.environ.get
+    provider = provider or OpenJevProvider(env("DECISION_SERVICE_URL") or "http://127.0.0.1:8009",
+                                           timeout=float(env("DECISION_TIMEOUT") or 30))
+    return DecisionLoop(engine, provider, interval_ticks=int(env("DECISION_INTERVAL_TICKS") or 120),
+                        concurrency=int(env("DECISION_CONCURRENCY") or 2),
+                        max_candidates=int(env("DECISION_MAX_CANDIDATES") or 12))
+
+
+def create_app(engine: GodotEngine | None = None, provider: DecisionProvider | None = None) -> FastAPI:
+    """`provider` replaces the OpenJev provider (tests use a fake one)."""
     engine = engine or GodotEngine()
-    hub = Hub(engine)
+    decisions = decision_loop_from_env(engine, provider)
+    hub = Hub(engine, decisions)
 
     @asynccontextmanager
     async def lifespan(_app):
         await asyncio.to_thread(engine.start)
+        await asyncio.to_thread(decisions.check_service)
         await asyncio.to_thread(hub.poll)  # first snapshot before accepting clients
-        task = asyncio.create_task(hub.run())
+        tasks = [asyncio.create_task(hub.run()), asyncio.create_task(decisions.run())]
         yield
-        task.cancel()
+        for t in tasks:
+            t.cancel()
         await asyncio.to_thread(engine.stop)
 
     app = FastAPI(title="Bzz backend", lifespan=lifespan)
-    app.state.engine, app.state.hub = engine, hub
+    app.state.engine, app.state.hub, app.state.decisions = engine, hub, decisions
 
     def call(cmd: str, **args):
         try:
@@ -155,6 +184,10 @@ def create_app(engine: GodotEngine | None = None) -> FastAPI:
     @app.get("/api/events")
     def events(since: int = 0):
         return call("get_events", since=since)
+
+    @app.get("/api/decision/status")
+    def decision_status():
+        return decisions.status()
 
     @app.get("/api/kpi")
     def get_kpi():

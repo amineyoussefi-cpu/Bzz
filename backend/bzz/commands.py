@@ -24,6 +24,9 @@ COMMANDS: dict[str, dict[str, tuple[tuple[type, ...] | type, bool]]] = {
     "remove_entity": {"id": (str, True)},
     "set_speed": {"speed": (NUM, True)},
     "get_events": {"since": (int, False)},
+    "get_decision_situation": {"bee_id": (str, True)},
+    "apply_decision": {"bee_id": (str, True), "habitat_id": ((str, type(None)), True), "decision": (dict, False)},
+    "reference_decision": {"bee_id": (str, True), "habitat_ids": (list, True)},
 }
 
 MAX_SEED = 2**31 - 1
@@ -96,13 +99,19 @@ def _check_feature(key: str, value, features: dict) -> None:
 
 
 def _check_personality(p: dict, cat: dict) -> None:
-    forms = '{"preset": name}, {"traits": {...}} or {"random": true, "seed": n}'
+    forms = 'personality must be {"preset": name}, {"traits": {...}} or {"random": true}, plus an optional "seed"'
+    if "seed" in p and (not _is(p["seed"], int) or not 1 <= p["seed"] <= MAX_SEED):
+        raise ValueError(f"seed must be an integer between 1 and {MAX_SEED}")
+    present = [k for k in ("preset", "traits", "random") if k in p]
+    if len(present) != 1:
+        raise ValueError(forms)
+    extra = set(p) - {present[0], "seed"}
+    if extra:
+        raise ValueError(f"unexpected personality keys {sorted(extra)}")
     if "preset" in p:
-        if len(p) != 1:
-            raise ValueError("personality preset takes no other key")
         _one_of("personality preset", p["preset"], list(cat["presets"]))
     elif "traits" in p:
-        if len(p) != 1 or not isinstance(p["traits"], dict):
+        if not isinstance(p["traits"], dict):
             raise ValueError('personality must be {"traits": {trait: value}}')
         names = [t["name"] for t in cat["traits"]]
         for t in p["traits"]:
@@ -113,11 +122,5 @@ def _check_personality(p: dict, cat: dict) -> None:
                 raise ValueError(f"missing trait {t}")
             if not _is(v, NUM) or not 0 <= v <= 1:
                 raise ValueError(f"{t} must be a number between 0 and 1 (got {v})")
-    elif p.get("random") is True:
-        extra = set(p) - {"random", "seed"}
-        if extra:
-            raise ValueError(f"unexpected personality keys {sorted(extra)}")
-        if "seed" in p and (not _is(p["seed"], int) or not 1 <= p["seed"] <= MAX_SEED):
-            raise ValueError(f"seed must be an integer between 1 and {MAX_SEED}")
-    else:
-        raise ValueError(f"personality must be {forms}")
+    elif p["random"] is not True:
+        raise ValueError(forms)

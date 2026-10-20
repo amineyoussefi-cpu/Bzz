@@ -1,170 +1,163 @@
 # PROJECT_STATUS
 
-_Dernière mise à jour : 2026-10-20 (prompt 4 : tableau de bord)_
+_Dernière mise à jour : 2026-10-20 (prompt 5 : décisions des abeilles avec OpenJev)_
 
 Référence de reprise entre sessions. Ne décrit que ce qui existe réellement dans le dépôt.
-Spécifications d'origine : [prompts/prompt1.txt](prompts/prompt1.txt),
-[prompts/github_versioning.txt](prompts/github_versioning.txt), [prompts/portability.txt](prompts/portability.txt),
-[prompts/prompt2.txt](prompts/prompt2.txt), [prompts/prompt3.txt](prompts/prompt3.txt),
-[prompts/prompt4.txt](prompts/prompt4.txt).
+Spécifications d'origine : [prompts/](prompts/) (`prompt1.txt` à `prompt5.txt`, `github_versioning.txt`, `portability.txt`).
 
 ## Architecture actuelle
 
 ```
-Tableau de bord (navigateur) ──HTTP + WebSocket──► Backend Python ──TCP JSON──► Godot 4.7 headless
-  backend/bzz/static/index.html                    bzz/server.py (FastAPI)       main.gd (TCP) → WorldApi
-                                                   bzz/engine.py (verrou)        entités = enfants du nœud World
-                     stdin JSON ─► bzz/__main__.py ┘ bzz/commands.py (validation)
+Tableau de bord ◄─HTTP+WebSocket─► Backend Python (Docker ou local) ◄─TCP JSON─► Godot 4.7 headless
+  bzz/static/index.html              bzz/server.py (API, KPI, relevé d'événements)  main.gd → WorldApi
+                                     bzz/decision/ (boucle de décision)             (état du monde, validation)
+                                          │
+                                          └─HTTP local─► Service OpenJev (HORS Docker : decision/service.py)
+                                                          modèle alanhuangya/OpenJev-1.7B, CUDA / MPS / CPU
 ```
 
-**Évolution de décision (prompt 4).** Le prompt 1 excluait tout frontend. Un tableau de bord web est désormais
-ajouté, **uniquement comme client du backend Python** :
-
-- Godot reste le moteur et le propriétaire de l'état du monde, toujours sans fenêtre.
-- Python reste l'unique point d'entrée vers Godot : il valide, transmet et calcule les KPI.
-- Le navigateur n'affiche que ce que le backend lui fournit.
-- Le point d'entrée stdin fonctionne toujours.
-
-Deux modes, choisis par la variable `GODOT_HOST` :
-
-- **local** (`GODOT_HOST` vide) : Python lance lui-même Godot en sous-processus sur un port libre. Si le cache
-  `.godot/` manque (dépôt fraîchement cloné), il lance d'abord `godot --import`.
-- **distant** (`GODOT_HOST=godot`) : Python se connecte à un Godot déjà lancé. C'est le mode de Docker Compose.
+- **Godot** possède l'état du monde. Il décrit la situation d'une abeille, **valide et applique** les décisions, et
+  publie les événements.
+- **Le backend** orchestre : situation → requête → OpenJev → comparaison avec la référence → application par Godot.
+  Il expose l'API et calcule les KPI.
+- **Le service OpenJev** tourne sur la machine de l'utilisateur, sans Docker (Docker sur Mac n'a pas accès au GPU).
+  Il n'a besoin ni de clé API ni de réseau, hormis le téléchargement initial des poids.
+- **Le tableau de bord** est un client du backend (décision du prompt 4) ; l'entrée stdin fonctionne toujours.
+- **Modes Godot** (`GODOT_HOST`) : local (Python lance Godot ; import automatique si le cache `.godot/` manque) ou
+  distant (Compose).
 
 Fichiers :
 
-- **godot/main.gd** — nœud World : serveur TCP (`--host`, `--port`, `--world-width`, `--world-height`), `ping`/`quit`,
-  délègue tout le reste à `WorldApi`. `run/max_fps=60`.
-- **godot/api/world_api.gd** — `WorldApi` : catalogue, ajout/consultation/retrait des entités (identifiants `hab-N` / `bee-N`
-  jamais réutilisés), horloge (`tick`, pause, vitesse), journal d'événements (1000 derniers, curseur `seq`) et validation
-  côté Godot. **N'appelle jamais** `evaluate_habitat`, `choose_habitat`, `settle` ni les composants de rôles.
-- **godot/entities/** — modèle :
-  - `Habitat` (Node2D, 6 types) et `HabitatCatalog` (caractéristiques par défaut par type, bornes, noms lisibles) ;
-  - `Bee` (Node2D : évaluation, choix, installation — logique conservée telle quelle, non appelée) ;
-  - `BeePersonality` (4 traits, `PRESETS`, `validate_traits`), `Preference`, `BeeSpecies` (5 espèces + noms lisibles) ;
-  - `DecisionEvent` (format des futurs événements de décision, jamais émis).
-  Référence : [docs/reference_abeilles.md](docs/reference_abeilles.md) (+ PDF).
-- **godot/entities/roles/** — `BeeRole` (`scout`/`follower`/`queen`), `BeeBehavior` (abstraite), `ScoutBehavior`,
-  `FollowerBehavior`, `QueenBehavior`, `DanceSignal`, `ColonyDecision` : interfaces définies, jamais exécutées.
-  Voir [docs/roles_comportements.md](docs/roles_comportements.md) (+ PDF).
-- **backend/bzz/engine.py** — `GodotEngine` : démarrage (local/distant), récupération du catalogue au démarrage,
-  `send` protégé par un **verrou** (une connexion TCP partagée par tous les appelants), `stop`, `restart`.
-  Erreurs : `ValueError` (refus Python), `CommandRejected` (refus Godot), `GodotError` (connexion).
-- **backend/bzz/commands.py** — liste blanche (commandes, arguments, types) + validation des valeurs à partir du
-  catalogue généré par Godot (aucune liste recopiée). À garder synchronisée avec `WorldApi.ARGS`.
-- **backend/bzz/server.py** — API HTTP + WebSocket `/ws` (FastAPI), relevé des événements toutes les 250 ms,
-  sert la page du tableau de bord. `python -m bzz.server`.
-- **backend/bzz/kpi.py** — calcul des KPI à partir de l'état, des entités et des événements.
-- **backend/bzz/static/index.html** — tableau de bord (HTML/JS sans framework, sans dépendance externe).
-- **backend/bzz/__main__.py** — entrée stdin (une commande JSON par ligne), inchangée.
-- **godot/tests/test_entities.gd** — tests GDScript (modèle, rôles, `WorldApi`), lancés par `backend/tests/test_entities.py`.
-- **backend/tests/** — `test_engine` (cycle de vie), `test_protocol` (chaque commande), `test_server` (API HTTP + WebSocket + KPI).
-- **docs/api.md** — **référence de toutes les commandes et routes**, avec exemples, format des événements et des
-  décisions, choix du relevé périodique et du verrou, KPI.
-- **docs/** — documents de référence (Markdown + PDF, SVG dans `docs/img/`) ; PDF régénérés par `python docs/build_pdf.py docs/*.md`.
-- **Dockerfile** — cibles `godot` (serveur headless) et `backend` (Python 3.12 + dépendances + binaire Godot ; CMD = serveur web).
-- **compose.yaml** — `godot` (port interne uniquement) + `backend` (tableau de bord publié sur `127.0.0.1:${DASHBOARD_PORT:-8000}`).
-- **.env.example** — `GODOT_*`, `WORLD_WIDTH`/`WORLD_HEIGHT`, `DASHBOARD_PORT`, `BZZ_HTTP_HOST` ; sans secrets.
-- **backend/requirements.txt** — `fastapi`, `uvicorn`, `websockets` (serveur), `httpx` (tests) ; le moteur et
-  l'entrée stdin n'utilisent que la bibliothèque standard.
+- **godot/main.gd** — serveur TCP (`--host`, `--port`, `--world-width`, `--world-height`), délègue à `WorldApi`.
+- **godot/api/world_api.gd** — catalogue, entités (`hab-N`/`bee-N`), horloge (tick, pause, vitesse), journal
+  d'événements, validation. Décisions :
+  - `get_decision_situation` : profil de l'abeille et tous les habitats, avec leur éligibilité ;
+  - `apply_decision` : validation, puis `Bee.settle` ou rejet, et événement `decision` ;
+  - `reference_decision` : `Bee.score_breakdown` + `choose_habitat`, pour comparaison uniquement, jamais appliqué.
+- **godot/entities/** — `Habitat`, `HabitatCatalog`, `Bee` (logique de choix d'origine **inchangée**, utilisée
+  uniquement comme référence), `BeePersonality`, `Preference`, `BeeSpecies`, `DecisionEvent` (format des décisions,
+  avec probabilités, référence, accord, modèle). Rôles dans `roles/` : jamais exécutés.
+- **backend/bzz/decision/** :
+  - `prompting.py` : construit la situation et les questions envoyées à OpenJev, présélectionne les candidats et lit
+    la réponse ;
+  - `providers.py` : interface `DecisionProvider`, avec `OpenJevProvider` (HTTP vers le service) et
+    `ReferenceProvider` (Godot `reference_decision`) ;
+  - `loop.py` : `DecisionLoop`, cadence, concurrence, pause, service indisponible ;
+  - `compare.py` : scénarios fixes et rapport de comparaison.
+- **backend/bzz/** — `engine.py` (connexion + verrou), `commands.py` (liste blanche + validation à partir du
+  catalogue), `server.py` (API + WebSocket + boucle de décision), `kpi.py`, `static/index.html`, `__main__.py` (stdin).
+- **decision/** (service hors Docker) — `service.py` (`POST /v1/systemone`, `GET /health`), `requirements.txt`
+  (versions figées), `start.sh` (macOS), `start.ps1` (Windows + NVIDIA). `.venv/` et `.cache/` (poids) sont ignorés
+  par git.
+- **Tests** — `godot/tests/test_entities.gd` ; `backend/tests/` : `test_engine`, `test_protocol`, `test_server`,
+  `test_decisions` (avec `fakes.FakeProvider`), `test_entities`.
+- **Docs** :
+  - [docs/api.md](docs/api.md) : commandes, routes, événements, KPI ;
+  - [docs/decision_service.md](docs/decision_service.md) : installation macOS et Windows, paramètres, mesures,
+    format des requêtes, conditions d'utilisation ;
+  - [docs/rapport_comparaison.md](docs/rapport_comparaison.md) (+ `docs/comparison/results.json`) ;
+  - références abeilles et rôles (Markdown + PDF).
+- **Docker** — `Dockerfile` (cibles `godot` et `backend`) et `compose.yaml`. Le backend joint le service OpenJev de
+  l'hôte via `DECISION_SERVICE_URL_FROM_DOCKER` (`host.docker.internal`, `extra_hosts` pour Linux) ; le port de Godot
+  reste interne.
 
 ## Fonctionnalités implémentées
 
-Commandes du protocole (détail et exemples : [docs/api.md](docs/api.md)) :
+- **Construction du monde** depuis le tableau de bord ou l'API : habitats, abeilles (personnalité par préréglage,
+  traits ou aléatoire, avec **graine facultative pour toutes les formes**), consultation, retrait, remise à zéro,
+  pause, reprise et vitesse.
+- **Décisions par OpenJev**, uniquement quand la simulation tourne :
+  - tous les `DECISION_INTERVAL_TICKS` ticks, chaque abeille sans habitat demande une décision, avec au plus
+    `DECISION_CONCURRENCY` décisions à la fois, exécutées dans des threads, sans bloquer l'API ni Godot ;
+  - OpenJev reçoit les habitats éligibles les plus proches (12 au maximum) et répond à deux questions en une passe :
+    « meilleur habitat ? » et « atteint le seuil ? » ;
+  - Godot valide la décision : une décision invalide est rejetée et produit un événement de refus. L'abeille
+    s'installe sans se déplacer.
+- **Comparaison** : à chaque décision, la logique de référence calcule son choix sans l'appliquer. L'événement
+  contient les deux choix, les probabilités et l'accord.
+- **Service indisponible** : aucune décision n'est prise, l'état est affiché, et il n'y a **pas de bascule** vers la
+  référence.
+- **Tableau de bord** :
+  - fil des décisions (choix ou refus, probabilités, source, choix de référence, accord) ;
+  - choix, refus et rejets ; probabilité moyenne et score de référence moyen des habitats choisis ;
+  - accord global et par espèce ; répartition par espèce et par trait ;
+  - état du service : modèle, révision, appareil, temps de réponse, disponibilité ;
+  - KPI du monde (prompt 4).
 
-| Commande | Effet |
-|---|---|
-| `ping`, `quit` | test de vie, arrêt de Godot |
-| `get_state` | tick, pause, vitesse, taille du monde, effectifs, dernier `seq`, `decision_mechanism: null` |
-| `get_catalog` | types d'habitats et leurs valeurs par défaut, caractéristiques et bornes, espèces, rôles, traits, préréglages, monde, vitesses |
-| `add_habitat` | type + position + surcharge facultative des caractéristiques |
-| `add_bee` | espèce + position + personnalité (préréglage / traits / aléatoire avec graine) + nom + rôle |
-| `list_entities`, `get_entity`, `remove_entity`, `clear_world` | consultation et retrait (un habitat retiré libère ses occupants) |
-| `pause`, `resume`, `set_speed` | horloge de simulation (le monde démarre en pause ; vitesse de 0,25 à 8) |
-| `get_events` | événements depuis un curseur (`entity_added`, `entity_removed`, `world_cleared`, `paused`, `resumed`, `speed_changed`) |
-| `restart` | (stdin uniquement) relance Godot |
+Commandes du protocole : voir [docs/api.md](docs/api.md) §2 (ajoutées à cette étape : `get_decision_situation`,
+`apply_decision`, `reference_decision` ; `get_state` ne contient plus `decision_mechanism`).
 
-Tableau de bord (<http://localhost:8000>) :
+## Résultats
 
-- **Formulaires** : ajout d'habitat (type, position par clic dans la vue, surcharge des caractéristiques) et d'abeille
-  (espèce, rôle, nom, position, personnalité par préréglage, curseurs ou aléatoire avec graine).
-- **Vue du monde** : 2D, couleur par type d'habitat et par espèce.
-- **Entités** : liste avec détail et retrait, plus les boutons pause/reprise, vitesse et vider le monde. Les erreurs du
-  backend s'affichent dans une notification.
-- **KPI temps réel** : effectifs par type et par espèce, répartition des traits, abeilles installées ou sans habitat,
-  occupation des habitats, temps simulé, état de la simulation, fil des événements.
-- **Espace décisions** : fil, nombre de choix et de refus, score moyen, répartition par espèce et par trait. Il est
-  affiché vide, avec la mention qu'aucun mécanisme n'est actif.
+**Test préalable sur Mac (M4 Pro, 24 Go)** : le modèle se charge et répond.
 
-**Aucune décision n'est prise** : les abeilles ajoutées restent sans habitat et à leur position, et aucun événement
-`decision` n'est émis. Un test le vérifie après plus de 200 ticks de simulation à vitesse ×8.
+| Appareil | Chargement depuis le cache | Requête courte | Requête du projet | Mémoire |
+|---|---|---|---|---|
+| MPS | 2,5 s | ~97 ms | ~550 ms | 7,7 Go GPU (float32) |
+| Processeur | 1,2 s | ~295 ms | non mesuré | ~10,6 Go RAM |
 
-Modèle (inchangé) :
+Le premier téléchargement (3,2 Go) a pris environ 6 minutes. La configuration Windows + NVIDIA **n'a pas été testée**.
 
-- Évaluation et choix d'habitat dans `Bee` : `score_breakdown`, `evaluate_habitat`, `choose_habitat`, `settle`,
-  `leave_home`. Cette logique est conservée comme référence pour le futur mécanisme, puis sera retirée.
-- Rôles : opérations sur données uniquement. Les interfaces vides restent `explore_habitats`, `return_to_colony`,
-  `evaluate_signal`, `decide_to_follow`, `visit_habitat`, `move_to_habitat`, `lay_eggs`, `manage_reproduction_cycle`.
+**Comparaison avec la logique de référence** (75 scénarios fixes : 5 espèces × 5 profils × 3 jeux d'habitats ;
+[rapport](docs/rapport_comparaison.md)) :
+
+- **53 % d'accord** sur la décision finale ;
+- **75 %** sur le meilleur habitat, en ignorant le seuil d'acceptation.
+
+Le désaccord porte surtout sur « assez bon pour s'installer » autour du seuil. Trois formulations ont été essayées
+(41 %, 51 %, puis 53 % pour celle retenue). **Conclusion : la logique de référence ne peut pas encore être supprimée.**
 
 ## Utilisation
 
-Avec Docker :
-
 ```sh
-cp .env.example .env                       # optionnel
-docker compose up -d                       # tableau de bord : http://localhost:8000
-docker compose run --rm backend python -m bzz          # entrée stdin
-docker compose run --rm -e GODOT_HOST= backend python -m unittest discover tests   # tests
-docker compose down
-```
-
-Sans Docker (Godot ≥ 4.5 sur le PATH ou `GODOT_BIN`, Python ≥ 3.10) :
-
-```sh
-python3 -m venv .venv && .venv/bin/pip install -r backend/requirements.txt
-cd backend
-../.venv/bin/python -m bzz.server          # tableau de bord : http://localhost:8000
-../.venv/bin/python -m bzz                 # entrée stdin (aucune dépendance requise)
-../.venv/bin/python -m unittest discover tests     # 23 tests ; sans les dépendances web, 4 sont ignorés
+./decision/start.sh                     # macOS ; Windows : .\decision\start.ps1 (1er lancement : installe + télécharge)
+docker compose up -d                    # puis http://localhost:8000 : ajouter habitats et abeilles, « Lancer »
+# sans Docker : cd backend && ../.venv/bin/python -m bzz.server
+cd backend && ../.venv/bin/python -m bzz.decision.compare      # régénère le rapport de comparaison (service requis)
+../.venv/bin/python -m unittest discover tests                 # 36 tests ; le test du vrai modèle n'est lancé que si le service répond
+docker compose run --rm -e GODOT_HOST= backend python -m unittest discover tests   # tests dans Docker (sans modèle)
 ```
 
 ## Décisions techniques
 
-- **TCP + JSON lignes** entre Python et Godot, en requête/réponse uniquement.
-- **Événements relevés par Python** (`get_events` avec curseur, toutes les 250 ms), plutôt qu'envoyés spontanément
-  par Godot : le protocole reste simple, aucun message spontané ne se mêle aux réponses, et aucun événement n'est
-  perdu (`lost` signale un débordement du journal de 1000 événements). Justification complète : docs/api.md §5.
-- **Une connexion TCP + un verrou** dans `GodotEngine.send` : les requêtes HTTP concurrentes et le relevé passent
-  l'un après l'autre sans mélanger leurs réponses.
-- **Événements horodatés en ticks de simulation** (compteur propre à `WorldApi`, arrêté en pause). La vitesse change
-  `Engine.physics_ticks_per_second` (60 × vitesse).
-- **Noms lisibles générés depuis les énumérations** (`Habitat.Type`, `BeeSpecies.Id`, `BeeRole.Id`) ; le catalogue
-  est produit par Godot et sert à Python pour valider, donc aucune liste n'est dupliquée à la main.
-- **Validation double** (Python puis Godot), refus sans correction silencieuse, tout est vérifié avant la création.
-- **Taille du monde** : une seule valeur par défaut (`WorldApi.DEFAULT_SIZE`, 1000 × 700), modifiable par
-  `WORLD_WIDTH`/`WORLD_HEIGHT`, transmises à Godot en ligne de commande seulement si elles sont définies.
-- **Graine** : toujours enregistrée (tirée au hasard si absente), donc toute abeille aléatoire est reproductible.
-- **KPI calculés par Python** (`kpi.py`) ; le navigateur ne calcule rien. Les KPI de décision lisent déjà le format
-  `DecisionEvent`, indépendant de la source de la décision.
-- **Tableau de bord servi par le backend** (même origine, pas de service Compose séparé) : HTML/JS sans framework ni build.
-- Hérité des étapes précédentes : configuration par variables d'environnement, Dockerfile multi-cible,
-  entités en GDScript, rôles par composition, `@abstract` (Godot ≥ 4.5).
+- **OpenJev hors Docker** : un service HTTP local (`decision/service.py`) reprend les formats `POST /v1/systemone`
+  d'OpenJev et ajoute `GET /health`. `wev serve` n'a pas été utilisé car il ne permet ni de figer la révision ni de
+  choisir le cache.
+- **Révision figée** (`7418ae8b…`) ; modèle, révision, appareil et cache sont des paramètres. Les poids sont
+  téléchargés une fois, puis chargés hors ligne (`HF_HUB_OFFLINE`).
+- **Une seule passe par décision**, avec deux questions (choix + oui/non). P(habitat) = P(meilleur) × P(accepter) ;
+  l'abeille s'installe si P(accepter) ≥ 0,5. **Aucun score de référence n'est transmis** au modèle (un test le
+  vérifie). Chaque critère est décrit par son écart à l'idéal rapporté à la tolérance.
+- **Présélection** : seuls les habitats éligibles, les 12 plus proches. Sans candidat, ni appel au modèle ni événement.
+- **Godot valide tout** avant d'appliquer. Un rejet produit un événement `decision` avec `result: "rejected"`.
+- **Cadence en ticks de simulation** : elle respecte la pause et la vitesse. Une décision reçue alors que la
+  simulation est en pause est abandonnée.
+- **Pas de bascule silencieuse** vers la référence : `ReferenceProvider` ne sert qu'à comparer.
+- **Graine possible avec un préréglage ou des traits** : elle rend reproductible le bruit de curiosité de la référence,
+  ce qui est nécessaire aux scénarios fixes.
+- Hérité : TCP JSON en requête/réponse, relevé des événements avec curseur, verrou sur la connexion, validation
+  double, noms lisibles générés, configuration par variables d'environnement, entités en GDScript.
 
 ## Problèmes connus / limites
 
-- **Pas d'authentification** : le tableau de bord est prévu pour un usage local. Compose le publie sur `127.0.0.1`
-  seulement ; ne pas l'exposer sur un réseau sans ajouter une authentification.
-- Pas de sauvegarde ni de chargement d'un monde (hors périmètre). Redémarrer Godot vide le monde.
-- Une capture WebSocket peut montrer une entité un relevé (≤ 250 ms) avant l'événement correspondant :
-  entités et événements viennent de requêtes distinctes.
-- Une seule connexion TCP sérialise toutes les commandes : cela suffit pour un usage local, mais ce serait un goulot
-  d'étranglement avec beaucoup de clients.
-- Le journal d'événements de Godot est limité à 1000 événements, et le backend en garde 200 pour les nouveaux clients.
-- Mode local : petite fenêtre de course entre le choix du port libre et l'écoute par Godot (rare).
-- Si un script Godot a une erreur de parse, Godot ne quitte pas : `start()` échoue après le timeout (10 s).
-- Les tests supposent le mode local (`GODOT_HOST=` vide).
-- `floral_abundance` et `predator_risk` sont fixés à la main (valeurs par défaut ou surcharge) ; rien ne les calcule depuis le monde.
-- `.godot/` (cache d'import) n'est pas versionné ; il est régénéré automatiquement (moteur en mode local, images Docker).
+- **Accord avec la référence de 53 %** seulement : le modèle juge mal le seuil d'acceptation.
+- **Windows + NVIDIA non testé** : le script installe torch CUDA 12.6, ou 13.0 pour les RTX 50xx. Le modèle 4B n'a
+  pas été testé non plus.
+- **Temps de réponse** : ~0,5 à 1,4 s par décision sur MPS. Le service traite une requête à la fois, donc beaucoup
+  d'abeilles allongent le délai entre deux décisions d'une même abeille.
+- **Refus répétés** : une abeille qui refuse redemande une décision à chaque intervalle, ce qui ajoute un événement
+  de refus à chaque fois.
+- **Bruit de curiosité** : la référence le tire à chaque évaluation, donc son choix peut rarement différer du meilleur
+  score affiché.
+- **Conditions d'utilisation** : certaines données d'entraînement du modèle sont réservées à la recherche ou soumises
+  aux conditions de qwen3-max. **Vérifier avant tout usage commercial** (docs/decision_service.md §7).
+- **Service de décision** : il écoute sur `127.0.0.1` par défaut. Sous Linux avec Docker, il faut
+  `OPENJEV_HOST=0.0.0.0`.
+- **Pas d'authentification** : le tableau de bord n'est publié que sur `127.0.0.1`.
+- **Pas de sauvegarde du monde.** Les KPI de décision repartent de zéro quand le backend redémarre.
+- **Capture WebSocket** : les entités peuvent précéder leurs événements d'un relevé (≤ 250 ms).
+- **Erreur de syntaxe GDScript** : Godot ne quitte pas, et `start()` échoue seulement après le délai (10 s).
+- **Tests** : ils supposent le mode local (`GODOT_HOST=` vide).
 
 ## Tâches en cours
 
@@ -172,9 +165,9 @@ cd backend
 
 ## Prochaines étapes possibles
 
-- **Prompt 5** : mécanisme de décision des abeilles. Il émettra des événements `decision` (format `DecisionEvent`,
-  docs/api.md §3), renseignera `decision_mechanism` dans `get_state`, puis remplacera la logique de choix de `Bee`.
-- Décision collective des essaims d'abeilles mellifères (quorum) produisant une `ColonyDecision` ; implémentation
-  des interfaces des rôles (déplacements, danse).
-- Reproduction derrière `lay_eggs` / `manage_reproduction_cycle`.
+- Améliorer l'accord sur le seuil d'acceptation : formulation, ou seuil réglable sur P(accepter) mesuré sur un jeu
+  de scénarios distinct pour éviter le surapprentissage. Valider sur Windows + NVIDIA et avec le modèle 4B. Supprimer
+  ensuite la logique de référence si les résultats le permettent.
+- Déplacements et exploration (interfaces des rôles), puis décision collective des essaims (quorum → `ColonyDecision`).
+- Reproduction (`lay_eggs`, `manage_reproduction_cycle`).
 - Sauvegarde et chargement d'un monde ; authentification si le tableau de bord doit être exposé.

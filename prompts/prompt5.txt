@@ -1,0 +1,123 @@
+# Décisions des abeilles avec OpenJev, modèle d'IA exécuté en local
+
+## Objectif
+
+Confier les décisions des abeilles à **OpenJev**, un modèle d'IA open source spécialisé dans la prise de décision, exécuté **localement sur la machine de chaque utilisateur**, sans clé API ni service en ligne.
+
+Dans cette étape, une décision correspond uniquement au **choix individuel d'un habitat** par une abeille sans habitat, puis à son installation. Les décisions sont affichées en temps réel dans le tableau de bord, via le format d'événement défini au prompt 4.
+
+OpenJev doit **s'imprégner de la logique de choix déjà présente** dans le projet (`Bee.evaluate_habitat`, `score_breakdown`, `choose_habitat`, `BeeSpecies`, `BeePersonality`, `Preference`). Cette logique est conservée pendant toute cette étape comme **référence de comparaison**. Elle ne sera supprimée qu'à une étape ultérieure, après validation des résultats.
+
+## 1. Modèle retenu
+
+- Modèle par défaut : `alanhuangya/OpenJev-1.7B` (projet `alanhuangyoo/OpenJev`, paquet Python `openjev-ai`, licence Apache-2.0).
+- Le modèle doit fonctionner sur deux configurations cibles :
+  - un Mac Apple Silicon (accélération MPS, ou processeur à défaut) ;
+  - un PC Windows avec une carte NVIDIA de 16 Go de VRAM (CUDA).
+- Le nom du modèle et sa version (`revision`) sont des **paramètres**, et non des valeurs codées en dur. Un utilisateur disposant d'une machine plus puissante pourra choisir le modèle 4B sans modifier le code.
+- La version du modèle est **figée** (révision précise) afin que tous les utilisateurs obtiennent les mêmes résultats.
+
+**Première tâche, avant toute intégration :** vérifier que le modèle se charge et répond sur Mac (MPS, puis processeur si MPS échoue), et documenter la mémoire utilisée et le temps de réponse mesurés. Si le modèle ne fonctionne pas sur Mac, s'arrêter et le signaler plutôt que de contourner le problème.
+
+## 2. Installation et portabilité
+
+Le modèle **ne tourne pas dans Docker** : Docker sur Mac n'a pas accès au GPU. Godot, le backend Python et le tableau de bord restent dans Docker Compose ; le service de décision tourne directement sur la machine de l'utilisateur.
+
+**Ce qui est versionné dans le dépôt :**
+
+- le code qui interroge le modèle ;
+- les paramètres : nom du modèle, révision, appareil (`auto`, `cuda`, `mps`, `cpu`), adresse du service de décision, dossier de cache, cadence des décisions ;
+- ces paramètres dans `.env.example`, sans secret ;
+- un script d'installation et de lancement du service de décision pour macOS et pour Windows, sans chemin absolu ;
+- un guide d'installation pas à pas pour chaque système.
+
+**Ce qui n'est jamais versionné :**
+
+- les poids du modèle, téléchargés automatiquement au premier lancement depuis Hugging Face (sans clé), dans un dossier de cache ignoré par Git ;
+- l'environnement Python du service de décision.
+
+Le choix de l'appareil se fait automatiquement en mode `auto` : CUDA si disponible, sinon MPS, sinon processeur. L'appareil réellement utilisé est indiqué au démarrage et dans le tableau de bord.
+
+Les conteneurs atteignent le service de décision de la machine hôte par une adresse configurable (par exemple `host.docker.internal`), sur le même principe que `GODOT_HOST`.
+
+## 3. Architecture
+
+```
+Tableau de bord ◄──► Backend Python ◄──TCP JSON──► Godot (état du monde, validation)
+                          │
+                          └──HTTP local──► Service de décision OpenJev (hors Docker)
+```
+
+- **Godot reste propriétaire de l'état du monde.** Il fournit les informations nécessaires à une décision (abeille, préférences, personnalité, habitats candidats et leurs caractéristiques) et applique la décision.
+- **Le backend Python orchestre** : il récupère la situation auprès de Godot, construit la requête, interroge le service de décision, puis transmet la décision à Godot.
+- **Godot valide toute décision avant de l'appliquer** : habitat existant, type accepté par l'espèce, place disponible. Une décision invalide est refusée et produit un événement de refus.
+- Le service de décision expose une API HTTP locale (par exemple la route `POST /v1/systemone` fournie par OpenJev).
+
+Le backend accède aux décisions par une **interface commune de fournisseur de décision**, avec deux implémentations :
+
+- `OpenJevProvider` : interroge le service local OpenJev ;
+- `ReferenceProvider` : applique la logique de choix existante, utilisée uniquement pour la comparaison.
+
+Nouvelles commandes du protocole, ajoutées à la liste blanche Python et au traitement côté Godot :
+
+- une commande pour obtenir la situation de décision d'une abeille ;
+- une commande pour appliquer une décision (`bee_id`, `habitat_id` ou absence de choix).
+
+## 4. Transmettre la logique de choix à OpenJev
+
+OpenJev n'est pas réentraîné dans cette étape. Il s'imprègne de la logique existante par **la manière dont la situation et la question lui sont présentées**.
+
+- La **situation** (`state`) décrit en anglais, langue du modèle, l'espèce de l'abeille, ses préférences (critère, valeur idéale, tolérance, poids), ses traits de personnalité et leur signification, son seuil d'acceptation, ainsi que chaque habitat candidat et ses caractéristiques.
+- La **question** est un choix parmi les habitats candidats, avec une option « aucun habitat ne convient ». Les règles de la logique existante sont formulées dans les instructions et les critères de la question.
+- Les **scores calculés par la logique de référence ne sont jamais transmis au modèle** : sinon il se contenterait de les recopier, et la comparaison n'aurait aucun sens.
+- La construction de la situation et de la question est isolée dans un module dédié, facile à faire évoluer et testé séparément.
+- La taille des requêtes reste dans les limites de contexte du modèle. Si le nombre d'habitats candidats devient trop grand, une présélection documentée est appliquée.
+
+## 5. Comparaison avec la logique de référence
+
+Pour chaque décision prise par OpenJev, la logique de référence calcule aussi son choix **sans l'appliquer**.
+
+- L'événement de décision contient les deux choix, la probabilité attribuée par OpenJev à chaque option et l'indication d'accord ou de désaccord.
+- Un **jeu de scénarios fixes et reproductibles** (abeilles et habitats définis à l'avance) permet de mesurer le taux d'accord entre OpenJev et la référence, par espèce et par profil de personnalité.
+- Les résultats de cette mesure sont consignés dans un rapport, afin de décider plus tard si la logique de référence peut être supprimée.
+
+## 6. Boucle de décision
+
+- Les décisions ne sont prises que lorsque la simulation est en cours ; aucune décision pendant la pause.
+- À intervalle réglable, chaque abeille sans habitat demande une décision. Le nombre de décisions simultanées est limité pour ne pas saturer la machine.
+- Les appels au modèle ne doivent jamais bloquer le tableau de bord, la connexion avec Godot ni les autres commandes.
+- Les événements sont horodatés avec le temps de la simulation (numéro de tick).
+- **Si le service de décision est indisponible**, aucune décision n'est prise et l'état est clairement signalé dans le tableau de bord. Il n'y a pas de bascule silencieuse vers la logique de référence.
+
+## 7. Tableau de bord
+
+Les espaces préparés au prompt 4 sont alimentés :
+
+- fil des décisions en temps réel (abeille, habitats évalués, choix ou refus, probabilités, source « openjev ») ;
+- score moyen des habitats choisis, nombre de refus, répartition des choix par espèce et selon les traits de personnalité ;
+- taux d'accord avec la logique de référence, global et par espèce ;
+- état du service de décision : modèle et révision chargés, appareil utilisé, temps de réponse moyen, disponibilité.
+
+## 8. Contraintes
+
+Avant toute modification, examiner le dépôt existant, les classes disponibles et les conventions du projet.
+
+- Aucune clé API, aucun appel à un service en ligne pendant l'exécution : seul le téléchargement initial des poids accède à Internet.
+- Ne pas supprimer ni modifier la logique de choix existante.
+- Ne pas implémenter le déplacement, l'exploration, la danse, la décision collective ni la reproduction. Les composants de rôles ne sont pas exécutés.
+- Ne pas modifier le format du protocole TCP : seules de nouvelles commandes sont ajoutées.
+- Les conditions d'utilisation des données d'entraînement du modèle sont mentionnées dans la documentation (usage de recherche à vérifier avant tout usage commercial).
+
+## 9. Tests et documentation
+
+- Les tests automatiques ne dépendent pas du modèle : ils utilisent un faux fournisseur de décision aux réponses prédéfinies, afin de pouvoir tourner dans Docker et sur n'importe quelle machine.
+- Tester : la construction de la situation et de la question, l'application d'une décision valide, le refus d'une décision invalide par Godot, l'absence de choix, l'arrêt des décisions pendant la pause, le comportement quand le service de décision est indisponible.
+- Un test d'intégration avec le vrai modèle, lancé uniquement si le service de décision est disponible, vérifie qu'une décision complète aboutit.
+- Documenter l'installation sur macOS et sur Windows, les paramètres, le format des requêtes envoyées au modèle et le rapport de comparaison.
+- Mettre à jour `PROJECT_STATUS.md` (architecture, service de décision, paramètres, limites, résultats de comparaison, prochaines étapes), puis commiter.
+
+## Résultat attendu
+
+Un utilisateur installe le service de décision sur son Mac ou son PC Windows NVIDIA, lance le projet, peuple le monde depuis le tableau de bord, démarre la simulation et voit en temps réel les abeilles choisir leur habitat grâce à OpenJev exécuté sur sa propre machine, avec la comparaison de chaque décision à la logique de référence.
+
+**À la fin de cette étape, les décisions de choix d'habitat sont prises par OpenJev en local, la logique de choix existante est toujours présente mais n'est utilisée que pour la comparaison, et les abeilles ne se déplacent pas encore.**

@@ -24,6 +24,14 @@ services:
       GODOT_PORT: ${GODOT_PORT:-9876}
       GODOT_TIMEOUT: ${GODOT_TIMEOUT:-10}
       BZZ_HTTP_HOST: 0.0.0.0
+      # the OpenJev decision service runs on the host (Docker on Mac has no GPU access), not in a container
+      DECISION_SERVICE_URL: ${DECISION_SERVICE_URL_FROM_DOCKER:-http://host.docker.internal:8009}
+      DECISION_INTERVAL_TICKS: ${DECISION_INTERVAL_TICKS:-120}
+      DECISION_CONCURRENCY: ${DECISION_CONCURRENCY:-2}
+      DECISION_MAX_CANDIDATES: ${DECISION_MAX_CANDIDATES:-12}
+      DECISION_TIMEOUT: ${DECISION_TIMEOUT:-30}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # needed on Linux; Docker Desktop (Mac/Windows) provides it already
     depends_on:
       - godot
     # dashboard on http://localhost:${DASHBOARD_PORT}; bound to the host's loopback since there is no authentication
