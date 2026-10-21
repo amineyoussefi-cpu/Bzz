@@ -74,8 +74,12 @@ Ces commandes sont accessibles en Python (`GodotEngine.send(cmd, **args)`) et pa
 ```json
 ← {"tick": 1435, "paused": false, "speed": 1.0, "ticks_per_second": 60,
    "world": {"width": 1000, "height": 700}, "habitats": 5, "bees": 5, "swarms": 1, "node_count": 11,
-   "day_ticks": 3600.0, "last_event_seq": 12, "physics_frames": 2210, "process_frames": 2205}
+   "day_ticks": 3600.0, "display": "window", "view_loaded": true, "last_event_seq": 12, "physics_frames": 2210, "process_frames": 2205}
 ```
+
+`display` vaut `"window"` quand Godot a ouvert sa fenêtre (vue en lecture seule, `godot/view/world_view.gd`) et
+`"headless"` sinon. `view_loaded` indique si le script de la vue est chargé : il ne l'est jamais en mode headless.
+Ces deux champs sont informatifs ; le protocole et les commandes ne changent pas pour l'affichage.
 
 ### `get_catalog`
 
@@ -371,7 +375,7 @@ Toutes les réponses sont en JSON. En cas d'erreur, la réponse est `{"error": "
 
 - **400** : validation refusée, par Python ou par Godot ;
 - **404** : entité inconnue ;
-- **503** : simulation indisponible.
+- **503** : simulation non connectée (Godot fermé ou pas encore lancé ; le backend se reconnecte tout seul).
 
 | Méthode et route | Commande | Code de succès |
 |---|---|---|
@@ -389,6 +393,7 @@ Toutes les réponses sont en JSON. En cas d'erreur, la réponse est `{"error": "
 | `POST /api/simulation/resume` | `resume` | 200 |
 | `POST /api/simulation/speed` | `set_speed` (`{"speed": 2}`) | 200 |
 | `GET /api/events?since=N` | `get_events` | 200 |
+| `GET /api/godot/status` | connexion à Godot : `connected`, `display` (`window`/`headless`), `mode` (`remote`/`local`), `address` | 200 |
 | `GET /api/decision/status` | état du service de décision (voir §5) | 200 |
 | `GET /api/kpi` | KPI de la dernière capture | 200 |
 | `WS /ws` | flux temps réel (voir §5) | — |
@@ -420,6 +425,7 @@ pas envoyées à chaque tick ; le navigateur fait glisser chaque entité vers sa
 
 ```json
 {"type": "snapshot",
+ "godot": {"connected": true, "display": "window", "mode": "remote", "address": "host.docker.internal:9876"},
  "state": {...get_state...},
  "entities": [...list_entities...],
  "kpi": {...voir §6...},
@@ -433,6 +439,13 @@ pas envoyées à chaque tick ; le navigateur fait glisser chaque entité vers sa
 ```
 
 Le canal ne va que du backend vers le navigateur ; toutes les actions passent par l'API HTTP.
+
+**Godot non connecté** (fenêtre fermée, pas encore lancée) :
+
+- la capture contient `"godot": {"connected": false, ...}`, `"state": null` et `"kpi": null` ;
+- le backend retente la connexion à chaque relevé ;
+- quand un Godot est relancé, c'est un **nouveau monde** : le curseur d'événements et les fils repartent de zéro, sans
+  redémarrer le backend.
 
 ### Choix techniques
 

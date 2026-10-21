@@ -1,7 +1,8 @@
 # Guide d'installation et de lancement de Bzz
 
 Ce guide explique comment préparer un **Mac (Apple Silicon)** ou un **PC Windows avec une carte NVIDIA**, puis lancer
-le projet : la simulation, le tableau de bord, et les décisions des abeilles par le modèle OpenJev.
+le projet : la simulation dans **sa propre fenêtre Godot**, le tableau de bord dans le navigateur, et les décisions
+des abeilles par le modèle OpenJev.
 
 Il suffit de faire la préparation (sections 2 ou 3) **une seule fois** par machine. Pour chaque séance de travail,
 il suffit ensuite de suivre la section 4.
@@ -11,25 +12,29 @@ il suffit ensuite de suivre la section 4.
 ## 1. Ce qui tourne, et où
 
 ```
-Navigateur ──► Tableau de bord + backend Python ──► Godot (simulation)      ← dans Docker
-                         │
-                         └──► Service de décision OpenJev                     ← directement sur la machine
+Navigateur ──► Tableau de bord + backend Python ──► Godot : fenêtre de la simulation   ← Godot sur la machine
+  (actions + KPI)        (dans Docker)    │                                          ← backend dans Docker
+                                          └──► Service de décision OpenJev           ← sur la machine
 ```
 
 | Composant | Où il tourne | Pourquoi |
 |---|---|---|
-| Godot, backend Python, tableau de bord | Docker (Compose) | rien d'autre à installer ; identique sur toutes les machines |
+| **Godot** (simulation + fenêtre d'affichage) | directement sur la machine | Docker ne peut pas ouvrir de fenêtre sur le bureau |
+| Backend Python + tableau de bord | Docker (Compose) | rien d'autre à installer ; identique sur toutes les machines |
 | Service de décision OpenJev | directement sur la machine | Docker sur Mac n'a pas accès au GPU |
+
+La **fenêtre Godot** montre le monde en direct, mais on n'y agit pas. Toutes les actions (ajouts, retraits, pause,
+vitesse) se font dans le **tableau de bord**.
 
 **Ce qu'il faut installer :**
 
 | Outil | Mac | Windows | Rôle |
 |---|---|---|---|
 | Git | oui | oui | récupérer le projet |
-| Docker Desktop | oui | oui | lancer Godot, le backend et le tableau de bord |
+| Docker Desktop | oui | oui | lancer le backend et le tableau de bord |
 | Python 3.10 ou plus | oui | oui | faire tourner le service de décision |
 | Pilote NVIDIA récent | — | oui | utiliser la carte graphique (CUDA) |
-| Godot 4.5 ou plus | facultatif | facultatif | seulement pour lancer le projet **sans** Docker (§5) |
+| **Godot 4.7.2** | oui | oui | la simulation et sa fenêtre (même version que l'image Docker) |
 
 **Espace disque** : environ 10 Go au total (images Docker, environnement Python du service, et 3,2 Go de poids du
 modèle).
@@ -58,13 +63,16 @@ brew install --cask docker-desktop
 Ouvrir ensuite **Docker Desktop** depuis le dossier Applications, accepter les conditions et attendre que la baleine
 de la barre de menus indique « Docker Desktop is running ».
 
-### 2.3 (Facultatif) Godot
-
-Godot n'est nécessaire que pour lancer le projet sans Docker (§5) :
+### 2.3 Godot
 
 ```sh
 brew install --cask godot
+godot --version          # doit commencer par 4.7.2
 ```
+
+Si la version installée diffère, télécharger Godot 4.7.2 sur
+<https://github.com/godotengine/godot/releases/tag/4.7.2-stable> et indiquer son chemin dans `.env`
+(`GODOT_BIN=/Applications/Godot.app/Contents/MacOS/Godot`). Le script de lancement refuse une autre version.
 
 ### 2.4 Vérifier
 
@@ -118,15 +126,16 @@ winget install --id Docker.DockerDesktop -e
 - Sans `winget`, télécharger les installateurs sur <https://git-scm.com>, <https://www.python.org/downloads/> (cocher
   « Add python.exe to PATH » et le lanceur `py`) et <https://www.docker.com/products/docker-desktop/>.
 
-### 3.4 (Facultatif) Godot
-
-Seulement pour lancer le projet sans Docker (§5) :
+### 3.4 Godot
 
 ```powershell
 winget install --id GodotEngine.GodotEngine -e
 ```
 
-Sinon, télécharger Godot 4.7 sur <https://godotengine.org/download/windows/>.
+Sinon, télécharger Godot 4.7.2 (« Windows 64-bit ») sur
+<https://github.com/godotengine/godot/releases/tag/4.7.2-stable> et indiquer le chemin de l'exécutable dans `.env`
+(`GODOT_BIN=C:\chemin\vers\Godot_v4.7.2-stable_win64.exe`). Le script de lancement cherche Godot dans le `PATH`
+et dans les dossiers d'installation de winget, vérifie sa version et refuse une autre version que 4.7.2.
 
 ### 3.5 Vérifier
 
@@ -164,6 +173,7 @@ Réglages les plus utiles :
 
 | Variable | Défaut | Effet |
 |---|---|---|
+| `GODOT_DISPLAY` | `window` | `window` : Godot dans sa fenêtre sur la machine ; `headless` : sans fenêtre (§5) |
 | `DASHBOARD_PORT` | `8000` | port du tableau de bord |
 | `WORLD_WIDTH`, `WORLD_HEIGHT` | 1000 × 700 | taille du monde |
 | `OPENJEV_DEVICE` | `auto` | `cuda`, `mps` ou `cpu` pour forcer l'appareil du modèle |
@@ -204,30 +214,42 @@ powershell -ExecutionPolicy Bypass -File .\decision\start.ps1
 
 **Laisser ce terminal ouvert** : fermer le terminal arrête le service.
 
-### 4.4 Étape 2 : démarrer la simulation et le tableau de bord
+### 4.4 Étape 2 : ouvrir la fenêtre Godot
 
-Dans un **second terminal**, à la racine du projet :
+Dans un **deuxième terminal**, à la racine du projet :
+
+```sh
+./godot/start.sh                                                   # Mac
+powershell -ExecutionPolicy Bypass -File .\godot\start.ps1          # Windows
+```
+
+- Une **fenêtre « Bzz — simulation »** s'ouvre. Tant que le monde est vide, elle invite à ajouter des entités depuis
+  le tableau de bord.
+- Dans la fenêtre : **molette** = zoom, **glisser** = déplacer la vue, **F** = tout voir, **clic** ou survol = détails
+  d'une entité. Elle ne permet aucune modification du monde.
+- **Fermer la fenêtre arrête la simulation** (le monde est perdu). Relancer le script : le tableau de bord se
+  reconnecte tout seul.
+
+### 4.5 Étape 3 : démarrer le tableau de bord
+
+Dans un **troisième terminal** (ou le deuxième, après avoir lancé la fenêtre) :
 
 ```sh
 docker compose up -d
 ```
 
-- Le premier lancement construit les images Docker et télécharge Godot (quelques minutes).
-- Les suivants prennent quelques secondes.
+- Le premier lancement construit l'image Docker (quelques minutes) ; les suivants prennent quelques secondes.
+- L'ordre n'est pas strict : si le tableau de bord démarre avant la fenêtre Godot, il attend et se connecte dès
+  qu'elle s'ouvre.
 
-Vérifier que tout tourne :
+### 4.6 Étape 4 : utiliser le tableau de bord
 
-```sh
-docker compose ps        # les services godot et backend doivent être « running »
-```
+Ouvrir **<http://localhost:8000>** dans le navigateur, à côté de la fenêtre Godot.
 
-### 4.5 Étape 3 : utiliser le tableau de bord
-
-Ouvrir **<http://localhost:8000>** dans le navigateur.
-
-1. **Vérifier** la section « Décisions des abeilles » : le service doit être **disponible**, avec le modèle, la révision
-   et l'appareil.
-2. **Ajouter des habitats** : choisir un type, cliquer dans la vue du monde pour placer, puis « Ajouter l'habitat ».
+1. **Vérifier** l'en-tête : « Godot : fenêtre » en vert. La section « Décisions des abeilles » doit indiquer le
+   service **disponible**, avec le modèle, la révision et l'appareil.
+2. **Ajouter des habitats** : choisir un type, cliquer dans la vue simplifiée du monde (dans le navigateur) pour
+   placer, puis « Ajouter l'habitat ». L'habitat apparaît aussitôt dans la fenêtre Godot.
 3. **Ajouter des abeilles** : choisir l'espèce, le rôle et la personnalité (préréglage, curseurs, ou aléatoire avec une
    graine), placer, puis « Ajouter l'abeille ». Chaque espèce n'accepte que certains habitats ; une abeille sans
    habitat compatible est affichée « en attente ».
@@ -236,38 +258,45 @@ Ouvrir **<http://localhost:8000>** dans le navigateur.
    d'arbre ou une ruche libre.
 5. **Lancer** la simulation (bouton en haut). Le monde est construit à l'arrêt, et les abeilles ne décident que
    lorsque la simulation tourne. Le jour et l'heure simulés s'affichent en haut ; la vitesse ×4 ou ×8 accélère tout.
-6. **Suivre** les décisions et les vols : chaque abeille ou essaim choisit (ou refuse) un habitat, **s'y rend en vol**
-   (trajet en pointillés sur la carte), puis s'installe à l'arrivée. Un essaim qui ne trouve rien avant la fin de son
+6. **Suivre** les décisions et les vols **dans la fenêtre Godot** : chaque abeille ou essaim choisit (ou refuse) un
+   habitat, **s'y rend en vol** (trajet en pointillés), puis s'installe à l'arrivée. Un essaim qui ne trouve rien avant la fin de son
    délai reste « à découvert ».
 7. **Mettre en pause**, retirer une entité (✕) ou « Vider le monde » à tout moment.
 
-### 4.6 Arrêter
+### 4.7 Arrêter
 
-```sh
-docker compose down
-```
+1. Fermer la **fenêtre Godot** : la simulation s'arrête, et le monde est perdu (pas de sauvegarde).
+2. `docker compose down` : arrête le tableau de bord.
+3. **Ctrl + C** dans le terminal du service de décision.
 
-Cette commande arrête la simulation et le tableau de bord. Le monde est perdu : il n'y a pas de sauvegarde.
-
-Pour arrêter le service de décision, faire **Ctrl + C** dans son terminal.
-
-### 4.7 Relancer une autre fois (résumé)
+### 4.8 Relancer une autre fois (résumé)
 
 ```sh
 cd Bzz
-./decision/start.sh
-# Windows, à la place :
-#   powershell -ExecutionPolicy Bypass -File .\decision\start.ps1
-# dans un second terminal :
-docker compose up -d
-# puis ouvrir http://localhost:8000
+./decision/start.sh          # terminal 1   (Windows : powershell -ExecutionPolicy Bypass -File .\decision\start.ps1)
+./godot/start.sh             # terminal 2   (Windows : powershell -ExecutionPolicy Bypass -File .\godot\start.ps1)
+docker compose up -d         # terminal 3, puis ouvrir http://localhost:8000
 ```
 
 ---
 
-## 5. Variante : lancer sans Docker
+## 5. Variantes
 
-Cette variante est utile pour développer. Il faut Godot 4.5 ou plus (§2.3 ou §3.4) en plus des prérequis.
+### 5.1 Godot sans fenêtre, dans Docker (mode headless)
+
+Pour un serveur, des tests ou si l'on ne veut pas de fenêtre, ajouter dans `.env` :
+
+```
+COMPOSE_PROFILES=headless
+GODOT_HOST_FROM_DOCKER=godot
+```
+
+Puis `docker compose up -d` lance aussi Godot, sans fenêtre, dans Docker. Le tableau de bord indique
+« Godot : headless ». Ne pas lancer `godot/start.sh` dans ce mode.
+
+### 5.2 Sans Docker
+
+Cette variante est utile pour développer.
 
 **Mac**
 
@@ -289,7 +318,10 @@ $env:GODOT_BIN = "C:\chemin\vers\Godot_v4.7.2-stable_win64_console.exe"
 cd backend; ..\.venv\Scripts\python -m bzz.server
 ```
 
-- Le backend lance Godot lui-même, sans fenêtre.
+- Sans `GODOT_HOST`, le backend lance Godot lui-même, **sans fenêtre** par défaut. Avec `GODOT_DISPLAY=window` dans
+  l'environnement, il l'ouvre en fenêtre.
+- Pour utiliser la fenêtre lancée par `godot/start.sh`, définir plutôt `GODOT_HOST=127.0.0.1` avant de lancer le
+  backend.
 - Ouvrir ensuite <http://localhost:8000>.
 - Sur Mac, si Godot n'est pas trouvé, définir aussi `GODOT_BIN` (par exemple
   `/Applications/Godot.app/Contents/MacOS/Godot`).
@@ -316,11 +348,14 @@ cd backend; ..\.venv\Scripts\python -m bzz.server
 | Windows : `device=cpu` au lieu de `cuda` | Pilote NVIDIA absent ou trop ancien (§3.1), ou mauvaise version de PyTorch : supprimer le dossier `decision\.venv`, puis relancer `start.ps1`. Pour forcer une version, ajouter `TORCH_CUDA=cu130` (ou `cu126`) dans `.env`. |
 | Windows : « l'exécution de scripts est désactivée » | Lancer le script avec `powershell -ExecutionPolicy Bypass -File .\decision\start.ps1`, comme indiqué. |
 | `docker compose` : « Cannot connect to the Docker daemon » | Docker Desktop n'est pas démarré : l'ouvrir et attendre qu'il soit prêt. |
+| En-tête : « Godot : non connecté » | La fenêtre Godot n'est pas ouverte ou a été fermée : relancer `godot/start.sh` (ou `start.ps1`). La reconnexion est automatique. |
+| Windows : la fenêtre Godot est ouverte, mais « non connecté » | Le conteneur n'atteint pas Godot sur `127.0.0.1` : ajouter `GODOT_LISTEN=0.0.0.0` dans `.env`, relancer `start.ps1`, et autoriser Godot **uniquement sur les réseaux privés** dans le pare-feu (cette adresse rend Godot joignable depuis le réseau local). |
+| « Godot ... trouvé, mais 4.7.2 est attendu » | Installer Godot 4.7.2 et indiquer son chemin avec `GODOT_BIN` dans `.env`. |
 | Le port 8000 est déjà pris | Choisir un autre port dans `.env` (`DASHBOARD_PORT=8080`), puis `docker compose up -d`. |
 | Les abeilles ne décident rien | La simulation est en pause, aucun habitat n'accepte leur espèce (état « en attente »), ou le service est indisponible. |
 | « honey_bee lives in swarms » | Les abeilles mellifères s'ajoutent avec le formulaire « Ajouter un essaim ». |
 | Premier lancement très long | C'est le téléchargement unique des poids (3,2 Go) et la construction des images Docker. |
-| Mac : `./decision/start.sh: Permission denied` | `chmod +x decision/start.sh`, puis relancer. |
+| Mac : `Permission denied` sur un script | `chmod +x decision/start.sh godot/start.sh`, puis relancer. |
 
 ---
 

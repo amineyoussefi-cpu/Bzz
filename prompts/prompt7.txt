@@ -1,0 +1,101 @@
+# Correction : Godot ouvert dans sa propre fenêtre, tableau de bord dans le navigateur
+
+## Objectif
+
+Au lancement du projet, **Godot s'ouvre dans sa propre fenêtre**, comme une application native, et affiche la simulation en temps réel : habitats, abeilles, essaims en grappe, vols et installations.
+
+Le **tableau de bord reste dans le navigateur** : il garde les actions (ajout d'habitats, d'abeilles et d'essaims, consultation, retrait, remise à zéro, pause et vitesse) et les KPI.
+
+```
+Navigateur : tableau de bord ◄─HTTP+WebSocket─► Backend Python ◄─TCP JSON─► Godot (fenêtre native)
+  actions + KPI                                    (Docker ou local)          état du monde + affichage
+                                                         │
+                                                         └─HTTP local─► Service OpenJev (hors Docker)
+```
+
+## 1. Évolution de l'architecture
+
+Le prompt 1 imposait un Godot sans fenêtre (headless). Cette décision évolue : Godot devient aussi **la vue principale de la simulation**.
+
+- Godot reste le moteur central et le propriétaire de l'état du monde, du temps, des vols et de la validation.
+- Python reste l'unique point d'entrée des commandes vers Godot. La fenêtre Godot est une **vue** : elle n'offre aucune action qui modifie le monde (pas d'ajout ni de retrait depuis la fenêtre), afin que toutes les actions passent par le tableau de bord, le backend et la validation existante.
+- Le protocole TCP ne change pas : aucune commande n'est ajoutée ni modifiée pour l'affichage. Godot dessine directement son propre état.
+- Ce changement de décision est documenté dans `PROJECT_STATUS.md`.
+
+## 2. Où tourne Godot
+
+Docker ne peut pas ouvrir de fenêtre sur le bureau d'un Mac ou d'un PC Windows. **En mode fenêtre, Godot tourne donc directement sur la machine de l'utilisateur, hors Docker**, sur le même principe que le service OpenJev.
+
+Deux modes, choisis par un paramètre (par exemple `GODOT_DISPLAY=window` ou `headless`, dans `.env.example`) :
+
+- **window** (par défaut pour l'utilisateur) : Godot est lancé sur la machine hôte avec une fenêtre. Le backend s'y connecte en mode distant (`GODOT_HOST`). Dans Docker Compose, le service `godot` n'est pas démarré dans ce mode, et le backend atteint Godot sur l'hôte par une adresse configurable (par exemple `host.docker.internal`), comme il le fait déjà pour OpenJev.
+- **headless** : fonctionnement actuel, inchangé (Godot dans Docker ou lancé par Python sans fenêtre). Il reste utilisé pour les tests, l'intégration continue et un éventuel serveur distant.
+
+Points d'attention :
+
+- En mode fenêtre, Godot écoute sur une adresse accessible depuis le conteneur du backend. Vérifier que la connexion fonctionne sur Docker Desktop pour Mac et pour Windows en écoutant sur `127.0.0.1` ; sinon, documenter l'adresse nécessaire et ses conséquences de sécurité. Le port de Godot ne doit jamais être exposé au-delà de la machine.
+- Godot doit être installé sur la machine de l'utilisateur, dans la même version que celle utilisée par Docker. Prévoir un script de lancement pour macOS et pour Windows, sans chemin absolu : il trouve Godot (variable `GODOT_BIN`, puis emplacements habituels), vérifie sa version et lance le projet en fenêtre avec les paramètres du monde lus dans `.env`.
+- Le mode local, où Python lance lui-même Godot, doit pouvoir lancer Godot avec ou sans fenêtre selon le même paramètre.
+- Fermer la fenêtre Godot arrête la simulation. Le tableau de bord doit l'indiquer clairement (« simulation non connectée ») et se reconnecter automatiquement quand Godot est relancé, sans redémarrer le backend.
+- La commande `restart` en mode fenêtre doit soit relancer Godot, soit indiquer clairement qu'il faut le relancer à la main. Elle ne doit pas laisser le backend bloqué.
+
+## 3. Affichage dans la fenêtre Godot
+
+Godot dessine le monde avec ses mécanismes natifs (nœuds 2D, `_draw`, caméra), à partir de l'état qu'il possède déjà. Aucune logique de simulation n'est déplacée ni dupliquée pour l'affichage.
+
+Le dessin est fait **à partir de formes simples**, sans dépendre d'images externes ou d'actifs sous licence. Le style peut s'inspirer des illustrations SVG de `docs/img/`.
+
+À afficher :
+
+- **Le monde** : ses limites, à la taille définie par `WORLD_WIDTH` et `WORLD_HEIGHT`.
+- **Les habitats** : forme et couleur par type, nom ou identifiant, et occupation (par exemple « 1 / 1 »).
+- **Les abeilles solitaires** : couleur par espèce, état visible (en recherche, en attente sans habitat compatible, en vol, installée).
+- **Les essaims** : la grappe sur sa branche, avec sa population et son délai restant ; un aspect distinct en vol, installé, ou en nid à découvert.
+- **Les vols** : déplacement fluide, avec la trajectoire en cours vers l'habitat visé.
+- **Un bandeau d'information** : jour et heure simulés, état (en cours ou en pause), vitesse, nombre d'entités.
+
+Interactions de **vue uniquement** :
+
+- déplacement et zoom de la caméra (souris, molette, clavier) ;
+- survol ou clic sur une entité pour afficher son identifiant, son état et ses principales caractéristiques ;
+- touche pour recentrer la vue sur tout le monde.
+
+Si le monde est vide, la fenêtre affiche un message invitant à ajouter des entités depuis le tableau de bord, avec son adresse.
+
+L'affichage ne doit pas ralentir la simulation : la fenêtre a sa propre fréquence de rafraîchissement, et la simulation garde ses ticks indépendamment du dessin. Le mode headless ne charge ni ne dessine rien de cet affichage.
+
+## 4. Tableau de bord
+
+- Le tableau de bord garde les formulaires d'ajout, la liste des entités, la consultation, le retrait, la remise à zéro, pause, reprise et vitesse, ainsi que tous les KPI.
+- Choisir quoi faire de la carte 2D actuelle du tableau de bord : la garder en vue simplifiée (utile pour cliquer une position lors d'un ajout), ou la retirer au profit de la fenêtre Godot. Le choix est justifié et documenté. Dans tous les cas, l'utilisateur doit pouvoir saisir la position d'un ajout facilement.
+- Le tableau de bord indique si Godot est connecté, et dans quel mode (fenêtre ou headless).
+
+## 5. Lancement
+
+- Mettre à jour le guide d'installation (`docs/guide_installation.md` et son PDF) pour macOS et Windows : installation de Godot, ordre de lancement (service OpenJev, Godot en fenêtre, conteneurs, navigateur), arrêt et relance.
+- L'ordre de lancement ne doit pas être fragile : si le backend démarre avant Godot, il attend et se connecte dès que Godot est disponible.
+
+## 6. Contraintes
+
+Avant toute modification, examiner le dépôt existant, les classes disponibles et les conventions du projet.
+
+- Ne pas déplacer la logique de simulation hors de Godot, ni la dupliquer dans le tableau de bord ou dans l'affichage.
+- Ne pas modifier le format du protocole TCP.
+- Ne pas modifier la logique de décision, la logique de référence, ni le service OpenJev.
+- Conserver le mode headless et le fonctionnement actuel des tests dans Docker.
+- Aucune action modifiant le monde depuis la fenêtre Godot.
+- Toutes les adresses, ports et modes sont configurables, sans chemin absolu ni valeur codée en dur à plusieurs endroits.
+
+## 7. Tests et documentation
+
+- Les tests existants continuent de passer en mode headless, dans Docker et en local.
+- Tester que le mode headless ne crée aucune fenêtre et ne charge pas l'affichage.
+- Tester la reconnexion du backend après la fermeture et la relance de Godot.
+- Tester que l'affichage reflète l'état du monde (par exemple : nombre d'éléments dessinés égal au nombre d'entités, position d'une abeille en vol mise à jour), sans dépendre d'une capture d'écran.
+- Mettre à jour `PROJECT_STATUS.md` (architecture, nouvelle décision sur la fenêtre, modes, lancement, limites, prochaines étapes), puis commiter.
+
+## Résultat attendu
+
+L'utilisateur lance le projet : une fenêtre Godot s'ouvre sur son bureau et affiche le monde, tandis que le tableau de bord s'ouvre dans le navigateur. Il ajoute des habitats, des abeilles et des essaims depuis le tableau de bord, et les voit apparaître, se décider, voler et s'installer en direct dans la fenêtre Godot.
+
+**À la fin de cette étape, Godot affiche la simulation dans sa propre fenêtre native, le tableau de bord dans le navigateur reste le seul endroit où agir sur le monde, et le mode headless continue de fonctionner pour les tests.**

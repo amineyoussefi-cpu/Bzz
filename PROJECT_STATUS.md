@@ -1,20 +1,39 @@
 # PROJECT_STATUS
 
-_Dernière mise à jour : 2026-10-20 (prompt 6 : déplacement des abeilles et grappe d'essaimage)_
+_Dernière mise à jour : 2026-10-21 (prompt 7 : Godot dans sa propre fenêtre, tableau de bord dans le navigateur)_
 
 Référence de reprise entre sessions. Ne décrit que ce qui existe réellement dans le dépôt.
-Spécifications d'origine : [prompts/](prompts/) (`prompt1.txt` à `prompt6.txt`, `github_versioning.txt`, `portability.txt`).
+Spécifications d'origine : [prompts/](prompts/) (`prompt1.txt` à `prompt7.txt`, `github_versioning.txt`, `portability.txt`).
 
 ## Architecture actuelle
 
 ```
-Tableau de bord ◄─HTTP+WebSocket─► Backend Python (Docker ou local) ◄─TCP JSON─► Godot 4.7 headless
-  bzz/static/index.html              bzz/server.py (API, KPI, relevé d'événements)  main.gd → WorldApi
-                                     bzz/decision/ (boucle de décision)             (état du monde, validation)
-                                          │
-                                          └─HTTP local─► Service OpenJev (HORS Docker : decision/service.py)
-                                                          modèle alanhuangya/OpenJev-1.7B, CUDA / MPS / CPU
+Navigateur : tableau de bord ◄─HTTP+WebSocket─► Backend Python ◄─TCP JSON─► Godot 4.7.2 en FENÊTRE (sur l'hôte)
+  actions + KPI                                  (Docker ou local)           main.gd → WorldApi + WorldView (lecture seule)
+  bzz/static/index.html                          bzz/server.py, decision/      état, temps, vols, validation, affichage
+                                                       │
+                                                       └─HTTP local─► Service OpenJev (HORS Docker : decision/service.py)
 ```
+
+**Évolution de décision (prompt 7).** Le prompt 1 imposait un Godot sans fenêtre. Godot devient aussi **la vue
+principale de la simulation**, dans sa propre fenêtre native :
+
+- il reste le seul propriétaire de l'état, du temps, des vols et de la validation ;
+- la fenêtre est une **vue en lecture seule**, sans aucune action qui modifie le monde ;
+- Python reste l'unique point d'entrée des commandes, et le protocole TCP ne change pas (`get_state` gagne seulement
+  les champs informatifs `display` et `view_loaded`) ;
+- le tableau de bord, dans le navigateur, garde toutes les actions et les KPI.
+
+Docker ne pouvant pas ouvrir de fenêtre sur le bureau, **en mode fenêtre Godot tourne directement sur la machine**
+(comme OpenJev), et le backend du conteneur l'atteint via `host.docker.internal`.
+
+**Modes d'affichage** (`GODOT_DISPLAY`) :
+
+- **`window`** (défaut de `.env.example`, pour l'utilisateur) : `godot/start.sh` ou `godot/start.ps1` lance Godot sur
+  l'hôte, en fenêtre, sur `GODOT_LISTEN:GODOT_PORT` (`127.0.0.1:9876`). Compose ne démarre alors que le backend.
+- **`headless`** (défaut du code, pour les tests, l'intégration continue et les serveurs) : comportement d'avant, avec
+  Godot lancé par Python sans fenêtre, ou dans Docker avec `COMPOSE_PROFILES=headless` et
+  `GODOT_HOST_FROM_DOCKER=godot`. La vue n'est alors ni chargée ni dessinée.
 
 - **Godot** possède l'état du monde et le temps. Il décrit la situation d'une abeille ou d'un essaim, **valide et
   applique** les décisions, **fait voler** les abeilles et les essaims dans son cycle natif (`WorldApi.step`), et
@@ -29,8 +48,26 @@ Tableau de bord ◄─HTTP+WebSocket─► Backend Python (Docker ou local) ◄�
 
 Fichiers :
 
-- **godot/main.gd** — serveur TCP (`--host`, `--port`, `--world-width`, `--world-height`, et `--day-ticks`,
-  `--flight-speed-factor`, `--swarm-speed-mps`, `--swarm-cluster-days`), délègue à `WorldApi`.
+- **godot/main.gd** — serveur TCP (`--host`, `--port`, `--world-width`, `--world-height`, `--dashboard-url`, et
+  `--day-ticks`, `--flight-speed-factor`, `--swarm-speed-mps`, `--swarm-cluster-days`), délègue à `WorldApi`.
+  Sans `--headless`, il charge la vue `godot/view/world_view.gd`, qu'il ajoute à côté du nœud World pour que ses
+  enfants restent les seules entités.
+- **godot/view/world_view.gd** — vue en lecture seule, dessinée avec des formes simples (`_draw`, `Camera2D`) à partir
+  de `WorldApi._summary` :
+  - limites du monde ;
+  - habitats par type, avec identifiant et occupation ;
+  - abeilles par espèce et par état ;
+  - grappe sur sa branche, avec population et jours restants ;
+  - trajectoires des vols ;
+  - bandeau : jour, heure, état, vitesse, effectifs ;
+  - message quand le monde est vide.
+
+  Interactions de vue uniquement : molette pour zoomer, glisser ou flèches pour déplacer, F pour tout voir, survol ou
+  clic pour les détails.
+- **godot/start.sh / godot/start.ps1** — trouvent Godot (`GODOT_BIN`, `PATH`, emplacements habituels), vérifient la
+  version (`GODOT_VERSION`), lisent `.env` et lancent Godot en fenêtre.
+- **godot/tests/render_view.gd** — vérification visuelle manuelle : construit un monde, l'affiche en fenêtre et
+  enregistre une capture PNG. Ce script ne fait pas partie de la suite de tests.
 - **godot/api/world_api.gd** — catalogue, entités (`hab-N`, `bee-N`, `swarm-N`), horloge (tick, pause, vitesse,
   journée simulée), **vols et délais d'essaim** (`step`), journal d'événements, validation, paramètres
   (`DEFAULT_CONFIG`, seule source des valeurs par défaut). Décisions :
@@ -68,11 +105,24 @@ Fichiers :
     format des requêtes, conditions d'utilisation ;
   - [docs/rapport_comparaison.md](docs/rapport_comparaison.md) (+ `docs/comparison/results.json`) ;
   - références abeilles et rôles (Markdown + PDF).
-- **Docker** — `Dockerfile` (cibles `godot` et `backend`) et `compose.yaml`. Le backend joint le service OpenJev de
-  l'hôte via `DECISION_SERVICE_URL_FROM_DOCKER` (`host.docker.internal`, `extra_hosts` pour Linux) ; le port de Godot
-  reste interne.
+- **Docker** — `Dockerfile` (cibles `godot` et `backend`) et `compose.yaml` :
+  - le service `godot` n'existe qu'avec le profil `headless` ;
+  - le backend joint Godot via `GODOT_HOST_FROM_DOCKER` (`host.docker.internal` par défaut) et OpenJev via
+    `DECISION_SERVICE_URL_FROM_DOCKER` ;
+  - le port de Godot n'est jamais publié.
 
 ## Fonctionnalités implémentées
+
+- **Fenêtre Godot** (prompt 7) : la simulation s'affiche en direct dans une fenêtre native (habitats, abeilles, grappes,
+  vols, installations, bandeau d'information). Elle a sa propre fréquence d'affichage (60 images/s au maximum), et les
+  ticks de simulation restent indépendants du dessin.
+- **Connexion robuste** :
+  - le backend démarre même si Godot n'est pas lancé, et s'y connecte dès qu'il l'est ;
+  - fermer la fenêtre fait afficher « simulation non connectée » dans le tableau de bord, et la relancer le reconnecte
+    automatiquement, sans redémarrer le backend (un nouveau Godot est un nouveau monde) ;
+  - `restart` sur un Godot en fenêtre est refusé avec un message (« relancez-le avec godot/start.sh »), sans bloquer.
+- **Tableau de bord** : indique « Godot : fenêtre », « headless » ou « non connecté ». La carte 2D est **gardée** comme
+  vue simplifiée, car elle sert à cliquer une position lors d'un ajout et la fenêtre Godot ne transmet rien.
 
 - **Construction du monde** depuis le tableau de bord ou l'API :
   - habitats ;
@@ -161,11 +211,12 @@ encore être supprimée.**
 ## Utilisation
 
 ```sh
-./decision/start.sh                     # macOS ; Windows : .\decision\start.ps1 (1er lancement : installe + télécharge)
-docker compose up -d                    # puis http://localhost:8000 : ajouter habitats et abeilles, « Lancer »
+./decision/start.sh                     # 1. OpenJev (Windows : .\decision\start.ps1 ; 1er lancement : installe + télécharge)
+./godot/start.sh                        # 2. fenêtre Godot (Windows : .\godot\start.ps1)
+docker compose up -d                    # 3. backend + tableau de bord, puis http://localhost:8000
 # sans Docker : cd backend && ../.venv/bin/python -m bzz.server
 cd backend && ../.venv/bin/python -m bzz.decision.compare      # régénère le rapport de comparaison (service requis)
-../.venv/bin/python -m unittest discover tests                 # 44 tests ; le test du vrai modèle n'est lancé que si le service répond
+../.venv/bin/python -m unittest discover tests                 # 48 tests ; le test du vrai modèle n'est lancé que si le service répond
 docker compose run --rm -e GODOT_HOST= backend python -m unittest discover tests   # tests dans Docker (sans modèle)
 ```
 
@@ -205,6 +256,17 @@ docker compose run --rm -e GODOT_HOST= backend python -m unittest discover tests
 
 ## Problèmes connus / limites
 
+- **Mode fenêtre testé sur Mac seulement** (Docker Desktop atteint bien Godot sur `127.0.0.1` via
+  `host.docker.internal`). Sous Windows, ce n'est pas testé : si la connexion échoue, il faut
+  `GODOT_LISTEN=0.0.0.0`, qui rend Godot joignable depuis le réseau local (à restreindre dans le pare-feu).
+- **Affichage vérifié sans capture d'écran automatisée** :
+  - les tests contrôlent les éléments dessinés (`build_items`) ;
+  - l'aspect visuel a été vérifié à la main avec `godot/tests/render_view.gd` ;
+  - le terminal n'a pas l'autorisation de capturer l'écran du Mac.
+- **Godot doit être installé sur la machine**, dans la version de l'image Docker (4.7.2) ; les scripts refusent une
+  autre version.
+- **Fermer la fenêtre perd le monde** (pas de sauvegarde).
+- **Mode local** (Python lance Godot) : si Godot s'arrête, il n'est pas relancé automatiquement ; utiliser `restart`.
 - **Accord avec la référence de 56 %** seulement : le modèle juge mal le seuil d'acceptation.
 - **Vols simplifiés** : ligne droite, sans obstacle ni recherche de chemin. La vitesse absolue est un réglage de jeu,
   et seule la vitesse de l'ouvrière mellifère est bien sourcée. Les durées de vol ne sont pas réalistes par rapport à
@@ -244,4 +306,7 @@ docker compose run --rm -e GODOT_HOST= backend python -m unittest discover tests
   quorum, produisant la `ColonyDecision` déjà utilisée par la reine.
 - Essaimage depuis une ruche existante (une colonie installée produit un essaim), obstacles et recherche de chemin.
 - Reproduction (`lay_eggs`, `manage_reproduction_cycle`).
-- Sauvegarde et chargement d'un monde ; authentification si le tableau de bord doit être exposé.
+- Sauvegarde et chargement d'un monde, pour survivre à la fermeture de la fenêtre ; authentification si le tableau
+  de bord doit être exposé.
+- Valider le mode fenêtre sous Windows ; illustrations plus riches dans la vue (sprites dessinés), sans dépendre
+  d'actifs sous licence.

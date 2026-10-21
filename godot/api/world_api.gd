@@ -46,6 +46,7 @@ var speed := 1.0
 var events: Array[Dictionary] = []
 var next_seq := 1
 var config := DEFAULT_CONFIG.duplicate()
+var display := "headless"  # "window" when main.gd opened the read-only WorldView
 
 
 ## "" if every key is a known parameter with a positive number, else the error message.
@@ -144,6 +145,8 @@ func _cmd_get_state(_args: Dictionary) -> Dictionary:
 		"world": {"width": size.x, "height": size.y},
 		"habitats": habitats, "bees": entities.size() - habitats - swarms, "swarms": swarms,
 		"day_ticks": config.day_ticks,
+		"display": display,
+		"view_loaded": ResourceLoader.has_cached("res://view/world_view.gd"),
 		"last_event_seq": next_seq - 1,
 	})
 

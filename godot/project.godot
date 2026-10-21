@@ -7,3 +7,8 @@ run/main_scene="res://main.tscn"
 ; headless has no vsync: cap the loop so it doesn't spin a CPU core
 run/max_fps=60
 config/features=PackedStringArray("4.7")
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=860

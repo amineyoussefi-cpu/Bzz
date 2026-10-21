@@ -46,9 +46,30 @@ class Hub:
         self.kpi_events: deque = deque(maxlen=KPI_EVENTS)
         self.events_lost = False
         self.snapshot: dict | None = None
+        self.generation = 0  # engine connection seen last; a new one means a new Godot, hence a new world
+
+    def godot_status(self, state: dict | None = None) -> dict:
+        e = self.engine
+        return {"connected": e.connected, "display": state.get("display") if state else None,
+                "mode": "remote" if e.remote else "local",
+                "address": f"{e.host}:{e.port}" if e.remote else "spawned by the backend"}
 
     def poll(self) -> list[dict]:
-        """Fetch new events and rebuild the snapshot; returns the new events (blocking, run in a thread)."""
+        """Fetch new events and rebuild the snapshot; returns the new events (blocking, run in a thread).
+        While Godot is unreachable (window closed, not launched yet), it retries the connection and publishes a
+        "not connected" snapshot instead."""
+        if not self.engine.connected and not self.engine.try_connect():
+            self.snapshot = {"type": "snapshot", "godot": self.godot_status(), "state": None, "entities": [],
+                             "decision_service": self.decisions.status(), "kpi": None,
+                             "world_events": list(self.world_events), "decision_events": list(self.decision_events),
+                             "events_lost": self.events_lost}
+            return []
+        if self.engine.generation != self.generation:  # (re)connected to a fresh Godot: start a new log
+            self.generation = self.engine.generation
+            self.cursor = 0
+            self.events_lost = False
+            for q in (self.world_events, self.decision_events, self.kpi_events):
+                q.clear()
         res = self.engine.send("get_events", since=self.cursor)
         self.cursor = res["last_seq"]
         self.events_lost |= res["lost"]
@@ -61,6 +82,7 @@ class Hub:
         service = self.decisions.status()
         self.snapshot = {
             "type": "snapshot",
+            "godot": self.godot_status(state),
             "state": state,
             "entities": entities,
             "decision_service": service,
@@ -72,16 +94,19 @@ class Hub:
         return res["events"]
 
     async def run(self) -> None:
-        last_tick = None
+        last_key = None
         while True:
             try:
                 new = await asyncio.to_thread(self.poll)
-                key = (self.snapshot["state"]["tick"], self.snapshot["decision_service"].get("available"))
-                if new or key != last_tick:
-                    last_tick = key
-                    await self.broadcast(self.snapshot)
-            except (GodotError, OSError):
-                pass  # Godot restarting: keep polling
+            except (GodotError, OSError):  # connection lost mid-poll: the next poll publishes "not connected"
+                await asyncio.sleep(POLL_INTERVAL)
+                continue
+            snap = self.snapshot
+            key = (snap["godot"]["connected"], snap["state"] and snap["state"]["tick"],
+                   snap["decision_service"].get("available"))
+            if new or key != last_key:
+                last_key = key
+                await self.broadcast(snap)
             await asyncio.sleep(POLL_INTERVAL)
 
     async def broadcast(self, msg: dict) -> None:
@@ -109,7 +134,10 @@ def create_app(engine: GodotEngine | None = None, provider: DecisionProvider | N
 
     @asynccontextmanager
     async def lifespan(_app):
-        await asyncio.to_thread(engine.start)
+        if engine.remote:
+            await asyncio.to_thread(engine.try_connect)  # Godot may start later: polling picks it up
+        else:
+            await asyncio.to_thread(engine.start)
         await asyncio.to_thread(decisions.check_service)
         await asyncio.to_thread(hub.poll)  # first snapshot before accepting clients
         tasks = [asyncio.create_task(hub.run()), asyncio.create_task(decisions.run())]
@@ -129,7 +157,7 @@ def create_app(engine: GodotEngine | None = None, provider: DecisionProvider | N
         except CommandRejected as e:  # refused by Godot
             return JSONResponse({"error": str(e)}, status_code=404 if str(e).startswith("unknown entity") else 400)
         except (GodotError, OSError) as e:
-            return JSONResponse({"error": f"simulation unavailable: {e}"}, status_code=503)
+            return JSONResponse({"error": f"simulation non connectée : {e}"}, status_code=503)
 
     def body_call(cmd: str, payload):
         if not isinstance(payload, dict):
@@ -189,13 +217,19 @@ def create_app(engine: GodotEngine | None = None, provider: DecisionProvider | N
     def events(since: int = 0):
         return call("get_events", since=since)
 
+    @app.get("/api/godot/status")
+    def godot_status():
+        return hub.snapshot["godot"] if hub.snapshot else hub.godot_status()
+
     @app.get("/api/decision/status")
     def decision_status():
         return decisions.status()
 
     @app.get("/api/kpi")
     def get_kpi():
-        return hub.snapshot["kpi"] if hub.snapshot else JSONResponse({"error": "not ready"}, status_code=503)
+        if not hub.snapshot or hub.snapshot["kpi"] is None:
+            return JSONResponse({"error": "simulation non connectée"}, status_code=503)
+        return hub.snapshot["kpi"]
 
     @app.websocket("/ws")
     async def ws(websocket: WebSocket):

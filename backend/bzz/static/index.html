@@ -85,7 +85,8 @@
 <body>
 <header>
   <h1>🐝 Bzz</h1>
-  <span id="conn" class="pill off">déconnecté</span>
+  <span id="conn" class="pill off">tableau de bord déconnecté</span>
+  <span id="godot" class="pill off">Godot : …</span>
   <span id="run" class="pill pause">en pause</span>
   <span class="clock">Jour <b id="day">1</b> · <b id="hour">00h00</b> · tick <span id="tick">0</span></span>
   <button id="btn-toggle" class="primary">Lancer</button>
@@ -94,6 +95,7 @@
   <button id="btn-clear" class="danger">Vider le monde</button>
 </header>
 
+<div id="offline" class="notice" style="margin:14px 16px 0" hidden></div>
 <main>
   <div class="col-left">
     <section>
@@ -161,7 +163,7 @@
 
   <div class="col-center">
     <section>
-      <h2>Monde</h2>
+      <h2>Monde <span class="hint" style="text-transform:none;letter-spacing:0">— vue simplifiée : cliquez pour placer un ajout ; la vue principale est la fenêtre Godot</span></h2>
       <div id="world-wrap"><canvas id="world" aria-label="Vue du monde"></canvas></div>
       <div class="legend" id="legend"></div>
     </section>
@@ -512,7 +514,17 @@ function renderService(svc) {
     "(pas de bascule vers la logique de référence). Lancez decision/start.sh ou decision\\start.ps1.";
 }
 
+function renderGodot(g) {
+  const txt = !g.connected ? "Godot : non connecté" : g.display === "window" ? "Godot : fenêtre" : "Godot : headless";
+  $("godot").textContent = txt; $("godot").className = "pill " + (g.connected ? "run" : "off");
+  $("offline").hidden = g.connected;
+  $("offline").textContent = `Simulation non connectée (${g.address}). Lancez Godot avec godot/start.sh ` +
+    "(Windows : godot\\start.ps1) : le tableau de bord se reconnecte tout seul.";
+}
+
 function render() {
+  renderGodot(snap.godot);
+  if (!snap.godot.connected) { renderService(snap.decision_service); return; }
   const s = snap.state, k = snap.kpi;
   $("run").textContent = s.paused ? "en pause" : "en cours"; $("run").className = "pill " + (s.paused ? "pause" : "run");
   $("btn-toggle").textContent = s.paused ? "Lancer" : "Pause";
@@ -550,16 +562,26 @@ function render() {
 // --- live feed ------------------------------------------------------------------
 function connect() {
   const ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws");
-  ws.onopen = () => { $("conn").textContent = "connecté"; $("conn").className = "pill run"; };
-  ws.onmessage = m => { snap = JSON.parse(m.data); if (catalog) render(); };
-  ws.onclose = () => { $("conn").textContent = "déconnecté"; $("conn").className = "pill off"; setTimeout(connect, 1500); };
+  ws.onopen = () => { $("conn").textContent = "tableau de bord connecté"; $("conn").className = "pill run"; };
+  ws.onmessage = m => {
+    const wasConnected = snap?.godot.connected;
+    snap = JSON.parse(m.data);
+    if (snap.godot.connected && wasConnected === false) loadCatalog();  // a relaunched Godot may have new settings
+    if (catalog) render(); else renderGodot(snap.godot);
+  };
+  ws.onclose = () => { $("conn").textContent = "tableau de bord déconnecté"; $("conn").className = "pill off"; setTimeout(connect, 1500); };
 }
 
-(async () => {
-  catalog = await api("GET", "/api/catalog");
-  buildForms();
-  connect();
-})();
+// the catalogue comes from Godot: wait for it if Godot is not connected yet
+async function loadCatalog() {
+  try {
+    const res = await fetch("/api/catalog");
+    if (!res.ok) throw new Error(res.status);
+    catalog = await res.json(); buildForms(); if (snap) render();
+  } catch { setTimeout(loadCatalog, 2000); }
+}
+connect();
+loadCatalog();
 </script>
 </body>
 </html>

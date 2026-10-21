@@ -83,6 +83,7 @@ func _init() -> void:
 	test_roles()
 	test_world_api()
 	test_flights_and_swarms()
+	test_window_view()
 	print("entity tests: %s" % ("OK" if failures == 0 else "%d failure(s)" % failures))
 	quit(1 if failures else 0)
 
@@ -286,4 +287,29 @@ func test_flights_and_swarms() -> void:
 	check(swarm.home == null and swarm.state() == Swarm.State.CLUSTER and swarm.cluster_position == swarm.position,
 		"cavity removed -> swarm clusters again")
 	check(api.handle("clear_world", {}).ok and world.get_child_count() == 0, "clear_world removes swarms too")
+	world.free()
+
+
+func test_window_view() -> void:
+	# the view is only a reader of WorldApi: one drawn item per entity, positions follow the simulation
+	var world := Node2D.new()
+	var api := WorldApi.new(world, WorldApi.DEFAULT_SIZE, {"flight_speed_factor": 1.0})
+	var view: Node2D = load("res://view/world_view.gd").new()
+	view.setup(api)
+	var soil = api.handle("add_habitat", {"type": "bare_soil", "x": 500, "y": 100}).result
+	var b = api.handle("add_bee", {"species": "mining_bee", "x": 100, "y": 100}).result
+	api.handle("add_swarm", {"x": 300, "y": 300, "population": 9000})
+	api.handle("add_habitat", {"type": "tree_cavity", "x": 50, "y": 600})
+	var items: Array = view.build_items()
+	check(items.size() == api.entities.size(), "one drawn item per entity")
+	api.handle("resume", {})
+	api.handle("apply_decision", {"bee_id": b.id, "habitat_id": soil.id})
+	var before: Vector2 = view.build_items().filter(func(i): return i.id == b.id)[0].pos
+	for i in 10:
+		api.step()
+	var it: Dictionary = view.build_items().filter(func(i): return i.id == b.id)[0]
+	check(it.state == "flying" and it.pos.x > before.x and it.pos == api.entities[b.id].position
+		and it.target_id == soil.id, "a flying bee is drawn where the simulation puts it, with its target")
+	check(view.build_items().filter(func(i): return i.kind == "swarm")[0].state == "cluster", "swarm drawn as a cluster")
+	view.free()
 	world.free()

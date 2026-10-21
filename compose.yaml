@@ -1,5 +1,9 @@
+# Default (GODOT_DISPLAY=window): Godot runs on the host in its own window (./godot/start.sh), only the backend runs
+# here and reaches it through host.docker.internal. Headless Godot in Docker instead (tests, servers): set
+# COMPOSE_PROFILES=headless and GODOT_HOST_FROM_DOCKER=godot in .env.
 services:
   godot:
+    profiles: ["headless"]
     build:
       context: .
       target: godot
@@ -24,7 +28,7 @@ services:
       args:
         GODOT_VERSION: ${GODOT_VERSION:-4.7.2}
     environment:
-      GODOT_HOST: godot
+      GODOT_HOST: ${GODOT_HOST_FROM_DOCKER:-host.docker.internal}
       GODOT_PORT: ${GODOT_PORT:-9876}
       GODOT_TIMEOUT: ${GODOT_TIMEOUT:-10}
       BZZ_HTTP_HOST: 0.0.0.0
@@ -38,7 +42,9 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"  # needed on Linux; Docker Desktop (Mac/Windows) provides it already
     depends_on:
-      - godot
+      godot:
+        condition: service_started
+        required: false  # only with the headless profile
     # dashboard on http://localhost:${DASHBOARD_PORT}; bound to the host's loopback since there is no authentication
     ports:
       - "127.0.0.1:${DASHBOARD_PORT:-8000}:8000"

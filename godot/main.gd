@@ -3,6 +3,10 @@ extends Node2D
 ##   request:  {"id": 1, "cmd": "ping", "args": {}}
 ##   response: {"id": 1, "ok": true, "result": ...} or {"id": 1, "ok": false, "error": "..."}
 ## World commands are handled by WorldApi (godot/api/world_api.gd); see docs/api.md.
+## Run with --headless for the server mode (tests, Docker); without it, Godot opens a window and loads the read-only
+## WorldView (godot/view/world_view.gd). The view is never loaded in headless mode.
+
+const VIEW_PATH := "res://view/world_view.gd"
 
 var server := TCPServer.new()
 var peers: Array[StreamPeerTCP] = []
@@ -15,6 +19,7 @@ func _ready() -> void:
 	var host := "127.0.0.1"  # use --host=0.0.0.0 in a container so other services can connect
 	var size := WorldApi.DEFAULT_SIZE
 	var params := {}  # other --key=value args: simulation parameters (WorldApi.DEFAULT_CONFIG)
+	var dashboard_url := ""  # shown by the window view when the world is empty
 	for arg in OS.get_cmdline_user_args():
 		var value := arg.get_slice("=", 1)
 		if arg.begins_with("--port="):
@@ -25,6 +30,8 @@ func _ready() -> void:
 			size.x = float(value)
 		elif arg.begins_with("--world-height="):
 			size.y = float(value)
+		elif arg.begins_with("--dashboard-url="):
+			dashboard_url = value
 		elif arg.begins_with("--") and "=" in arg:
 			params[arg.get_slice("=", 0).trim_prefix("--").replace("-", "_")] = value
 	var config_err := WorldApi.config_error(params)
@@ -33,12 +40,18 @@ func _ready() -> void:
 		get_tree().quit(1)
 		return
 	api = WorldApi.new(self, size, params)
+	api.display = "headless" if DisplayServer.get_name() == "headless" else "window"
+	if api.display == "window":
+		var view: Node2D = load(VIEW_PATH).new()
+		view.setup(api, dashboard_url)
+		get_tree().root.add_child.call_deferred(view)  # beside the World node: its children stay the entities
+		get_window().title = "Bzz — simulation (vue seule)"
 	var err := server.listen(port, host)
 	if err != OK:
 		push_error("listen failed on port %d: %s" % [port, error_string(err)])
 		get_tree().quit(1)
 		return
-	print("BZZ READY %s:%d world=%dx%d" % [host, port, size.x, size.y])
+	print("BZZ READY %s:%d world=%dx%d display=%s" % [host, port, size.x, size.y, api.display])
 
 
 func _physics_process(_delta: float) -> void:
