@@ -107,19 +107,31 @@ Les valeurs de soleil, d'humidité, de fleurs et de prédateurs sont des réglag
 mots (`HabitatCatalog.describe()`, champ `description` de `get_entity`). Les chiffres restent stockés et servent
 de référence pour mesurer les résultats. Une valeur égale à une borne passe au niveau supérieur.
 
-| Caractéristique | 1 | 2 | 3 | 4 | 5 |
-|---|---|---|---|---|---|
-| Volume (L) | very small cavity (< 5) | small cavity (< 20) | medium cavity (< 35) | large cavity (< 60) | very large cavity |
-| Entrée (mm) | very narrow entrance (< 5) | narrow entrance (< 15) | medium entrance (< 30) | wide entrance (< 60) | very wide entrance |
-| Hauteur (m) | at ground level (< 0,5) | low (< 2) | mid-height (< 4) | high (< 8) | very high |
-| Soleil | very shady | shady | partly sunny | sunny | very sunny |
-| Humidité | very dry | dry | moderately humid | humid | very humid |
-| Fleurs | almost no flowers | few flowers | some flowers | many flowers | abundant flowers |
-| Prédateurs | very safe | safe | some danger | dangerous | very dangerous |
+**Mots-clés anglais par caractéristique.** C'est le vocabulaire exact que reçoit l'abeille
+(`HabitatCatalog.LEVELS` dans [`godot/entities/habitat_catalog.gd`](../godot/entities/habitat_catalog.gd)).
 
-Pour les traits de 0 à 1, les bornes sont 0,2 / 0,4 / 0,6 / 0,8. Un volume ou une entrée à 0 veut dire
-« sans objet » : ils deviennent `no cavity` et `no entrance`. `previously_occupied` devient
-`old nest present` ou `no old nest`. La capacité n'est pas décrite, ce n'est pas un critère que l'abeille juge.
+| Clé | Caractéristique | Niveau 1 | Niveau 2 | Niveau 3 | Niveau 4 | Niveau 5 |
+|---|---|---|---|---|---|---|
+| `cavity_volume_l` | volume (L) | very small cavity<br>< 5 | small cavity<br>5 – 20 | medium cavity<br>20 – 35 | large cavity<br>35 – 60 | very large cavity<br>≥ 60 |
+| `entrance_diameter_mm` | entrée (mm) | very narrow entrance<br>< 5 | narrow entrance<br>5 – 15 | medium entrance<br>15 – 30 | wide entrance<br>30 – 60 | very wide entrance<br>≥ 60 |
+| `entrance_height_m` | hauteur (m) | at ground level<br>< 0,5 | low<br>0,5 – 2 | mid-height<br>2 – 4 | high<br>4 – 8 | very high<br>≥ 8 |
+| `sun_exposure` | soleil | very shady | shady | partly sunny | sunny | very sunny |
+| `humidity` | humidité | very dry | dry | moderately humid | humid | very humid |
+| `floral_abundance` | fleurs | almost no flowers | few flowers | some flowers | many flowers | abundant flowers |
+| `predator_risk` | prédateurs | very safe | safe | some danger | dangerous | very dangerous |
+
+Pour les caractéristiques de 0 à 1, les niveaux sont : < 0,2 / 0,2 – 0,4 / 0,4 – 0,6 / 0,6 – 0,8 / ≥ 0,8.
+Une valeur égale à une borne passe au niveau supérieur.
+
+**Mots-clés spéciaux.**
+
+| Clé | Cas | Mot-clé |
+|---|---|---|
+| `cavity_volume_l` | valeur 0 (sol, tige, bois : sans objet) | no cavity |
+| `entrance_diameter_mm` | valeur 0 (sans objet) | no entrance |
+| `previously_occupied` | vrai | old nest present |
+| `previously_occupied` | faux | no old nest |
+| `capacity` | — | pas de mot-clé : ce n'est pas un critère que l'abeille juge |
 
 ---
 
