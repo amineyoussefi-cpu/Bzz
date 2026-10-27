@@ -18,6 +18,7 @@ const ARGS := {
 	"add_habitat": ["type", "x", "y", "features"],
 	"add_bee": ["x", "y", "personality", "name", "role"],
 	"get_entity": ["id"], "remove_entity": ["id"], "move_entity": ["id", "x", "y"],
+	"update_habitat": ["id", "features"],
 	"set_speed": ["speed"], "get_events": ["since"],
 }
 
@@ -269,6 +270,27 @@ func _cmd_move_entity(args: Dictionary) -> Dictionary:
 	e.position = Vector2(args.x, args.y)
 	_emit("entity_moved", {"id": args.id, "x": e.position.x, "y": e.position.y})
 	return _ok(_summary(e))
+
+
+# --- editing a habitat ------------------------------------------------------------------
+
+func _cmd_update_habitat(args: Dictionary) -> Dictionary:
+	var h = entities.get(args.get("id"))
+	if h == null:
+		return _err("unknown entity %s" % args.get("id"))
+	if not h is Habitat:
+		return _err("%s is not a habitat" % args.id)
+	var features = args.get("features")
+	if typeof(features) != TYPE_DICTIONARY or features.is_empty():
+		return _err("features must be a non-empty object")
+	var feat_err := HabitatCatalog.validate_features(features)
+	if feat_err:
+		return _err(feat_err)
+	if "capacity" in features and features.capacity < h.occupants.size():
+		return _err("capacity cannot drop below the %d current occupants" % h.occupants.size())
+	HabitatCatalog.apply(h, features)
+	_emit("habitat_updated", {"id": args.id, "features": features})
+	return _cmd_get_entity({"id": args.id})
 
 
 # --- removing -------------------------------------------------------------------------

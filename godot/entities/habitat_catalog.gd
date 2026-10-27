@@ -101,9 +101,14 @@ static func create(t: Habitat.Type, overrides := {}) -> Habitat:
 	h.habitat_type = t
 	var values := defaults(t)
 	values.merge(overrides, true)
+	apply(h, values)
+	return h
+
+
+## Writes `values` ({feature: value}, validated first) onto `h`.
+static func apply(h: Habitat, values: Dictionary) -> void:
 	for key in values:
 		h.set(key, int(values[key]) if FEATURES[key].type == "int" else values[key])
-	return h
 
 
 static func features_of(h: Habitat) -> Dictionary:

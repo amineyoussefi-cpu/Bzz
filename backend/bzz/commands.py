@@ -23,6 +23,7 @@ COMMANDS: dict[str, dict[str, tuple[tuple[type, ...] | type, bool]]] = {
     "get_entity": {"id": (str, True)},
     "remove_entity": {"id": (str, True)},
     "move_entity": {"id": (str, True), "x": (NUM, True), "y": (NUM, True)},
+    "update_habitat": {"id": (str, True), "features": (dict, True)},
     "set_speed": {"speed": (NUM, True)},
     "get_events": {"since": (int, False)},
 }
@@ -68,6 +69,11 @@ def _check_values(cmd: str, args: dict, cat: dict) -> None:
     if cmd == "add_habitat":
         _one_of("habitat type", args["type"], [t["name"] for t in cat["habitat_types"]])
         for key, value in args.get("features", {}).items():
+            _check_feature(key, value, cat["features"])
+    elif cmd == "update_habitat":
+        if not args["features"]:
+            raise ValueError("features must be a non-empty object")
+        for key, value in args["features"].items():
             _check_feature(key, value, cat["features"])
     elif cmd == "add_bee":
         if "role" in args:

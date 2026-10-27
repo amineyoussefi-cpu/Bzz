@@ -136,6 +136,23 @@ class ProtocolTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "both x and y"):
             self.send("add_bee", x=10)
 
+    # --- editing a habitat ----------------------------------------------------------------------
+    def test_update_habitat_features(self):
+        h = self.send("add_habitat", **TREE)
+        d = self.send("update_habitat", id=h["id"], features={"sun_exposure": 0.05, "capacity": 3})
+        self.assertEqual((d["features"]["sun_exposure"], d["features"]["capacity"]), (0.05, 3))
+        self.assertEqual(d["description"]["sun_exposure"], "very shady")  # words follow the numbers
+        self.assertEqual(d["features"]["cavity_volume_l"], 40.0)  # untouched features keep their value
+        with self.assertRaisesRegex(CommandRejected, "between 0"):
+            self.godot_only("update_habitat", id=h["id"], features={"humidity": 2})
+        with self.assertRaisesRegex(ValueError, "between 0"):
+            self.send("update_habitat", id=h["id"], features={"humidity": 2})
+        with self.assertRaisesRegex(CommandRejected, "not a habitat"):
+            self.send("update_habitat", id=self.send("add_bee")["id"], features={"humidity": .5})
+        with self.assertRaisesRegex(CommandRejected, "unknown entity"):
+            self.send("update_habitat", id="hab-999", features={"humidity": .5})
+        self.assertEqual(self.send("get_entity", id=h["id"])["features"]["humidity"], 0.4)  # refused -> unchanged
+
     # --- moving ------------------------------------------------------------------------------
     def test_move_entity(self):
         b = self.send("add_bee", x=5, y=5)

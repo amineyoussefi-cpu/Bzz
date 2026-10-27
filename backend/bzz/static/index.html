@@ -85,6 +85,14 @@
   .chips { display: flex; flex-wrap: wrap; gap: 5px; }
   .chip { background: var(--ground); border-radius: 99px; padding: 3px 9px; font-size: 12.5px; }
   .trait { display: grid; grid-template-columns: 82px 1fr; align-items: center; gap: 8px; font-size: 12.5px; margin: 5px 0; }
+  .feat { padding: 7px 0; border-bottom: 1px solid var(--ground); }
+  .feat-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 13px; }
+  .feat-top .chip { font-size: 12px; }
+  .feat-ctl { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+  .feat-ctl input[type=range] { flex: 1; accent-color: var(--forest); }
+  .feat-ctl input[type=number] { width: 90px; border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; }
+  .feat-ctl output, .feat-ctl .unit { font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; min-width: 32px; }
+  .feat-ctl input[type=checkbox] { accent-color: var(--forest); width: 16px; height: 16px; margin: 0; }
   .meter { height: 6px; background: var(--ground); border-radius: 3px; overflow: hidden; }
   .meter i { display: block; height: 100%; border-radius: 3px; }
 
@@ -192,6 +200,12 @@ const HAB = {
 };
 const PERS = { prudente: "#3b6ea8", audacieuse: "#d1495b", sociable: "#e6a817", curieuse: "#8e5ac8", "équilibrée": "#4f9d69" };
 const ROLE = { scout: "Éclaireuse", follower: "Suiveuse" };
+const FEAT = {  // label, unit; order = display order
+  cavity_volume_l: ["Volume de la cavité", "L"], entrance_diameter_mm: ["Diamètre de l'entrée", "mm"],
+  entrance_height_m: ["Hauteur de l'entrée", "m"], sun_exposure: ["Ensoleillement"], humidity: ["Humidité"],
+  floral_abundance: ["Fleurs autour"], predator_risk: ["Risque de prédateurs"], previously_occupied: ["Ancien nid présent"],
+  capacity: ["Capacité", "occupants"],
+};
 const TRAIT = { pickiness: "Exigence", boldness: "Audace", sociability: "Sociabilité", curiosity: "Curiosité" };
 const MARGIN = 30, HAB_GAP = 70;
 const $ = id => document.getElementById(id);
@@ -422,8 +436,13 @@ async function select(id) {
   const del = `<p style="margin:14px 0 0"><button class="btn quiet" onclick="removeEntity('${d.id}')">Retirer de la carte</button></p>`;
   if (d.kind === "habitat") {
     $("insp-body").innerHTML = `<p class="insp-title">${esc(HAB[d.type][0])}</p>
-      <p class="insp-sub">${d.id}, ${d.occupants}/${d.capacity} occupant${d.capacity > 1 ? "s" : ""}</p>
-      <div class="chips">${Object.values(d.description).map(w => `<span class="chip">${esc(w)}</span>`).join("")}</div>${del}`;
+      <p class="insp-sub">${d.id}, <span id="occ">${d.occupants}/${d.capacity}</span> occupant${d.capacity > 1 ? "s" : ""}.
+        À droite, ce que perçoit une abeille.</p>
+      ${Object.keys(FEAT).map(k => featRow(k, d.features[k], d.description[k])).join("")}${del}`;
+    $("insp-body").querySelectorAll("[data-feat]").forEach(el => {
+      if (el.type === "range") el.oninput = () => el.nextElementSibling.textContent = Number(el.value).toFixed(2);
+      el.onchange = () => saveFeature(d.id, el);
+    });
   } else {
     const p = persName(d.personality);
     $("insp-body").innerHTML = `<p class="insp-title">${esc(d.name || d.id)}</p>
@@ -431,6 +450,24 @@ async function select(id) {
       ${Object.entries(TRAIT).map(([t, l]) => `<div class="trait"><span>${l}</span><span class="meter">
         <i style="width:${100 * d.personality[t]}%;background:${PERS[p] || "#777"}"></i></span></div>`).join("")}${del}`;
   }
+}
+function featRow(k, v, word) {
+  const spec = catalog.features[k], [label, unit] = FEAT[k];
+  const ctl = spec.type === "bool"
+    ? `<input type="checkbox" data-feat="${k}" ${v ? "checked" : ""} aria-label="${label}">`
+    : spec.max === 1
+      ? `<input type="range" data-feat="${k}" min="0" max="1" step="0.05" value="${v}" aria-label="${label}"><output>${Number(v).toFixed(2)}</output>`
+      : `<input type="number" data-feat="${k}" min="${spec.min}" max="${spec.max}" step="${spec.type === "int" ? 1 : "any"}" value="${v}" aria-label="${label}"><span class="unit">${unit || ""}</span>`;
+  return `<div class="feat"><div class="feat-top"><span>${label}</span>${word ? `<span class="chip" data-word="${k}">${esc(word)}</span>` : ""}</div>
+    <div class="feat-ctl">${ctl}</div></div>`;
+}
+async function saveFeature(id, el) {
+  const k = el.dataset.feat, spec = catalog.features[k];
+  const value = spec.type === "bool" ? el.checked : Number(el.value);
+  const d = await api("PUT", `/api/habitats/${encodeURIComponent(id)}/features`, { [k]: value }).catch(() => null);
+  if (!d) { if (selected === id) select(id); return; }  // refused: show the stored value again
+  for (const [f, w] of Object.entries(d.description)) { const c = document.querySelector(`[data-word="${f}"]`); if (c) c.textContent = w; }
+  $("occ") && ($("occ").textContent = `${d.occupants}/${d.capacity}`);
 }
 async function removeEntity(id) {
   const r = await api("DELETE", "/api/entities/" + encodeURIComponent(id)).catch(() => null);
@@ -544,6 +581,7 @@ function evText(ev) {
   switch (ev.type) {
     case "entity_added": return `${d.kind === "habitat" ? HAB[d.type][0] : (d.name || d.id)} ajouté`;
     case "entity_moved": return `${d.id} déplacé`;
+    case "habitat_updated": return `${d.id} modifié (${Object.keys(d.features).map(k => FEAT[k]?.[0] || k).join(", ").toLowerCase()})`;
     case "entity_removed": return `${d.id} retiré`;
     case "world_cleared": return `Carte vidée (${plural(d.removed, "élément")})`;
     case "paused": return "Simulation en pause";

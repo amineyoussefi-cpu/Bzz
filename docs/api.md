@@ -189,6 +189,16 @@ Retirer un habitat libère ses occupants (`Bee.leave_home`) ; leurs identifiants
 
 Déplace une entité dans le monde (glisser-déposer du tableau de bord). Émet `entity_moved` `{"id", "x", "y"}`.
 
+### `update_habitat`
+
+```json
+→ {"id": "hab-1", "features": {"sun_exposure": 0.05, "capacity": 3}}
+← {...même réponse que get_entity, avec features et description à jour...}
+```
+
+Modifie les caractéristiques d'un habitat existant, avec les mêmes règles qu'à la création. Les clés absentes ne
+changent pas. La capacité ne peut pas descendre sous le nombre d'occupants. Émet `habitat_updated` `{"id", "features"}`.
+
 ### `pause`, `resume`, `set_speed`
 
 ```json
@@ -223,6 +233,7 @@ Chaque événement a la forme `{"seq": int, "tick": int, "type": str, "data": {.
 | `entity_added` | le résumé de l'entité (comme dans `list_entities`) |
 | `entity_removed` | `{"id", "kind", "released_bee_ids"}` |
 | `entity_moved` | `{"id", "x", "y"}` |
+| `habitat_updated` | `{"id", "features"}` |
 | `world_cleared` | `{"removed": n}` |
 | `paused`, `resumed` | `{}` |
 | `speed_changed` | `{"speed"}` |
@@ -278,6 +289,7 @@ Toutes les réponses sont en JSON. En cas d'erreur, la réponse est `{"error": "
 | `GET /api/entities/{id}` | `get_entity` | 200 |
 | `DELETE /api/entities/{id}` | `remove_entity` | 200 |
 | `PUT /api/entities/{id}/position` | `move_entity` (`{"x": 300, "y": 200}`) | 200 |
+| `PUT /api/habitats/{id}/features` | `update_habitat` (corps = caractéristiques, ex. `{"humidity": 0.8}`) | 200 |
 | `POST /api/habitats` | `add_habitat` (corps = arguments) | 201 |
 | `POST /api/bees` | `add_bee` (corps = arguments) | 201 |
 | `POST /api/world/clear` | `clear_world` | 200 |

@@ -140,6 +140,12 @@ def create_app(engine: GodotEngine | None = None, llm: OllamaLLM | None = None) 
             return JSONResponse({"error": "request body must be a JSON object"}, status_code=400)
         return call("move_entity", **{**payload, "id": entity_id})
 
+    @app.put("/api/habitats/{entity_id}/features")
+    def update_habitat(entity_id: str, payload=Body(...)):
+        if not isinstance(payload, dict):
+            return JSONResponse({"error": "request body must be a JSON object of features"}, status_code=400)
+        return call("update_habitat", id=entity_id, features=payload)
+
     @app.post("/api/habitats", status_code=201)
     def add_habitat(payload=Body(...)):
         return body_call("add_habitat", payload)
