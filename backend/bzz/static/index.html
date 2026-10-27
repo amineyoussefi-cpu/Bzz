@@ -136,7 +136,8 @@
         <tbody id="bee-rows"></tbody></table>
       <div class="total"><span id="tot-hab">0 habitat</span><span id="tot-bee">0 abeille</span></div>
       <button class="btn primary gen" id="btn-generate">Générer le monde</button>
-      <p class="hint">Les positions sont tirées au hasard. Ensuite, glissez un élément sur la carte pour le déplacer.</p>
+      <p class="hint">Les habitats sont placés au hasard, les abeilles se posent sur la branche au centre.
+        Glissez un élément sur la carte pour le déplacer.</p>
     </section>
   </aside>
 
@@ -252,6 +253,17 @@ function drawBee(c, role, color, x, y, active) {
   else c.arc(0, 0, 5.5, 0, 2 * Math.PI);
   c.fill(); c.stroke(); c.restore();
 }
+function drawBranch(c, x, y) {
+  c.save(); c.translate(x, y); c.lineCap = "round";
+  c.strokeStyle = "#6b4a2b"; c.lineWidth = 6;
+  c.beginPath(); c.moveTo(-70, 10); c.quadraticCurveTo(-10, -12, 70, -2); c.stroke();
+  c.lineWidth = 3; c.beginPath(); c.moveTo(25, -6); c.quadraticCurveTo(40, -22, 55, -26); c.stroke();
+  c.fillStyle = "#5f9a55";
+  for (const [lx, ly, a] of [[-50, 0, -0.6], [-20, -8, 0.5], [55, -26, -0.3], [62, -2, 0.8]]) {
+    c.save(); c.translate(lx, ly); c.rotate(a); c.beginPath(); c.ellipse(0, -6, 4, 8, 0, 0, 7); c.fill(); c.restore();
+  }
+  c.restore();
+}
 function icon(type) {
   const cv = document.createElement("canvas"), d = devicePixelRatio || 1;
   cv.width = cv.height = 26 * d; const c = cv.getContext("2d"); c.scale(d, d); drawHabitat(c, type, 13, 13, 12, false);
@@ -280,6 +292,7 @@ function drawWorld() {
   }
   const k = scale(), list = snap?.entities || [];
   for (const e of list.filter(e => e.kind === "habitat")) { const p = posOf(e); drawHabitat(ctx, e.type, p.x * k, p.y * k, 14, e.id === selected); }
+  drawBranch(ctx, catalog.branch.x * k, catalog.branch.y * k);
   for (const e of list.filter(e => e.kind === "bee")) {
     const p = posOf(e); drawBee(ctx, e.role, PERS[persName(e.personality)] || "#777", p.x * k, p.y * k, e.id === selected);
   }
@@ -389,14 +402,14 @@ $("btn-generate").onclick = async () => {
   if (!totals()) return toast("Choisissez au moins un habitat ou une abeille.");
   if (snap?.entities.length && !confirm("Remplacer la carte actuelle par le nouveau monde ?")) return;
   const btn = $("btn-generate"); btn.disabled = true;
-  const jobs = [], spots = [];
+  const jobs = [], spots = [{ ...catalog.branch }];  // habitats keep clear of the swarm's branch
   for (const t of catalog.habitat_types)
     for (let i = 0; i < qty("q-" + t.name); i++) jobs.push(["/api/habitats", { type: t.name, ...randomSpot(spots, HAB_GAP) }]);
-  const n = { scout: 0, follower: 0 }, beeSpots = [];
+  const n = { scout: 0, follower: 0 };
   for (const role of ["scout", "follower"])
     for (const p of Object.keys(catalog.presets))
       for (let i = 0; i < qty(`q-${role}-${p}`); i++)
-        jobs.push(["/api/bees", { role, name: `${role === "scout" ? "E" : "S"}${++n[role]}`, personality: { preset: p }, ...randomSpot(beeSpots, 12) }]);
+        jobs.push(["/api/bees", { role, name: `${role === "scout" ? "E" : "S"}${++n[role]}`, personality: { preset: p } }]);  // no position: Godot puts the bee on the branch
   try {
     await api("POST", "/api/world/clear");
     for (const [i, [path, body]] of jobs.entries()) { btn.textContent = `Placement ${i + 1}/${jobs.length}…`; await api("POST", path, body); }
@@ -411,7 +424,7 @@ $("speed").onchange = () => api("POST", "/api/simulation/speed", { speed: Number
 function buildLegend() {
   $("legend").innerHTML = catalog.habitat_types.map(t => `<span data-leg="${t.name}">${HAB[t.name][0]}</span>`).join("") +
     Object.entries(PERS).map(([p, c]) => `<span><i class="swatch" style="background:${c}"></i>${p}</span>`).join("") +
-    `<span>◆ éclaireuse</span><span>● suiveuse</span>`;
+    `<span>◆ éclaireuse</span><span>● suiveuse</span><span>Branche de l'essaim au centre</span>`;
   for (const el of document.querySelectorAll("[data-leg]")) { const c = icon(el.dataset.leg); c.style.width = c.style.height = "18px"; el.prepend(c); }
 }
 

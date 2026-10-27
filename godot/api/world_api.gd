@@ -10,6 +10,7 @@ const BASE_TICKS_PER_SECOND := 60
 const SPEED_MIN := 0.25
 const SPEED_MAX := 8.0
 const MAX_NAME_LENGTH := 40
+const SWARM_SPACING := 11.0  # distance scale between bees clustered on the branch
 
 ## Allowed arguments per command (the Python whitelist in backend/bzz/commands.py mirrors it).
 const ARGS := {
@@ -22,6 +23,7 @@ const ARGS := {
 
 var world: Node2D
 var size := DEFAULT_SIZE
+var branch := DEFAULT_SIZE / 2  # the swarm's branch, at the centre of the world: bees start there
 var entities := {}  # id -> Habitat | Bee, in creation order
 var next_id := 1    # never reset, so ids stay unique for the whole run
 var tick := 0       # simulation time: advances only while running
@@ -34,6 +36,7 @@ var next_seq := 1
 func _init(p_world: Node2D, p_size := DEFAULT_SIZE) -> void:
 	world = p_world
 	size = p_size
+	branch = p_size / 2
 
 
 ## Called every physics frame.
@@ -96,6 +99,7 @@ func _cmd_get_catalog(_args: Dictionary) -> Dictionary:
 		"traits": BeePersonality.TRAITS.map(func(t): return {"name": t, "min": 0.0, "max": 1.0}),
 		"presets": BeePersonality.PRESETS,
 		"world": {"width": size.x, "height": size.y},
+		"branch": {"x": branch.x, "y": branch.y},
 		"speed": {"min": SPEED_MIN, "max": SPEED_MAX, "default": 1.0},
 		"ticks_per_second": BASE_TICKS_PER_SECOND,
 		"max_name_length": MAX_NAME_LENGTH,
@@ -139,9 +143,12 @@ func _cmd_add_habitat(args: Dictionary) -> Dictionary:
 
 
 func _cmd_add_bee(args: Dictionary) -> Dictionary:
-	var pos_err := _position_error(args)
-	if pos_err:
-		return _err(pos_err)
+	var pos := _swarm_spot()  # default: on the branch with the rest of the swarm
+	if "x" in args or "y" in args:
+		var pos_err := _position_error(args)
+		if pos_err:
+			return _err(pos_err)
+		pos = Vector2(args.x, args.y)
 	var bee_name = args.get("name", "")
 	if typeof(bee_name) != TYPE_STRING or bee_name.length() > MAX_NAME_LENGTH:
 		return _err("name must be a string of at most %d characters" % MAX_NAME_LENGTH)
@@ -160,7 +167,7 @@ func _cmd_add_bee(args: Dictionary) -> Dictionary:
 		bee.set_role(role)
 	bee.set_meta("seed", parsed.seed)
 	bee.set_meta("personality_source", parsed.source)
-	_register(bee, "bee", Vector2(args.x, args.y))
+	_register(bee, "bee", pos)
 	var summary := _summary(bee)
 	_emit("entity_added", summary)
 	return _ok(summary)
@@ -240,6 +247,14 @@ func _cmd_get_entity(args: Dictionary) -> Dictionary:
 		d["seed"] = e.get_meta("seed")
 		d["personality_source"] = e.get_meta("personality_source")
 	return _ok(d)
+
+
+## Next free spot of the swarm cluster: a sunflower spiral around the branch, so bees stay
+## packed together yet each one can still be picked on the map.
+func _swarm_spot() -> Vector2:
+	var n := entities.values().filter(func(e): return e is Bee).size()
+	var p := branch + Vector2.from_angle(n * 2.39996) * SWARM_SPACING * sqrt(n)  # golden angle
+	return p.clamp(Vector2.ZERO, size)
 
 
 # --- moving ----------------------------------------------------------------------------

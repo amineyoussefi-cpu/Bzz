@@ -18,7 +18,7 @@ COMMANDS: dict[str, dict[str, tuple[tuple[type, ...] | type, bool]]] = {
     "pause": {},
     "resume": {},
     "add_habitat": {"type": (str, True), "x": (NUM, True), "y": (NUM, True), "features": (dict, False)},
-    "add_bee": {"x": (NUM, True), "y": (NUM, True), "personality": (dict, False),
+    "add_bee": {"x": (NUM, False), "y": (NUM, False), "personality": (dict, False),
                 "name": (str, False), "role": (str, False)},
     "get_entity": {"id": (str, True)},
     "remove_entity": {"id": (str, True)},
@@ -59,6 +59,8 @@ def validate(cmd: str, args: dict, catalog: dict | None = None) -> None:
 
 
 def _check_values(cmd: str, args: dict, cat: dict) -> None:
+    if ("x" in args) != ("y" in args):
+        raise ValueError("give both x and y, or neither")
     if "x" in args:
         w, h = cat["world"]["width"], cat["world"]["height"]
         if not (0 <= args["x"] <= w and 0 <= args["y"] <= h):

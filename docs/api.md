@@ -144,6 +144,8 @@ La personnalité s'écrit sous l'une de ces trois formes :
   l'identique : même espèce et même graine donnent la même personnalité.
 - L'abeille reçoit les préférences par défaut de son espèce (`Bee.create`) et le rôle `follower`, sauf si `role` est donné.
 - Elle est créée **sans habitat** (`home_id: null`).
+- `x` et `y` sont facultatifs (les deux ou aucun). Sans position, l'abeille se pose **sur la branche de l'essaim**,
+  au centre du monde (`get_catalog` → `branch`), en grappe avec les autres abeilles.
 
 ### `list_entities`
 

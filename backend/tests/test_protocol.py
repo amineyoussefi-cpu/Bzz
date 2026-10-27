@@ -121,6 +121,21 @@ class ProtocolTest(unittest.TestCase):
                     self.godot_only("add_bee", **args)
         self.assertEqual(self.count(), 0)
 
+    # --- the swarm's branch --------------------------------------------------------------------
+    def test_bees_without_position_cluster_on_the_central_branch(self):
+        c = self.send("get_catalog")
+        branch = (c["branch"]["x"], c["branch"]["y"])
+        self.assertEqual(branch, (c["world"]["width"] / 2, c["world"]["height"] / 2))
+        bees = [self.send("add_bee") for _ in range(20)]
+        spots = {(b["x"], b["y"]) for b in bees}
+        self.assertEqual(len(spots), 20)  # clustered, never stacked on one pixel
+        self.assertTrue(all(((x - branch[0]) ** 2 + (y - branch[1]) ** 2) ** .5 <= 50 for x, y in spots))  # 20 bees: radius 11 * sqrt(19) ≈ 48
+        self.assertEqual(self.send("add_bee", x=10, y=20)["x"], 10)  # an explicit position still wins
+        with self.assertRaisesRegex(CommandRejected, "missing y"):
+            self.godot_only("add_bee", x=10)
+        with self.assertRaisesRegex(ValueError, "both x and y"):
+            self.send("add_bee", x=10)
+
     # --- moving ------------------------------------------------------------------------------
     def test_move_entity(self):
         b = self.send("add_bee", x=5, y=5)
