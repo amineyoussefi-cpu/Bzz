@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 440" font-family="Helvetica Neue, Arial, sans-serif" font-size="12" fill="#222">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#5a3d12"/>
+    </marker>
+  </defs>
+  <rect width="760" height="440" fill="#fff"/>
+
+  <!-- Godot -->
+  <rect x="20" y="50" width="160" height="280" rx="10" fill="#e8f1df" stroke="#7a9a5a"/>
+  <text x="100" y="78" text-anchor="middle" font-weight="bold" font-size="14">Godot</text>
+  <text x="100" y="96" text-anchor="middle" fill="#555">le monde</text>
+  <text x="100" y="140" text-anchor="middle">« F1 doit décider :</text>
+  <text x="100" y="156" text-anchor="middle">elle voit 2 danses »</text>
+  <text x="100" y="250" text-anchor="middle">exécute l'action</text>
+  <text x="100" y="266" text-anchor="middle">(F1 vole vers A)</text>
+
+  <!-- Backend: build prompt -->
+  <rect x="250" y="30" width="270" height="170" rx="10" fill="#f6f1e4" stroke="#d89a2b"/>
+  <text x="385" y="54" text-anchor="middle" font-weight="bold" font-size="14">Backend : construit le prompt</text>
+  <rect x="265" y="68" width="240" height="34" rx="6" fill="#fff" stroke="#ccc"/>
+  <text x="275" y="90"><tspan font-weight="bold">Fiche</tspan> : prudente, exigeante</text>
+  <rect x="265" y="108" width="240" height="34" rx="6" fill="#fff8e6" stroke="#d89a2b" stroke-dasharray="4 2"/>
+  <text x="275" y="130"><tspan font-weight="bold">Carnet de F1</tspan> : site B dangereux, 1/5</text>
+  <rect x="265" y="148" width="240" height="34" rx="6" fill="#fff" stroke="#ccc"/>
+  <text x="275" y="170"><tspan font-weight="bold">Situation</tspan> : danse forte au nord</text>
+
+  <!-- Backend: check answer -->
+  <rect x="250" y="220" width="270" height="110" rx="10" fill="#f6f1e4" stroke="#d89a2b"/>
+  <text x="385" y="244" text-anchor="middle" font-weight="bold" font-size="14">Backend : vérifie la réponse</text>
+  <text x="265" y="266">JSON valide ? réponse permise ?</text>
+  <text x="265" y="284">sinon : 1 nouvel essai, puis action par défaut</text>
+  <text x="265" y="306" font-weight="bold" fill="#8a5a12">→ ajoute une ligne au carnet</text>
+
+  <!-- LLM -->
+  <rect x="590" y="50" width="150" height="280" rx="10" fill="#eef0f8" stroke="#6a75a8"/>
+  <text x="665" y="78" text-anchor="middle" font-weight="bold" font-size="14">LLM</text>
+  <text x="665" y="96" text-anchor="middle" fill="#555">ex. Qwen 0.5B (Ollama)</text>
+  <text x="665" y="150" text-anchor="middle">un seul modèle</text>
+  <text x="665" y="166" text-anchor="middle">pour toutes les abeilles</text>
+  <text x="665" y="210" text-anchor="middle">temp. 0,7</text>
+  <text x="665" y="226" text-anchor="middle">seed propre à l'abeille</text>
+  <text x="665" y="280" text-anchor="middle" font-weight="bold" fill="#6a75a8">oublie tout</text>
+  <text x="665" y="296" text-anchor="middle" font-weight="bold" fill="#6a75a8">après l'appel</text>
+
+  <!-- arrows -->
+  <line x1="180" y1="148" x2="248" y2="148" stroke="#5a3d12" stroke-width="2" marker-end="url(#a)"/>
+  <text x="214" y="140" text-anchor="middle" font-size="11">situation</text>
+  <line x1="520" y1="115" x2="588" y2="115" stroke="#5a3d12" stroke-width="2" marker-end="url(#a)"/>
+  <text x="554" y="104" text-anchor="middle" font-size="11">prompt</text>
+  <line x1="590" y1="275" x2="522" y2="275" stroke="#5a3d12" stroke-width="2" marker-end="url(#a)"/>
+  <text x="556" y="262" text-anchor="middle" font-size="10" font-family="Menlo, monospace">{"follow":"A"}</text>
+  <line x1="250" y1="258" x2="182" y2="258" stroke="#5a3d12" stroke-width="2" marker-end="url(#a)"/>
+  <text x="216" y="250" text-anchor="middle" font-size="11">action</text>
+
+  <!-- the three tokens -->
+  <text x="380" y="368" text-anchor="middle" font-weight="bold" font-size="13">1 appel = 1 jeton d'intelligence · 3 sortes de jetons</text>
+  <rect x="20" y="384" width="230" height="38" rx="19" fill="#fff" stroke="#d89a2b"/>
+  <text x="135" y="408" text-anchor="middle">① juger un site → note 1 à 5</text>
+  <rect x="265" y="384" width="230" height="38" rx="19" fill="#fff" stroke="#d89a2b"/>
+  <text x="380" y="408" text-anchor="middle">② juger les danses → suivre ?</text>
+  <rect x="510" y="384" width="230" height="38" rx="19" fill="#fff" stroke="#d89a2b"/>
+  <text x="625" y="408" text-anchor="middle">③ rester ou repartir</text>
+</svg>
