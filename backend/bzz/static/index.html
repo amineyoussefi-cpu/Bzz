@@ -49,8 +49,8 @@
 
   /* composer */
   .rows { display: grid; gap: 2px; }
-  .qrow { display: grid; grid-template-columns: 26px 1fr auto; align-items: center; gap: 8px; padding: 4px 0; }
-  .qrow canvas { width: 26px; height: 26px; }
+  .qrow { display: grid; grid-template-columns: 30px 1fr auto; align-items: center; gap: 8px; padding: 4px 0; }
+  .qrow canvas { width: 30px; height: 30px; }
   .step { display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
   .step button { border: 0; background: none; width: 24px; height: 28px; cursor: pointer; color: var(--muted); font-size: 16px; line-height: 1; }
   .step button:hover { background: var(--ground); color: var(--ink); }
@@ -215,111 +215,192 @@ function persName(p) {
   return Object.keys(catalog.presets).find(n => catalog.traits.every(t => catalog.presets[n][t.name] === p[t.name])) || null;
 }
 
-// --- drawing ----------------------------------------------------------------------
-function drawHabitat(c, type, x, y, s, active) {
-  const col = HAB[type][1];
-  c.save(); c.translate(x, y); c.lineWidth = active ? 2.5 : 1.2; c.strokeStyle = active ? "#1d2b22" : "rgba(29,43,34,.55)";
-  c.fillStyle = "rgba(255,255,255,.85)"; c.beginPath(); c.arc(0, 0, s, 0, 2 * Math.PI); c.fill(); c.stroke();
-  c.fillStyle = col; c.strokeStyle = "rgba(0,0,0,.25)"; c.lineWidth = 1;
-  const k = s / 13;
+// --- pseudo-3D drawing ------------------------------------------------------------------
+// The world stays 2D (Godot coordinates). It is drawn as a tilted ground slab seen from the front:
+// depth t = y / height goes from the far edge (t=0, top, smaller) to the near edge (t=1, bottom).
+const VIEW = { far: 0.68, top: 0.07, ground: 0.8, fill: 0.94, slab: 16 };
+const FLY = 40, PERCH = 62;  // heights (px at the near edge) of flying bees and of the swarm's branch
+const SIZE = { hab: 1.5, bee: 1.6, branch: 1.2 };  // sprite scale against the slab
+let view = null;
+
+const sAt = t => VIEW.far + (1 - VIEW.far) * t;
+function project(x, y) {
+  const t = y / catalog.world.height, s = sAt(t);
+  return { x: view.w / 2 + (x - catalog.world.width / 2) * view.k * s, y: view.top + t * view.gh, s };
+}
+function unproject(sx, sy) {
+  const t = Math.min(1, Math.max(0, (sy - view.top) / view.gh)), s = sAt(t);
+  const x = catalog.world.width / 2 + (sx - view.w / 2) / (view.k * s);
+  return { x: Math.min(catalog.world.width, Math.max(0, x)), y: t * catalog.world.height };
+}
+const lift = e => e.kind === "bee" ? FLY : 0;  // how high an entity is drawn above its ground point
+
+function shadow(c, x, y, rx, ry, a = .2) {
+  c.fillStyle = `rgba(29,43,34,${a})`; c.beginPath(); c.ellipse(x + rx * .25, y, rx, ry, 0, 0, 7); c.fill();
+}
+function ball(c, x, y, r, col, light) {
+  const g = c.createRadialGradient(x - r * .4, y - r * .45, r * .1, x, y, r);
+  g.addColorStop(0, light); g.addColorStop(1, col); c.fillStyle = g; c.beginPath(); c.arc(x, y, r, 0, 7); c.fill();
+}
+function box(c, x, y, w, h, d, front, side, top) {  // a cube standing on (x, y), depth d drawn up and to the right
+  c.fillStyle = side; c.beginPath(); c.moveTo(x + w / 2, y); c.lineTo(x + w / 2 + d, y - d * .7);
+  c.lineTo(x + w / 2 + d, y - h - d * .7); c.lineTo(x + w / 2, y - h); c.fill();
+  c.fillStyle = top; c.beginPath(); c.moveTo(x - w / 2, y - h); c.lineTo(x + w / 2, y - h);
+  c.lineTo(x + w / 2 + d, y - h - d * .7); c.lineTo(x - w / 2 + d, y - h - d * .7); c.fill();
+  c.fillStyle = front; c.fillRect(x - w / 2, y - h, w, h);
+}
+// Habitat sprite standing on ground point (x, y), at scale s. Shadows are drawn separately.
+function habitatSprite(c, type, x, y, s) {
+  const S = v => v * s;
   switch (type) {
-    case "tree_cavity":
-      c.fillRect(-2.5 * k, -1 * k, 5 * k, 9 * k);
-      c.fillStyle = "#4f8a4f"; c.beginPath(); c.arc(0, -4 * k, 6.5 * k, 0, 2 * Math.PI); c.fill();
-      c.fillStyle = "#2b1c10"; c.beginPath(); c.arc(0, 2.5 * k, 1.4 * k, 0, 2 * Math.PI); c.fill(); break;
+    case "tree_cavity": {
+      const g = c.createLinearGradient(x - S(4), 0, x + S(4), 0); g.addColorStop(0, "#8a5f38"); g.addColorStop(1, "#5a3c22");
+      c.fillStyle = g; c.fillRect(x - S(4), y - S(30), S(8), S(30));
+      c.fillStyle = "#24160b"; c.beginPath(); c.ellipse(x, y - S(15), S(2), S(3), 0, 0, 7); c.fill();
+      ball(c, x - S(7), y - S(34), S(10), "#3f7a45", "#7cb36a"); ball(c, x + S(7), y - S(36), S(10), "#3f7a45", "#7cb36a");
+      ball(c, x, y - S(44), S(12), "#3f7a45", "#8cc276"); break;
+    }
     case "hive_box":
-      c.fillRect(-6 * k, -6 * k, 12 * k, 12 * k); c.strokeRect(-6 * k, -6 * k, 12 * k, 12 * k);
-      c.fillStyle = "rgba(0,0,0,.25)"; for (const yy of [-2, 2]) c.fillRect(-6 * k, yy * k, 12 * k, .8 * k); break;
-    case "rodent_burrow":
-      c.beginPath(); c.ellipse(0, 2 * k, 7.5 * k, 4.5 * k, 0, 0, 2 * Math.PI); c.fill();
-      c.fillStyle = "#2b1c10"; c.beginPath(); c.ellipse(0, 2 * k, 3.5 * k, 2.2 * k, 0, 0, 2 * Math.PI); c.fill(); break;
+      box(c, x, y, S(20), S(14), S(7), "#e0a21c", "#b07c12", "#f2c45a");
+      box(c, x, y - S(14), S(22), S(3), S(7), "#7a5230", "#5a3c22", "#9a6c42");
+      c.fillStyle = "rgba(0,0,0,.18)"; c.fillRect(x - S(10), y - S(8), S(20), S(1));
+      c.fillStyle = "#2b1c10"; c.fillRect(x - S(5), y - S(2.5), S(10), S(1.5)); break;
+    case "rodent_burrow": {
+      const g = c.createRadialGradient(x - S(4), y - S(6), S(1), x, y - S(2), S(16)); g.addColorStop(0, "#b48c63"); g.addColorStop(1, "#7d5c3d");
+      c.fillStyle = g; c.beginPath(); c.ellipse(x, y - S(2), S(16), S(8), 0, Math.PI, 0); c.lineTo(x + S(16), y); c.ellipse(x, y, S(16), S(3), 0, 0, Math.PI); c.fill();
+      c.fillStyle = "#1e130a"; c.beginPath(); c.ellipse(x + S(2), y - S(1), S(5), S(3), 0, 0, 7); c.fill(); break;
+    }
     case "bare_soil":
-      c.beginPath(); c.ellipse(0, 1 * k, 8 * k, 5.5 * k, 0, 0, 2 * Math.PI); c.fill();
-      c.fillStyle = "#3a2a16"; for (const [a, b] of [[-3, 0], [2, -1], [0, 3], [4, 2], [-4, 3]]) { c.beginPath(); c.arc(a * k, b * k, .9 * k, 0, 7); c.fill(); } break;
+      c.fillStyle = "#d8bb7f"; c.beginPath(); c.ellipse(x, y, S(19), S(7), 0, 0, 7); c.fill();
+      c.fillStyle = "#c4a466"; c.beginPath(); c.ellipse(x - S(3), y + S(1), S(12), S(4), 0, 0, 7); c.fill();
+      c.fillStyle = "#3a2a16";
+      for (const [a, b] of [[-9, -1], [-2, -3], [5, 0], [10, -2], [0, 3], [-6, 3]]) { c.beginPath(); c.ellipse(x + S(a), y + S(b), S(1.3), S(.8), 0, 0, 7); c.fill(); }
+      break;
     case "hollow_stem":
-      for (const [a, b] of [[-3.5, -3], [0, -3], [3.5, -3], [-1.75, 0], [1.75, 0], [-3.5, 3], [0, 3], [3.5, 3]]) {
-        c.fillStyle = col; c.beginPath(); c.arc(a * k, b * k, 1.9 * k, 0, 7); c.fill();
-        c.fillStyle = "#2b1c10"; c.beginPath(); c.arc(a * k, b * k, .8 * k, 0, 7); c.fill(); } break;
-    case "dead_wood":
-      c.beginPath(); c.roundRect(-8 * k, -3.5 * k, 16 * k, 7 * k, 3 * k); c.fill();
-      c.fillStyle = "#a88b6a"; c.beginPath(); c.ellipse(7 * k, 0, 1.8 * k, 3.5 * k, 0, 0, 7); c.fill(); break;
+      box(c, x, y, S(18), S(18), S(6), "#b5523a", "#8a3a28", "#c96a50");
+      c.fillStyle = "#7a3424"; c.beginPath(); c.moveTo(x - S(11), y - S(18)); c.lineTo(x + S(1), y - S(27)); c.lineTo(x + S(13), y - S(18)); c.fill();
+      for (let r = 0; r < 3; r++) for (let q = 0; q < 3; q++) {
+        c.fillStyle = "#e8c9a0"; c.beginPath(); c.arc(x - S(5.5) + q * S(5.5), y - S(14) + r * S(5), S(2.1), 0, 7); c.fill();
+        c.fillStyle = "#2b1c10"; c.beginPath(); c.arc(x - S(5.5) + q * S(5.5), y - S(14) + r * S(5), S(1), 0, 7); c.fill();
+      } break;
+    case "dead_wood": {
+      const g = c.createLinearGradient(0, y - S(12), 0, y); g.addColorStop(0, "#8a6b4f"); g.addColorStop(1, "#4f3c2b");
+      c.fillStyle = g; c.beginPath(); c.roundRect(x - S(18), y - S(11), S(32), S(11), S(5)); c.fill();
+      c.fillStyle = "#c9a77c"; c.beginPath(); c.ellipse(x + S(14), y - S(5.5), S(3.5), S(5.5), 0, 0, 7); c.fill();
+      c.strokeStyle = "#8f704f"; c.lineWidth = Math.max(.6, S(.8)); c.beginPath(); c.ellipse(x + S(14), y - S(5.5), S(1.6), S(2.8), 0, 0, 7); c.stroke();
+      break;
+    }
   }
-  c.restore();
 }
-function drawBee(c, role, color, x, y, active) {
-  c.save(); c.translate(x, y); c.fillStyle = color; c.strokeStyle = active ? "#1d2b22" : "#fff"; c.lineWidth = active ? 2.5 : 1.5;
-  c.beginPath();
-  if (role === "scout") { c.moveTo(0, -7); c.lineTo(7, 0); c.lineTo(0, 7); c.lineTo(-7, 0); c.closePath(); }
-  else c.arc(0, 0, 5.5, 0, 2 * Math.PI);
-  c.fill(); c.stroke(); c.restore();
+function beeSprite(c, role, color, x, y, s, active) {
+  const r = 6 * s;
+  c.fillStyle = "rgba(255,255,255,.5)";  // wings
+  for (const dx of [-1, 1]) { c.beginPath(); c.ellipse(x + dx * r * .7, y - r * .9, r * .55, r * .85, dx * .5, 0, 7); c.fill(); }
+  if (role === "scout") {
+    c.fillStyle = color; c.beginPath(); c.moveTo(x, y - r * 1.25); c.lineTo(x + r * 1.15, y); c.lineTo(x, y + r * 1.25); c.lineTo(x - r * 1.15, y); c.closePath(); c.fill();
+    c.fillStyle = "rgba(255,255,255,.35)"; c.beginPath(); c.moveTo(x, y - r * 1.25); c.lineTo(x - r * 1.15, y); c.lineTo(x, y); c.closePath(); c.fill();
+  } else ball(c, x, y, r, color, "rgba(255,255,255,.9)");
+  if (active) { c.strokeStyle = "#1d2b22"; c.lineWidth = 2; c.beginPath(); c.arc(x, y, r * 1.7, 0, 7); c.stroke(); }
 }
-function drawBranch(c, x, y) {
-  c.save(); c.translate(x, y); c.lineCap = "round";
-  c.strokeStyle = "#6b4a2b"; c.lineWidth = 6;
-  c.beginPath(); c.moveTo(-70, 10); c.quadraticCurveTo(-10, -12, 70, -2); c.stroke();
-  c.lineWidth = 3; c.beginPath(); c.moveTo(25, -6); c.quadraticCurveTo(40, -22, 55, -26); c.stroke();
-  c.fillStyle = "#5f9a55";
-  for (const [lx, ly, a] of [[-50, 0, -0.6], [-20, -8, 0.5], [55, -26, -0.3], [62, -2, 0.8]]) {
-    c.save(); c.translate(lx, ly); c.rotate(a); c.beginPath(); c.ellipse(0, -6, 4, 8, 0, 0, 7); c.fill(); c.restore();
+function branchSprite(c, x, y, s, groundY) {
+  const S = v => v * s;
+  c.save(); c.lineCap = "round";
+  const tg = c.createLinearGradient(x - S(94), 0, x - S(74), 0); tg.addColorStop(0, "#8a5f38"); tg.addColorStop(1, "#5a3c22");
+  c.fillStyle = tg; c.beginPath();  // the tree the branch grows from
+  c.moveTo(x - S(92), groundY); c.lineTo(x - S(87), y - S(30)); c.lineTo(x - S(79), y - S(30)); c.lineTo(x - S(75), groundY); c.fill();
+  for (const [lx, ly, r] of [[-98, -38, 13], [-70, -40, 13], [-84, -54, 15]]) ball(c, x + S(lx), y + S(ly), S(r), "#3f7a45", "#8cc276");
+  c.strokeStyle = "#6b4a2b"; c.lineWidth = S(7);
+  c.beginPath(); c.moveTo(x - S(80), y + S(8)); c.quadraticCurveTo(x - S(10), y - S(14), x + S(80), y - S(4)); c.stroke();
+  c.strokeStyle = "rgba(255,255,255,.18)"; c.lineWidth = S(2);
+  c.beginPath(); c.moveTo(x - S(78), y + S(5)); c.quadraticCurveTo(x - S(10), y - S(17), x + S(78), y - S(7)); c.stroke();
+  c.strokeStyle = "#6b4a2b"; c.lineWidth = S(3.5); c.beginPath(); c.moveTo(x + S(28), y - S(8)); c.quadraticCurveTo(x + S(44), y - S(24), x + S(60), y - S(28)); c.stroke();
+  for (const [lx, ly, a] of [[-56, 1, -0.6], [-24, -8, 0.5], [60, -28, -0.3], [70, -4, 0.8], [8, -10, -0.9]]) {
+    c.save(); c.translate(x + S(lx), y + S(ly)); c.rotate(a); ball(c, 0, -S(7), S(5), "#4f8a4f", "#93c47d"); c.restore();
   }
   c.restore();
 }
 function icon(type) {
   const cv = document.createElement("canvas"), d = devicePixelRatio || 1;
-  cv.width = cv.height = 26 * d; const c = cv.getContext("2d"); c.scale(d, d); drawHabitat(c, type, 13, 13, 12, false);
+  cv.width = cv.height = 30 * d; const c = cv.getContext("2d"); c.scale(d, d);
+  shadow(c, 15, 26, 11, 3, .15); habitatSprite(c, type, 15, 26, type === "tree_cavity" ? .5 : .62);
   return cv;
 }
 
 const canvas = $("world"), ctx = canvas.getContext("2d");
-const scale = () => canvas.clientWidth / catalog.world.width;
 const posOf = e => drag?.id === e.id ? drag : e;
 
 function drawWorld() {
   if (!catalog) return;
-  const w = canvas.clientWidth, h = w * catalog.world.height / catalog.world.width, d = devicePixelRatio || 1;
+  const w = canvas.clientWidth, h = Math.round(w * .62), d = devicePixelRatio || 1;
   canvas.style.height = h + "px"; canvas.width = w * d; canvas.height = h * d;
   ctx.setTransform(d, 0, 0, d, 0, 0);
-  ctx.fillStyle = getComputedStyle(document.body).getPropertyValue("--map"); ctx.fillRect(0, 0, w, h);
-  // contour lines: a quiet survey-map ground, fixed so it never shifts between frames
-  ctx.strokeStyle = getComputedStyle(document.body).getPropertyValue("--contour"); ctx.lineWidth = 1;
+  view = { w, h, top: h * VIEW.top, gh: h * VIEW.ground, k: w * VIEW.fill / catalog.world.width };
+  const W = catalog.world.width, H = catalog.world.height;
+
+  const sky = ctx.createLinearGradient(0, 0, 0, h); sky.addColorStop(0, "#f3f6ee"); sky.addColorStop(1, "#e2e9da");
+  ctx.fillStyle = sky; ctx.fillRect(0, 0, w, h);
+  const [a, b, c2, d2] = [project(0, 0), project(W, 0), project(W, H), project(0, H)];
+  ctx.fillStyle = "#7d5c3d"; ctx.beginPath();  // soil edge under the near side of the slab
+  ctx.moveTo(d2.x, d2.y); ctx.lineTo(c2.x, c2.y); ctx.lineTo(c2.x, c2.y + VIEW.slab); ctx.lineTo(d2.x, d2.y + VIEW.slab); ctx.fill();
+  ctx.fillStyle = "#5f4430"; ctx.fillRect(d2.x, d2.y + VIEW.slab - 4, c2.x - d2.x, 4);
+  const grass = ctx.createLinearGradient(0, a.y, 0, d2.y); grass.addColorStop(0, "#e4ecd9"); grass.addColorStop(1, "#c5d8b2");
+  ctx.fillStyle = grass; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.lineTo(c2.x, c2.y); ctx.lineTo(d2.x, d2.y); ctx.fill();
+  ctx.lineWidth = 1;  // contour lines, fixed so they never shift between frames
   for (let i = 0; i < 9; i++) {
-    ctx.beginPath();
-    for (let x = 0; x <= w; x += 8) {
-      const y = (i + .5) * h / 9 + Math.sin(x / 90 + i * 1.7) * 14 + Math.sin(x / 37 + i) * 4;
-      x ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+    ctx.strokeStyle = `rgba(47,93,70,${.06 + .06 * i / 8})`; ctx.beginPath();
+    for (let x = 0; x <= W; x += 10) {
+      const p = project(x, Math.min(H, Math.max(0, (i + .5) * H / 9 + Math.sin(x / 90 + i * 1.7) * 18 + Math.sin(x / 37 + i) * 5)));
+      x ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y);
     }
     ctx.stroke();
   }
-  const k = scale(), list = snap?.entities || [];
-  for (const e of list.filter(e => e.kind === "habitat")) { const p = posOf(e); drawHabitat(ctx, e.type, p.x * k, p.y * k, 14, e.id === selected); }
-  drawBranch(ctx, catalog.branch.x * k, catalog.branch.y * k);
-  for (const e of list.filter(e => e.kind === "bee")) {
-    const p = posOf(e); drawBee(ctx, e.role, PERS[persName(e.personality)] || "#777", p.x * k, p.y * k, e.id === selected);
+
+  const list = snap?.entities || [];
+  const items = list.map(e => { const q = posOf(e); return { e, x: q.x, y: q.y }; });
+  const br = { branch: true, x: catalog.branch.x, y: catalog.branch.y };
+  // shadows first, so nothing floats over another object's shadow
+  for (const it of [...items, br]) {
+    const p = project(it.x, it.y);
+    if (it.branch) { shadow(ctx, p.x, p.y, 80 * p.s, 8 * p.s, .12); shadow(ctx, p.x - 98 * p.s, p.y, 16 * p.s, 5 * p.s); }
+    else if (it.e.kind === "bee") shadow(ctx, p.x, p.y, 4 * p.s * SIZE.bee, 1.6 * p.s * SIZE.bee, .22);
+    else if (it.e.type !== "bare_soil") shadow(ctx, p.x, p.y, 18 * p.s * SIZE.hab, 5 * p.s * SIZE.hab);
+    if (!it.branch && it.e.id === selected) {
+      ctx.strokeStyle = "#2f5d46"; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(p.x, p.y, 24 * p.s * SIZE.hab, 8 * p.s * SIZE.hab, 0, 0, 7); ctx.stroke();
+    }
+  }
+  // back to front; the branch sorts like an object standing at its ground point
+  for (const it of [...items, br].sort((u, v) => u.y - v.y || (u.branch ? -1 : 0))) {
+    const p = project(it.x, it.y);
+    if (it.branch) branchSprite(ctx, p.x, p.y - PERCH * p.s, p.s * SIZE.branch, p.y);
+    else if (it.e.kind === "bee") beeSprite(ctx, it.e.role, PERS[persName(it.e.personality)] || "#777", p.x, p.y - FLY * p.s, p.s * SIZE.bee, it.e.id === selected);
+    else habitatSprite(ctx, it.e.type, p.x, p.y, p.s * SIZE.hab);
   }
   $("empty-map").hidden = list.length > 0;
 }
 new ResizeObserver(() => drawWorld()).observe(canvas);
 
 // --- drag to move, click to inspect -------------------------------------------------
+// Hit-testing happens on screen, where each sprite is drawn (bees float above their ground point).
 function hit(ev) {
-  const r = canvas.getBoundingClientRect(), k = scale(), x = (ev.clientX - r.left) / k, y = (ev.clientY - r.top) / k;
-  let best = null, bestD = 16 / k;
-  for (const e of snap?.entities || []) {  // bees are drawn on top, so they win ties
-    const d = Math.hypot(e.x - x, e.y - y) - (e.kind === "bee" ? 4 / k : 0);
-    if (d < bestD) { best = e; bestD = d; }
+  const r = canvas.getBoundingClientRect(), mx = ev.clientX - r.left, my = ev.clientY - r.top;
+  let best = null, bestD = Infinity;
+  for (const e of snap?.entities || []) {
+    const p = project(e.x, e.y), cy = p.y - (e.kind === "bee" ? FLY : 12 * SIZE.hab) * p.s;
+    const reach = (e.kind === "bee" ? 9 * SIZE.bee : 20 * SIZE.hab) * p.s, dist = Math.hypot(mx - p.x, my - cy);
+    if (dist < reach && dist - (e.kind === "bee" ? 6 : 0) < bestD) { best = e; bestD = dist - (e.kind === "bee" ? 6 : 0); }
   }
-  return { e: best, x, y };
+  return { e: best, mx, my };
 }
-const clampX = x => Math.min(catalog.world.width, Math.max(0, x)), clampY = y => Math.min(catalog.world.height, Math.max(0, y));
 canvas.addEventListener("pointerdown", ev => {
-  const { e, x, y } = hit(ev); if (!e) return;
-  drag = { id: e.id, x: e.x, y: e.y, dx: e.x - x, dy: e.y - y, moved: false };
+  const { e, mx, my } = hit(ev); if (!e) return;
+  const p = project(e.x, e.y);  // keep the grab offset between the cursor and the entity's ground point
+  drag = { id: e.id, x: e.x, y: e.y, ox: p.x - mx, oy: p.y - my, moved: false };
   canvas.setPointerCapture(ev.pointerId); canvas.className = "grabbing";
 });
 canvas.addEventListener("pointermove", ev => {
   if (!drag) { canvas.className = hit(ev).e ? "grab" : ""; return; }
-  const { x, y } = hit(ev);
-  drag.x = clampX(x + drag.dx); drag.y = clampY(y + drag.dy); drag.moved = true; drawWorld();
+  const { mx, my } = hit(ev), w = unproject(mx + drag.ox, my + drag.oy);
+  drag.x = w.x; drag.y = w.y; drag.moved = true; drawWorld();
 });
 canvas.addEventListener("pointerup", async () => {
   if (!drag) return;
@@ -425,7 +506,7 @@ function buildLegend() {
   $("legend").innerHTML = catalog.habitat_types.map(t => `<span data-leg="${t.name}">${HAB[t.name][0]}</span>`).join("") +
     Object.entries(PERS).map(([p, c]) => `<span><i class="swatch" style="background:${c}"></i>${p}</span>`).join("") +
     `<span>◆ éclaireuse</span><span>● suiveuse</span><span>Branche de l'essaim au centre</span>`;
-  for (const el of document.querySelectorAll("[data-leg]")) { const c = icon(el.dataset.leg); c.style.width = c.style.height = "18px"; el.prepend(c); }
+  for (const el of document.querySelectorAll("[data-leg]")) { const c = icon(el.dataset.leg); c.style.width = c.style.height = "22px"; el.prepend(c); }
 }
 
 // --- models (Ollama) -------------------------------------------------------------------
