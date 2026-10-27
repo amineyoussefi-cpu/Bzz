@@ -199,6 +199,31 @@ Déplace une entité dans le monde (glisser-déposer du tableau de bord). Émet 
 Modifie les caractéristiques d'un habitat existant, avec les mêmes règles qu'à la création. Les clés absentes ne
 changent pas. La capacité ne peut pas descendre sous le nombre d'occupants. Émet `habitat_updated` `{"id", "features"}`.
 
+### Recherche de nid : `answer_decision`
+
+Quand la simulation tourne, l'essaim cherche un nid (`godot/entities/swarm.gd`) :
+
+- Godot fait voler les abeilles, garde les danses et compte le quorum (**3** abeilles engagées sur un même site :
+  tout l'essaim s'y envole et s'y installe).
+- Pour juger, une abeille émet `decision_needed` et attend. Le backend pose la question à la LLM (1 appel, voir
+  [methode_jeton.md](methode_jeton.md)) puis répond :
+
+```json
+→ {"bee_id": "bee-3", "kind": "evaluate_site", "answer": {"score": 4}}
+← {...résumé de l'abeille...}
+```
+
+| `kind` | `answer` |
+|---|---|
+| `evaluate_site` | `{"score": 1..5}` (suivi automatiquement d'une question `stay_or_leave`) |
+| `stay_or_leave` | `{"choice": "stay" \| "go_back"}` |
+| `judge_dances` | `{"follow": "<id d'un site dansé>" \| "none"}` |
+
+Une réponse refusée (l'abeille n'attend plus cette question, valeur hors limites) renvoie une erreur et ne change rien.
+Le résumé d'une abeille gagne `state` (`resting`, `flying`, `waiting`, `dancing`, `at_site`, `settled`), `site_id`
+(site pour lequel elle s'est engagée), `dance_level` et `waiting_for`. Celui d'un habitat gagne `committed`.
+`get_state` gagne `swarm` : `{"phase": "searching" | "moving" | "settled", "chosen_id", "quorum", "dances", "waiting"}`.
+
 ### `pause`, `resume`, `set_speed`
 
 ```json
@@ -234,6 +259,11 @@ Chaque événement a la forme `{"seq": int, "tick": int, "type": str, "data": {.
 | `entity_removed` | `{"id", "kind", "released_bee_ids"}` |
 | `entity_moved` | `{"id", "x", "y"}` |
 | `habitat_updated` | `{"id", "features"}` |
+| `decision_needed` | `{"bee_id", "kind", "personality", "situation"}` : question pour le cerveau (consommée par le backend) |
+| `bee_decided` | `{"bee_id", "kind", "answer", "habitat_id"?}` |
+| `bee_committed` | `{"bee_id", "habitat_id", "score"}` |
+| `bee_danced` | `{"bee_id", "habitat_id", "level"}` |
+| `swarm_decided` | `{"habitat_id", "committed"}` : quorum atteint, l'essaim part |
 | `world_cleared` | `{"removed": n}` |
 | `paused`, `resumed` | `{}` |
 | `speed_changed` | `{"speed"}` |

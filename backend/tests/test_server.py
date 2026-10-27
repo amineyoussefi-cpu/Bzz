@@ -86,7 +86,7 @@ class ServerTest(unittest.TestCase):
             self.assertEqual([e["type"] for e in snap["world_events"]], ["entity_added", "entity_added"])
             self.assertEqual(snap["decision_events"], [])
             self.assertEqual(k["decisions"]["count"], 0)
-            self.assertIsNone(k["decisions"]["mechanism"])
+            self.assertEqual(k["decisions"]["mechanism"], "llm")
 
 
 class StubOllama:
@@ -134,6 +134,47 @@ class ModelsApiTest(unittest.TestCase):
         m = self.client.get("/api/models").json()
         self.assertEqual((m["available"], m["installed"]), (False, []))
         self.assertEqual(self.client.put("/api/models/current", json={"model": "qwen2.5:0.5b"}).status_code, 503)
+
+
+class FakeEngine:
+    def __init__(self, reject=False):
+        self.sent, self.reject = [], reject
+
+    def send(self, cmd, **args):
+        from bzz.engine import CommandRejected
+        self.sent.append((cmd, args))
+        if self.reject:
+            raise CommandRejected("bee bee-1 is not waiting for evaluate_site")
+
+
+@unittest.skipIf(TestClient is None, "fastapi/httpx not installed")
+class HubBrainTest(unittest.TestCase):
+    """The hub turns a decision_needed event into one brain call and an answer_decision command."""
+
+    def setUp(self):
+        from bzz.brain import Brain
+        from bzz.server import Hub
+        self.brain = Brain(lambda messages, schema, seed: '{"score": 4}')
+        self.Hub = Hub
+
+    def need(self):
+        return {"bee_id": "bee-1", "kind": "evaluate_site", "personality": {"pickiness": .5, "boldness": .5,
+                "sociability": .5, "curiosity": .5}, "situation": {"habitat": {"id": "hab-1", "description": {"a": "large cavity"}}}}
+
+    def test_answer_sent_back(self):
+        engine = FakeEngine()
+        hub = self.Hub(engine, self.brain)
+        self.assertFalse(hub.answer_next())  # nothing pending
+        hub.pending.append(self.need())
+        self.assertTrue(hub.answer_next())
+        self.assertEqual(engine.sent, [("answer_decision", {"bee_id": "bee-1", "kind": "evaluate_site", "answer": {"score": 4}})])
+        self.assertEqual(hub.answered, 1)
+
+    def test_stale_question_is_dropped(self):
+        hub = self.Hub(FakeEngine(reject=True), self.brain)
+        hub.pending.append(self.need())
+        self.assertTrue(hub.answer_next())  # refused by Godot, no exception
+        self.assertEqual(len(hub.pending), 0)
 
 
 class KpiDecisionFormatTest(unittest.TestCase):

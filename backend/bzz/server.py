@@ -20,20 +20,27 @@ from fastapi import Body, FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse
 
 from . import kpi
-from .brain import OllamaLLM
+from .brain import Brain, OllamaLLM
 from .engine import CommandRejected, GodotEngine, GodotError
 
 STATIC_DIR = Path(__file__).parent / "static"
-POLL_INTERVAL = 0.25  # seconds between two event polls
+POLL_INTERVAL = 0.15  # seconds between two event polls (the map animates between two snapshots)
 FEED_SIZE = 200       # events kept for clients that connect later
 MODEL_NAME = re.compile(r"[A-Za-z0-9][\w.\-/:]{0,99}")  # Ollama names, e.g. qwen2.5:0.5b, hf.co/user/model
 
 
 class Hub:
-    """Polls Godot, keeps recent feeds, and pushes snapshots to the WebSocket clients."""
+    """Polls Godot, keeps recent feeds, and pushes snapshots to the WebSocket clients.
 
-    def __init__(self, engine: GodotEngine):
+    It is also the bees' link to the brain: "decision_needed" events are queued, answered one at a time by
+    the LLM (one call each) and sent back with answer_decision.
+    """
+
+    def __init__(self, engine: GodotEngine, brain: Brain | None = None):
         self.engine = engine
+        self.brain = brain
+        self.pending: deque = deque()  # decision_needed data waiting for the brain
+        self.answered = 0
         self.clients: set[WebSocket] = set()
         self.cursor = 0
         self.world_events: deque = deque(maxlen=FEED_SIZE)
@@ -47,7 +54,10 @@ class Hub:
         self.cursor = res["last_seq"]
         self.events_lost |= res["lost"]
         for ev in res["events"]:
-            (self.decision_events if ev["type"] == "decision" else self.world_events).append(ev)
+            if ev["type"] == "decision_needed":
+                self.pending.append(ev["data"])
+            else:
+                (self.decision_events if ev["type"] == "decision" else self.world_events).append(ev)
         state = self.engine.send("get_state")
         entities = self.engine.send("list_entities")
         self.snapshot = {
@@ -58,8 +68,33 @@ class Hub:
             "world_events": list(self.world_events),
             "decision_events": list(self.decision_events),
             "events_lost": self.events_lost,
+            "brain": {"model": getattr(self.brain.llm, "model", None) if self.brain else None, "answered": self.answered,
+                      "fallbacks": self.brain.failures if self.brain else 0, "pending": len(self.pending)},
         }
         return res["events"]
+
+    def answer_next(self) -> bool:
+        """Answers the oldest pending decision (blocking: one LLM call). False when there is nothing to do."""
+        if not self.pending or not self.brain:
+            return False
+        d = self.pending.popleft()
+        answer = self.brain.decide({"id": d["bee_id"], "personality": d["personality"]}, d["kind"], d["situation"])
+        try:
+            self.engine.send("answer_decision", bee_id=d["bee_id"], kind=d["kind"], answer=answer)
+        except CommandRejected:
+            pass  # the bee moved on meanwhile (swarm left, bee removed): its question is void
+        self.answered += 1
+        return True
+
+    async def think(self) -> None:
+        # one decision at a time: a small local model answers fastest without parallel requests
+        while True:
+            try:
+                busy = await asyncio.to_thread(self.answer_next)
+            except (GodotError, OSError):
+                busy = False
+            if not busy:
+                await asyncio.sleep(0.05)
 
     async def run(self) -> None:
         last_tick = None
@@ -84,15 +119,16 @@ class Hub:
 def create_app(engine: GodotEngine | None = None, llm: OllamaLLM | None = None) -> FastAPI:
     engine = engine or GodotEngine()
     llm = llm or OllamaLLM()
-    hub = Hub(engine)
+    hub = Hub(engine, Brain(llm))
 
     @asynccontextmanager
     async def lifespan(_app):
         await asyncio.to_thread(engine.start)
         await asyncio.to_thread(hub.poll)  # first snapshot before accepting clients
-        task = asyncio.create_task(hub.run())
+        tasks = [asyncio.create_task(hub.run()), asyncio.create_task(hub.think())]
         yield
-        task.cancel()
+        for task in tasks:
+            task.cancel()
         await asyncio.to_thread(engine.stop)
 
     app = FastAPI(title="Bzz backend", lifespan=lifespan)

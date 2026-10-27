@@ -15,6 +15,7 @@ func _init() -> void:
 	test_roles()
 	test_world_api()
 	test_describe()
+	test_swarm()
 	print("entity tests: %s" % ("OK" if failures == 0 else "%d failure(s)" % failures))
 	quit(1 if failures else 0)
 
@@ -66,3 +67,53 @@ func test_describe() -> void:
 	h = HabitatCatalog.create(Habitat.Type.HIVE_BOX, {"sun_exposure": 0.05})
 	check(h.sun_exposure == 0.05 and HabitatCatalog.describe(h).sun_exposure == "very shady", "numbers kept, words follow")
 	h.free()
+
+
+## A whole house hunt with a scripted brain: site A is good (5), B is poor (1). The swarm must pick A.
+func test_swarm() -> void:
+	var world := Node2D.new()
+	var api := WorldApi.new(world)
+	var a = api.handle("add_habitat", {"type": "tree_cavity", "x": 200, "y": 150}).result.id
+	api.handle("add_habitat", {"type": "bare_soil", "x": 800, "y": 550})
+	for i in 2:
+		api.handle("add_bee", {"role": "scout"})
+	for i in 3:
+		api.handle("add_bee", {})
+	var bee_id = api.handle("list_entities", {}).result[2].id
+	check(not api.handle("answer_decision", {"bee_id": bee_id, "kind": "evaluate_site", "answer": {"score": 3}}).ok,
+		"an answer nobody waits for is refused")
+	api.handle("resume", {})
+	var seen := 0
+	var asked := {}
+	for t in 20000:
+		api.step()
+		for ev in api.events:
+			if ev.seq <= seen:
+				continue
+			seen = ev.seq
+			if ev.type != "decision_needed":
+				continue
+			var d: Dictionary = ev.data
+			asked[d.kind] = true
+			var reply := {}
+			match d.kind:
+				"evaluate_site":
+					reply = {"score": 5 if d.situation.habitat.id == a else 1}
+					check(not api.handle("answer_decision", {"bee_id": d.bee_id, "kind": "evaluate_site", "answer": {"score": 9}}).ok,
+						"out-of-range score refused")
+				"stay_or_leave":
+					reply = {"choice": "stay" if d.situation.habitat.id == a else "go_back"}
+				"judge_dances":
+					reply = {"follow": d.situation.dances[0].site_id}
+			var r = api.handle("answer_decision", {"bee_id": d.bee_id, "kind": d.kind, "answer": reply})
+			check(r.ok, "answer accepted: %s" % [r])
+		if api.swarm.status().phase == "settled":
+			break
+	var st: Dictionary = api.swarm.status()
+	check(st.phase == "settled" and st.chosen_id == a, "swarm settled at the good site: %s" % [st])
+	check(asked.size() == 3, "all three decisions were asked: %s" % [asked.keys()])
+	var bees: Array = api.handle("list_entities", {}).result.filter(func(e): return e.kind == "bee")
+	check(bees.all(func(e): return e.home_id == a and e.state == "settled"), "every bee lives at the chosen site")
+	check(api.events.any(func(e): return e.type == "bee_danced"), "bees danced")
+	check(api.events.any(func(e): return e.type == "swarm_decided" and e.data.habitat_id == a), "swarm_decided event")
+	world.free()

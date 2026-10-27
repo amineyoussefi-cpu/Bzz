@@ -24,6 +24,7 @@ COMMANDS: dict[str, dict[str, tuple[tuple[type, ...] | type, bool]]] = {
     "remove_entity": {"id": (str, True)},
     "move_entity": {"id": (str, True), "x": (NUM, True), "y": (NUM, True)},
     "update_habitat": {"id": (str, True), "features": (dict, True)},
+    "answer_decision": {"bee_id": (str, True), "kind": (str, True), "answer": (dict, True)},
     "set_speed": {"speed": (NUM, True)},
     "get_events": {"since": (int, False)},
 }

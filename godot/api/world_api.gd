@@ -18,7 +18,7 @@ const ARGS := {
 	"add_habitat": ["type", "x", "y", "features"],
 	"add_bee": ["x", "y", "personality", "name", "role"],
 	"get_entity": ["id"], "remove_entity": ["id"], "move_entity": ["id", "x", "y"],
-	"update_habitat": ["id", "features"],
+	"update_habitat": ["id", "features"], "answer_decision": ["bee_id", "kind", "answer"],
 	"set_speed": ["speed"], "get_events": ["since"],
 }
 
@@ -32,18 +32,21 @@ var paused := true  # the world is built paused, then resumed
 var speed := 1.0
 var events: Array[Dictionary] = []
 var next_seq := 1
+var swarm: Swarm  # house-hunting: movement, dances, quorum (godot/entities/swarm.gd)
 
 
 func _init(p_world: Node2D, p_size := DEFAULT_SIZE) -> void:
 	world = p_world
 	size = p_size
 	branch = p_size / 2
+	swarm = Swarm.new(self)
 
 
 ## Called every physics frame.
 func step() -> void:
 	if not paused:
 		tick += 1
+		swarm.step()
 
 
 ## {"ok": true, "result": ...} or {"ok": false, "error": "..."}.
@@ -84,7 +87,8 @@ func _cmd_get_state(_args: Dictionary) -> Dictionary:
 		"world": {"width": size.x, "height": size.y},
 		"habitats": habitats, "bees": entities.size() - habitats,
 		"last_event_seq": next_seq - 1,
-		"decision_mechanism": null,  # no decision mechanism yet (next step); the dashboard shows this
+		"decision_mechanism": "llm",  # bees ask the backend's LLM brain (decision_needed / answer_decision)
+		"swarm": swarm.status(),
 	})
 
 
@@ -223,11 +227,12 @@ func _summary(e: Node2D) -> Dictionary:
 	var d := {"id": e.get_meta("id"), "x": e.position.x, "y": e.position.y}
 	if e is Habitat:
 		d.merge({"kind": "habitat", "type": HabitatCatalog.type_name(e.habitat_type),
-			"capacity": e.capacity, "occupants": e.occupants.size()})
+			"capacity": e.capacity, "occupants": e.occupants.size(), "committed": swarm.committed(e.get_meta("id"))})
 	else:
 		d.merge({"kind": "bee", "name": e.bee_name,
 			"role": BeeRole.names()[e.role], "personality": e.personality.to_dict(),
 			"home_id": e.home.get_meta("id") if e.home else null})
+		d.merge(swarm.bee_summary(e))
 	return d
 
 
@@ -268,6 +273,8 @@ func _cmd_move_entity(args: Dictionary) -> Dictionary:
 	if pos_err:
 		return _err(pos_err)
 	e.position = Vector2(args.x, args.y)
+	if e is Bee and swarm.mind(e).state == Swarm.State.RESTING:
+		swarm.mind(e).perch = e.position  # it now rests where it was dropped
 	_emit("entity_moved", {"id": args.id, "x": e.position.x, "y": e.position.y})
 	return _ok(_summary(e))
 
@@ -293,6 +300,21 @@ func _cmd_update_habitat(args: Dictionary) -> Dictionary:
 	return _cmd_get_entity({"id": args.id})
 
 
+# --- decisions -----------------------------------------------------------------------------
+
+## The brain's reply to a "decision_needed" event (see Swarm.answer).
+func _cmd_answer_decision(args: Dictionary) -> Dictionary:
+	var bee = entities.get(args.get("bee_id"))
+	if not bee is Bee:
+		return _err("unknown bee %s" % args.get("bee_id"))
+	if args.get("kind") not in Swarm.KINDS:
+		return _err("unknown decision kind %s; accepted: %s" % [args.get("kind"), ", ".join(Swarm.KINDS)])
+	if typeof(args.get("answer")) != TYPE_DICTIONARY:
+		return _err("answer must be an object")
+	var err := swarm.answer(bee, args.kind, args.answer)
+	return _err(err) if err else _ok(_summary(bee))
+
+
 # --- removing -------------------------------------------------------------------------
 
 func _free_entity(e: Node2D) -> Array:
@@ -305,6 +327,8 @@ func _free_entity(e: Node2D) -> Array:
 	elif e is Bee and e.home:
 		e.home.occupants.erase(e)
 		e.home = null
+	if e is Bee:
+		swarm.forget(e.get_meta("id"))
 	entities.erase(e.get_meta("id"))
 	world.remove_child(e)
 	e.free()
@@ -325,6 +349,7 @@ func _cmd_clear_world(_args: Dictionary) -> Dictionary:
 	var count := entities.size()
 	for e in entities.values():
 		_free_entity(e)
+	swarm.reset()
 	_emit("world_cleared", {"removed": count})
 	return _ok({"removed": count})
 
