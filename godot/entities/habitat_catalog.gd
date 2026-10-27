@@ -18,6 +18,28 @@ const FEATURES := {
 }
 
 
+## 5-level wording of the features a bee perceives (for LLM bees). `bounds` are the upper limits of
+## levels 1-4; a value on a bound goes to the higher level. Numbers stay the source of truth.
+const LEVELS := {
+	"cavity_volume_l": {"bounds": [5.0, 20.0, 35.0, 60.0],
+		"words": ["very small cavity", "small cavity", "medium cavity", "large cavity", "very large cavity"]},
+	"entrance_diameter_mm": {"bounds": [5.0, 15.0, 30.0, 60.0],
+		"words": ["very narrow entrance", "narrow entrance", "medium entrance", "wide entrance", "very wide entrance"]},
+	"entrance_height_m": {"bounds": [0.5, 2.0, 4.0, 8.0],
+		"words": ["at ground level", "low", "mid-height", "high", "very high"]},
+	"sun_exposure": {"bounds": [0.2, 0.4, 0.6, 0.8],
+		"words": ["very shady", "shady", "partly sunny", "sunny", "very sunny"]},
+	"humidity": {"bounds": [0.2, 0.4, 0.6, 0.8],
+		"words": ["very dry", "dry", "moderately humid", "humid", "very humid"]},
+	"floral_abundance": {"bounds": [0.2, 0.4, 0.6, 0.8],
+		"words": ["almost no flowers", "few flowers", "some flowers", "many flowers", "abundant flowers"]},
+	"predator_risk": {"bounds": [0.2, 0.4, 0.6, 0.8],
+		"words": ["very safe", "safe", "some danger", "dangerous", "very dangerous"]},
+}
+## 0 means "not applicable" for these (soil, stems, wood the bee digs itself), not "the smallest".
+const NONE_IF_ZERO := {"cavity_volume_l": "no cavity", "entrance_diameter_mm": "no entrance"}
+
+
 static func defaults(t: Habitat.Type) -> Dictionary:
 	var d := {"floral_abundance": 0.6, "previously_occupied": false}
 	match t:
@@ -88,4 +110,19 @@ static func features_of(h: Habitat) -> Dictionary:
 	var out := {}
 	for key in FEATURES:
 		out[key] = h.get(key)
+	return out
+
+
+## Level 0..4 of `value` on the LEVELS scale of `key`.
+static func level(key: String, value: float) -> int:
+	return LEVELS[key].bounds.bsearch(value, false)
+
+
+## What a bee perceives of `h`: {feature: words}. Capacity is left out (not something a bee judges).
+static func describe(h: Habitat) -> Dictionary:
+	var out := {}
+	for key in LEVELS:
+		var v: float = h.get(key)
+		out[key] = NONE_IF_ZERO[key] if v == 0.0 and key in NONE_IF_ZERO else LEVELS[key].words[level(key, v)]
+	out["previously_occupied"] = "old nest present" if h.previously_occupied else "no old nest"
 	return out

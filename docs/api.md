@@ -160,8 +160,12 @@ La personnalité s'écrit sous l'une de ces trois formes :
 ← {..., "accepted_habitat_types": ["tree_cavity", "hive_box"], "preferences": [{"criterion": "cavity_volume_l", ...}],
    "seed": 1867123, "personality_source": "preset:curieuse"}
 → {"id": "hab-1"}
-← {..., "features": {"cavity_volume_l": 40.0, ...}, "occupant_ids": []}
+← {..., "features": {"cavity_volume_l": 40.0, ...},
+   "description": {"cavity_volume_l": "large cavity", "sun_exposure": "partly sunny", ...}, "occupant_ids": []}
 ```
+
+`description` traduit les caractéristiques en mots, sur une échelle de 5 niveaux (`HabitatCatalog.LEVELS`).
+C'est ce que perçoit une abeille. Les chiffres de `features` restent la référence.
 
 ### `remove_entity` et `clear_world`
 

@@ -234,6 +234,7 @@ func _cmd_get_entity(args: Dictionary) -> Dictionary:
 	var d := _summary(e)
 	if e is Habitat:
 		d["features"] = HabitatCatalog.features_of(e)
+		d["description"] = HabitatCatalog.describe(e)
 		d["occupant_ids"] = e.occupants.map(func(b): return b.get_meta("id"))
 	else:
 		d["seed"] = e.get_meta("seed")

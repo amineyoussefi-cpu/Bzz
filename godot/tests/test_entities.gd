@@ -14,6 +14,7 @@ func check(cond: bool, what: String) -> void:
 func _init() -> void:
 	test_roles()
 	test_world_api()
+	test_describe()
 	print("entity tests: %s" % ("OK" if failures == 0 else "%d failure(s)" % failures))
 	quit(1 if failures else 0)
 
@@ -47,3 +48,21 @@ func test_world_api() -> void:
 	var types: Array = api.handle("get_events", {}).result.events.map(func(e): return e.type)
 	check(types == ["entity_added", "entity_added", "entity_removed", "resumed", "world_cleared"], "event log %s" % [types])
 	world.free()
+
+
+func test_describe() -> void:
+	check(HabitatCatalog.level("sun_exposure", 0.0) == 0 and HabitatCatalog.level("sun_exposure", 0.2) == 1
+		and HabitatCatalog.level("sun_exposure", 1.0) == 4, "levels: bound goes up, ends clamp to 0 and 4")
+	var h := HabitatCatalog.create(Habitat.Type.TREE_CAVITY)
+	var tree := HabitatCatalog.describe(h)
+	check(tree.cavity_volume_l == "large cavity" and tree.entrance_height_m == "high"
+		and tree.predator_risk == "safe" and tree.previously_occupied == "no old nest", "tree cavity wording %s" % [tree])
+	h.free()
+	h = HabitatCatalog.create(Habitat.Type.BARE_SOIL)
+	var soil := HabitatCatalog.describe(h)
+	check(soil.cavity_volume_l == "no cavity" and soil.entrance_diameter_mm == "no entrance"
+		and soil.sun_exposure == "very sunny", "zero means not applicable %s" % [soil])
+	h.free()
+	h = HabitatCatalog.create(Habitat.Type.HIVE_BOX, {"sun_exposure": 0.05})
+	check(h.sun_exposure == 0.05 and HabitatCatalog.describe(h).sun_exposure == "very shady", "numbers kept, words follow")
+	h.free()

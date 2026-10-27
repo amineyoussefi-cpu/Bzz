@@ -103,6 +103,24 @@ Chaque `Habitat` a ses propres valeurs. On peut en modifier certaines depuis le 
 La cavité d'arbre suit Seeley & Morse (1978) : environ 40 L, une entrée d'environ 12,5 cm², à environ 5 m de haut.
 Les valeurs de soleil, d'humidité, de fleurs et de prédateurs sont des réglages de jeu.
 
+**Description en mots (échelle à 5 niveaux).** Une abeille LLM ne reçoit pas les chiffres : elle reçoit des
+mots (`HabitatCatalog.describe()`, champ `description` de `get_entity`). Les chiffres restent stockés et servent
+de référence pour mesurer les résultats. Une valeur égale à une borne passe au niveau supérieur.
+
+| Caractéristique | 1 | 2 | 3 | 4 | 5 |
+|---|---|---|---|---|---|
+| Volume (L) | very small cavity (< 5) | small cavity (< 20) | medium cavity (< 35) | large cavity (< 60) | very large cavity |
+| Entrée (mm) | very narrow entrance (< 5) | narrow entrance (< 15) | medium entrance (< 30) | wide entrance (< 60) | very wide entrance |
+| Hauteur (m) | at ground level (< 0,5) | low (< 2) | mid-height (< 4) | high (< 8) | very high |
+| Soleil | very shady | shady | partly sunny | sunny | very sunny |
+| Humidité | very dry | dry | moderately humid | humid | very humid |
+| Fleurs | almost no flowers | few flowers | some flowers | many flowers | abundant flowers |
+| Prédateurs | very safe | safe | some danger | dangerous | very dangerous |
+
+Pour les traits de 0 à 1, les bornes sont 0,2 / 0,4 / 0,6 / 0,8. Un volume ou une entrée à 0 veut dire
+« sans objet » : ils deviennent `no cavity` et `no entrance`. `previously_occupied` devient
+`old nest present` ou `no old nest`. La capacité n'est pas décrite, ce n'est pas un critère que l'abeille juge.
+
 ---
 
 ## 4. Personnalité
