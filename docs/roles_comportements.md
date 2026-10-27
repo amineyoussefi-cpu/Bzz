@@ -1,13 +1,11 @@
 # Rôles et comportements des abeilles
 
-Document de conception des **rôles** (éclaireuse, suiveuse, reine) et des **actions** que chaque rôle pourra
-accomplir. Il complète la [référence abeilles et habitats](reference_abeilles.md).
+Document de conception des **rôles** (éclaireuse, suiveuse, reine) que chaque abeille peut tenir.
+Il complète la [référence abeilles et habitats](reference_abeilles.md).
 
-> **État actuel.** Les classes et leurs interfaces existent dans [`godot/entities/roles/`](../godot/entities/roles/).
-> Des abeilles (avec leur rôle) et des habitats peuvent être placés dans le monde depuis le tableau de bord, mais
-> **aucune action de rôle n'est exécutée** et aucune colonie n'existe.
-> Les méthodes marquées *interface* sont vides : elles ne déplacent rien, ne créent pas d'œufs et ne génèrent pas
-> de nouvelles abeilles.
+> **État actuel.** Les rôles existent dans [`godot/entities/roles/`](../godot/entities/roles/).
+> Des abeilles (avec leur rôle) et des habitats peuvent être placés dans le monde depuis le tableau de bord.
+> **Les abeilles sont sans cerveau** : les rôles sont déclarés mais aucune action n'est implémentée.
 
 Comme dans la référence, on distingue :
 
@@ -33,9 +31,9 @@ au départ (signaux de « piping ») puis s'envole vers ce site ([Seeley & Vissc
 [Visscher & Seeley 2007][visscher2007]). **La reine ne participe pas au choix** : elle accompagne l'essaim.
 
 🎮 **Simulation.** Les rôles sont **indépendants des espèces** : les cinq espèces du catalogue peuvent recevoir les
-trois rôles, avec exactement la même interface. *Simplification assumée* : chez les bourdons et les abeilles
-solitaires, il n'y a ni danse ni décision collective ; ces espèces pourront simplement ne pas utiliser
-certains rôles. Une abeille a **un rôle à la fois**, `FOLLOWER` par défaut, et peut en changer (`set_role`).
+trois rôles. Une abeille a **un rôle à la fois**, `FOLLOWER` par défaut, et peut en changer (`set_role`).
+*Simplification assumée* : chez les bourdons et les abeilles solitaires, il n'y a ni danse ni décision
+collective ; ces espèces pourront simplement ne pas utiliser certains rôles.
 
 ---
 
@@ -49,22 +47,11 @@ danse** (nombre de circuits frétillants) **augmente avec la qualité du site** 
 (« attrition »), ce qui permet aux bons sites, soutenus par de nouvelles recrues, de l'emporter. Les abeilles
 peuvent aussi émettre un **signal stop** (coup de tête) contre les danseuses d'un site concurrent.
 
-🎮 **Simulation** — classe `ScoutBehavior` :
+🎮 **Simulation** — classe `ScoutBehavior` : rôle déclaré, aucune action implémentée.
 
-| Action | Statut | Rôle |
-|---|---|---|
-| `explore_habitats() -> Array[Habitat]` | interface | rechercher les habitats disponibles (renvoie une liste vide) |
-| `evaluate_habitat(h) -> float` | **défini** | délègue à `Bee.evaluate_habitat` (préférences + personnalité) |
-| `remember_habitat(h)` | **défini** | mémorise l'habitat et sa note dans `known_habitats` |
-| `return_to_colony()` | interface | retour vers la colonie (aucun déplacement) |
-| `perform_dance(h) -> DanceSignal` | **défini** | prépare le signal de danse (donnée seule, rien n'est diffusé) |
+À implémenter : exploration des habitats disponibles, évaluation, mémorisation, retour à la colonie, danse.
 
 <img src="img/danse_fretillante.svg" width="300">
-
-`DanceSignal` porte : l'éclaireuse (`scout`), l'habitat, sa position (`location`), la qualité estimée
-(`quality`, 0–1) et l'instant de création. *Simplifications* : la position est donnée directement au lieu d'être
-codée en angle et durée ; la force de la danse, l'attrition et le signal stop sont laissés au futur
-mécanisme de décision collective.
 
 ---
 
@@ -76,17 +63,9 @@ mécanisme de décision collective.
 site elle-même** et ne danse pour lui que si elle le juge bon. Ce contrôle indépendant est une raison pour
 laquelle l'essaim choisit le plus souvent le meilleur site disponible ([Seeley 2010][seeley2010]).
 
-🎮 **Simulation** — classe `FollowerBehavior` :
+🎮 **Simulation** — classe `FollowerBehavior` : rôle déclaré, aucune action implémentée.
 
-| Action | Statut | Rôle |
-|---|---|---|
-| `receive_dance(s)` | **défini** | enregistre la danse observée dans `received_signals` |
-| `evaluate_signal(s) -> float` | interface | analysera la danse (qualité, distance, éclaireuse) ; renvoie 0 |
-| `decide_to_follow(s) -> bool` | interface | décidera si la danse justifie un déplacement ; renvoie `false` |
-| `visit_habitat(h)` | interface | visite de l'habitat indiqué (aucun déplacement) |
-| `evaluate_habitat(h) -> float` | **défini** | jugement indépendant, mêmes règles que l'éclaireuse (délégué à `Bee`) |
-
-Une suiveuse convaincue pourra **devenir éclaireuse** (`set_role(SCOUT)`) et danser à son tour.
+À implémenter : réception d'une danse, évaluation du signal, décision de suivre, visite de l'habitat, jugement indépendant.
 
 ---
 
@@ -98,39 +77,18 @@ Une suiveuse convaincue pourra **devenir éclaireuse** (`set_role(SCOUT)`) et da
 l'œuf à l'adulte dure en moyenne **16 jours pour une reine, 21 pour une ouvrière et 24 pour un mâle**
 (valeurs couramment citées, [Bee Professor][lifecycle]).
 
-🎮 **Simulation** — classe `QueenBehavior`. La reine **n'a aucune méthode d'évaluation ni de choix d'habitat** :
-c'est vérifié par les tests.
+🎮 **Simulation** — classe `QueenBehavior` : rôle déclaré, aucune action implémentée.
 
-| Action | Statut | Rôle |
-|---|---|---|
-| `receive_colony_decision(d)` | **défini** | enregistre la `ColonyDecision` reçue |
-| `follow_colony_decision(d)` | **défini** | adopte l'habitat décidé comme destination (`target_habitat`), sans bouger |
-| `move_to_habitat(h)` | interface | déplacement vers l'habitat retenu (aucun déplacement) |
-| `lay_eggs()` | interface | ponte (ne crée rien) |
-| `manage_reproduction_cycle()` | interface | cycle de reproduction et développement des nouvelles abeilles (ne crée rien) |
-
-`ColonyDecision` est le **contrat de données** entre le futur mécanisme de décision collective et la reine :
-l'habitat retenu (`habitat`) et son soutien (`support`, par exemple le nombre d'éclaireuses au quorum).
+À implémenter : réception de la décision collective, déplacement vers l'habitat retenu, ponte, cycle de reproduction.
 
 ---
 
-## 5. Enchaînement prévu
-
-Le schéma montre comment les actions s'enchaîneront lorsque les mécanismes seront écrits.
-En **vert**, la logique de données déjà écrite ; en **pointillés**, les interfaces vides ; en **gris**, les
-mécanismes futurs qui n'existent pas encore.
-
-<img src="img/sequence_roles.svg" width="100%">
-
----
-
-## 6. Architecture et séparation des responsabilités
+## 5. Architecture
 
 <img src="img/classes_roles.svg" width="100%">
 
 Règles retenues :
 
-- **Pas de duplication de l'évaluation** : éclaireuse et suiveuse appellent `Bee.evaluate_habitat`.
 - **Rôles sans restriction d'espèce** : `BeeRole` ne connaît pas `BeeSpecies`.
 - **Composition** : le rôle est un composant (`bee.behavior`) qu'on remplace, pas une sous-classe de `Bee` ;
   une abeille peut donc changer de rôle sans être recréée.
@@ -138,27 +96,14 @@ Règles retenues :
 
 | Élément | Responsabilité | Où |
 |---|---|---|
-| `BeeSpecies` | caractéristiques et préférences par défaut de l'espèce | `entities/bee_species.gd` |
-| `BeePersonality` | traits individuels et tendances | `entities/bee_personality.gd` |
+| `BeeSpecies` | espèces et types d'habitats acceptés | `entities/bee_species.gd` |
+| `BeePersonality` | traits individuels | `entities/bee_personality.gd` |
 | `BeeRole` | liste des rôles, création du composant de comportement | `entities/roles/bee_role.gd` |
-| `BeeBehavior` (abstraite) et ses sous-classes | interfaces des actions de chaque rôle | `entities/roles/*_behavior.gd` |
-| `Bee` | porte espèce, personnalité, rôle ; **seule** à évaluer un habitat | `entities/bee.gd` |
-| `DanceSignal`, `ColonyDecision` | données échangées entre rôles | `entities/roles/` |
-| Décision collective | choisir l'habitat de la colonie (quorum) | **à créer** |
-| Reproduction | ponte, développement, naissance | **à créer** |
-
----
-
-## 7. Reste à implémenter
-
-| Comportement | Méthode(s) concernée(s) |
-|---|---|
-| Recherche d'habitats dans le monde | `ScoutBehavior.explore_habitats` |
-| Déplacements (aller, retour, visite, déménagement) | `return_to_colony`, `visit_habitat`, `move_to_habitat` |
-| Analyse d'une danse et décision de la suivre | `evaluate_signal`, `decide_to_follow` |
-| Décision collective (force de danse, attrition, signal stop, quorum) | nouveau mécanisme → produit `ColonyDecision` |
-| Ponte et cycle de reproduction | `lay_eggs`, `manage_reproduction_cycle` + nouveau mécanisme |
-| Commandes Python pour piloter rôles et entités | protocole `godot/main.gd` + `backend/bzz/commands.py` |
+| `BeeBehavior` (abstraite) et ses sous-classes | squelette des actions de chaque rôle | `entities/roles/*_behavior.gd` |
+| `Bee` | porte espèce, personnalité et rôle | `entities/bee.gd` |
+| Évaluation des habitats | **à créer** | — |
+| Décision collective | **à créer** | — |
+| Reproduction | **à créer** | — |
 
 ---
 

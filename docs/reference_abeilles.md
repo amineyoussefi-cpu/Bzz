@@ -1,10 +1,10 @@
 # Référence : abeilles et habitats
 
 Document de conception du premier peuplement du monde Bzz. Il décrit les **types d'abeilles** envisagés,
-les **habitats** qu'elles peuvent rechercher, les **critères** qui guident leur choix et les **traits de
-personnalité** modélisés. Les classes correspondantes existent dans [`godot/entities/`](../godot/entities/).
-Depuis le tableau de bord (voir [api.md](api.md)), on peut placer des habitats et des abeilles dans le monde, mais
-**aucune abeille ne prend encore de décision** : la logique de choix décrite ici n'est appelée par rien.
+les **habitats** disponibles et les **traits de personnalité** modélisés.
+Les classes correspondantes existent dans [`godot/entities/`](../godot/entities/).
+Depuis le tableau de bord (voir [api.md](api.md)), on peut placer des habitats et des abeilles dans le monde.
+**Les abeilles sont sans cerveau** : elles ont une espèce, une personnalité et un rôle, mais aucune logique de choix.
 
 Chaque section sépare :
 
@@ -42,10 +42,8 @@ Les expériences de Seeley & Morse ([1978][seeley1978]) montrent une préférenc
 Les mêmes travaux n'ont **pas** trouvé de préférence pour la forme de l'entrée, la forme de la cavité,
 les courants d'air ni l'humidité de la cavité.
 
-🎮 **Simulation.** Préférences : volume 40 L (critère le plus lourd), entrée ≈ 40 mm de diamètre (≈ 12,5 cm²),
-hauteur 5 m, cavité déjà occupée, fleurs à proximité. L'humidité n'est volontairement **pas** un critère.
-*Simplifications* : le choix est fait par **une** abeille (pas de décision collective d'essaim, prévue plus tard) ;
-l'orientation de l'entrée et la distance à la colonie mère ne sont pas modélisées.
+🎮 **Simulation.** Types acceptés : cavité d'arbre, ruche.
+*À faire* : préférences de volume, entrée, hauteur, ancien nid, fleurs — aucune logique d'évaluation pour l'instant.
 
 ### 1.2 Bourdon terrestre (*Bombus terrestris*)
 
@@ -56,9 +54,7 @@ souvent un **ancien nid de rongeur** dont elle réutilise le matériau isolant (
 Les espèces à nid souterrain, dont *B. terrestris*, sont associées aux **talus et haies**
 ([Kells & Goulson 2003][kells2003]). Elle accepte aussi des cavités au-dessus du sol et des nichoirs.
 
-🎮 **Simulation.** Types acceptés : terrier, ruche, cavité d'arbre. Préférences : petite cavité (≈ 2 L),
-entrée **au niveau du sol** (critère fort), humidité modérée, fleurs à proximité.
-*Simplifications* : le volume « idéal » et la tolérance à l'humidité sont des **réglages de jeu**, non mesurés.
+🎮 **Simulation.** Types acceptés : terrier, ruche, cavité d'arbre. *À faire* : préférences de volume, hauteur d'entrée, humidité.
 
 ### 1.3 Osmie cornue (*Osmia bicornis*)
 
@@ -70,9 +66,7 @@ cloisons de boue ([Wikipedia][osmia-wiki]). Le diamètre de tube utilisable va d
 les femelles construisent des rangées doubles ([étude pollinationecology][osmia-tubes]). Des diamètres de 6–8 mm sont
 couramment recommandés en pratique.
 
-🎮 **Simulation.** Types acceptés : tiges creuses, bois mort. Préférences : diamètre **7 mm** (± 5, critère fort),
-plein soleil, entrée à environ 1 m du sol, fleurs à proximité.
-*Simplifications* : la longueur du tube, le besoin en boue et le sex-ratio lié au diamètre sont ignorés.
+🎮 **Simulation.** Types acceptés : tiges creuses, bois mort. *À faire* : préférences de diamètre, ensoleillement, hauteur.
 
 ### 1.4 Andrène (*Andrena*, ex. *A. cineraria*)
 
@@ -83,10 +77,7 @@ bien drainé et ensoleillé** ([Ohio State Extension][andrena-osu]). Bien que so
 en **bourgades** de dizaines d'entrées sur quelques m². Le couvert végétal et l'infiltration de l'eau sont
 corrélés négativement au nombre de nids ([étude pollinationecology][ground-nesting]).
 
-🎮 **Simulation.** Type accepté : sol nu. Préférences : plein soleil et **faible humidité** (critères forts), fleurs.
-L'habitat « sol nu » a une **grande capacité** : plusieurs andrènes peuvent s'y installer, et la sociabilité
-de chaque individu joue sur l'attrait d'un site déjà fréquenté.
-*Simplifications* : texture du sol, pente et compacité ne sont pas modélisées.
+🎮 **Simulation.** Type accepté : sol nu. *À faire* : préférences d'ensoleillement, humidité, capacité multiple.
 
 ### 1.5 Xylocope violet (*Xylocopa violacea*)
 
@@ -97,8 +88,7 @@ de chaque individu joue sur l'attrait d'un site déjà fréquenté.
 dépasser 80 cm ; les adultes hivernent dans les galeries
 ([revue PMC sur la nidification des Xylocopa][xylocopa-pmc]).
 
-🎮 **Simulation.** Type accepté : bois mort. Préférences : bois ensoleillé et sec, fleurs.
-*Simplifications* : la densité du bois et la réutilisation des galeries d'une année sur l'autre sont ignorées.
+🎮 **Simulation.** Type accepté : bois mort. *À faire* : préférences d'ensoleillement et d'humidité.
 
 ---
 
@@ -132,33 +122,7 @@ Chaque instance de `Habitat` a ses propres valeurs :
 
 ---
 
-## 3. Critères de choix
-
-Un **critère** (`Preference`) compare une caractéristique de l'habitat à une valeur idéale :
-
-```
-score = max(0, 1 − |valeur − idéal| / tolérance)        (1 à l'idéal, 0 au-delà de la tolérance)
-```
-
-Chaque espèce a sa liste de critères pondérés (`BeeSpecies.default_preferences`), copiée dans chaque abeille,
-qui peut ensuite la modifier individuellement.
-
-| Critère | Mellifère | Bourdon | Osmie | Andrène | Xylocope |
-|---|---|---|---|---|---|
-| Volume (L) | **40** ±35 (×2) | 2 ±4 | — | — | — |
-| Diamètre d'entrée (mm) | 40 ±40 | — | **7** ±5 (×2) | — | — |
-| Hauteur d'entrée (m) | 5 ±5 | **0** ±1 (×1,5) | 1 ±1,5 (×0,5) | — | — |
-| Ensoleillement | — | — | 1 ±0,8 | **1** ±0,8 (×1,5) | 0,8 ±0,8 |
-| Humidité | — *(non préférée, Seeley)* | 0,4 ±0,5 | — | **0,2** ±0,6 (×1,5) | 0,2 ±0,6 |
-| Ancien nid | 1 ±1 (×0,5) | — | — | — | — |
-| Fleurs à proximité | 1 ±1 | 1 ±1 | 1 ±1 | 1 ±1 | 1 ±1 |
-
-Les **valeurs idéales** viennent des sources quand elles existent (mellifère, diamètre des osmies) ;
-les **tolérances et poids** sont des réglages de jeu.
-
----
-
-## 4. Personnalité
+## 3. Personnalité
 
 🔬 **Biologie.** Des différences individuelles stables existent chez l'abeille mellifère : certaines ouvrières
 sont bien plus portées que d'autres à explorer et à devenir éclaireuses, avec des signatures moléculaires
@@ -166,53 +130,38 @@ associées (Liang et al. 2012). Pour les autres espèces, ces différences sont 
 
 🎮 **Simulation.** Chaque abeille porte une `BeePersonality` avec quatre traits entre 0 et 1. C'est une
 **invention de jeu** destinée à rendre les individus distincts ; elle ne prétend pas décrire une réalité biologique.
+Ces traits n'ont **aucun effet pour l'instant** — les abeilles sont sans cerveau. Ils seront utilisés quand la logique de choix sera ajoutée.
 
-| Trait | Effet sur le choix |
+| Trait | Description |
 |---|---|
-| `pickiness` (exigence) | seuil d'acceptation = 0,3 + 0,5 × exigence ; en dessous, l'abeille ne choisit rien |
-| `boldness` (audace) | pénalité de risque = `predator_risk` × (1 − audace) |
-| `sociability` (sociabilité) | sur un habitat à plusieurs places : bonus (> 0,5) ou malus (< 0,5) proportionnel au taux d'occupation |
-| `curiosity` (curiosité) | bruit aléatoire ±0,1 × curiosité sur chaque évaluation : choix moins prévisibles |
+| `pickiness` (exigence) | à quel point l'abeille est difficile sur la qualité d'un habitat |
+| `boldness` (audace) | tolérance au risque de prédation |
+| `sociability` (sociabilité) | attrait pour les sites déjà fréquentés |
+| `curiosity` (curiosité) | imprévisibilité dans les évaluations |
 
 ---
 
-## 5. Modèle logiciel
+## 4. Modèle logiciel
 
 Classes GDScript dans [`godot/entities/`](../godot/entities/) :
 
 ```
-BeeSpecies (catalogue)        Bee (Node2D)                       Habitat (Node2D)
-  Id: 5 espèces          ──►    species, bee_name                   habitat_type, caractéristiques…
-  accepted_types(id)            accepted_types                      capacity, occupants
-  default_preferences(id)       preferences: [Preference]           features() -> {critère: valeur}
-                                personality: BeePersonality         is_full(), occupancy()
+BeeSpecies (catalogue)        Bee (Node2D)                  Habitat (Node2D)
+  Id: 5 espèces          ──►    species, bee_name             habitat_type, caractéristiques…
+  accepted_types(id)            personality: BeePersonality   capacity, occupants
                                 home: Habitat
-                                score_breakdown(h) / evaluate_habitat(h)
-                                choose_habitat([h…]) -> Habitat | null
-                                settle(h), leave_home()
-                                role: BeeRole.Id, behavior: BeeBehavior, set_role(id)
+                                role: BeeRole.Id
+                                behavior: BeeBehavior
+                                set_role(id)
 ```
 
-Évaluation d'un habitat par une abeille (`Bee.score_breakdown`) :
-
-1. type non accepté, ou habitat plein (et pas son propre logis) → **0** ;
-2. moyenne pondérée des scores de critères ;
-3. × (1 − risque × (1 − audace)) ;
-4. \+ effet de sociabilité si l'habitat a plusieurs places ;
-5. \+ bruit de curiosité, puis borné entre 0 et 1.
-
-`choose_habitat` retient le meilleur candidat dont le score atteint le seuil d'exigence.
-Chaque abeille a son propre générateur aléatoire (graine optionnelle via `Bee.create(espèce, personnalité, graine)`),
-ses propres copies de préférences et sa propre personnalité : les instances sont indépendantes.
-
-Tests : [`godot/tests/test_entities.gd`](../godot/tests/test_entities.gd), lancé par `backend/tests/test_entities.py`.
+Aucune logique d'évaluation ou de choix : les abeilles sont **sans cerveau**. Seuls l'espèce, la personnalité
+et le rôle sont modélisés. La logique de choix d'habitat sera ajoutée ultérieurement.
 
 ### Rôles
 
 Chaque abeille porte un **rôle** (`SCOUT` éclaireuse, `FOLLOWER` suiveuse, `QUEEN` reine), indépendant de son
-espèce et de sa personnalité, et un composant de comportement qui déclare les actions de ce rôle
-(classes dans [`godot/entities/roles/`](../godot/entities/roles/)). Ces actions ne sont encore que des interfaces :
-voir le document dédié [Rôles et comportements](roles_comportements.md).
+espèce et de sa personnalité — voir le document dédié [Rôles et comportements](roles_comportements.md).
 
 ---
 

@@ -1,7 +1,6 @@
 class_name BeePersonality
 extends Resource
-## Individual traits (0..1) that bend how a bee applies its species preferences.
-## Game simplification: real bees have no documented "personality" in this sense.
+## Individual traits (0..1) that make each bee distinct. No evaluation logic — brainless bees.
 
 const TRAITS := ["pickiness", "boldness", "sociability", "curiosity"]
 
@@ -58,5 +57,3 @@ func to_dict() -> Dictionary:
 	return d
 
 
-func acceptance_threshold() -> float:
-	return 0.3 + 0.5 * pickiness
