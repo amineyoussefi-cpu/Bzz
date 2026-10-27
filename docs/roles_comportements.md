@@ -20,7 +20,6 @@ Comme dans la référence, on distingue :
 |---|---|---|---|
 | <img src="img/role_eclaireuse.svg" width="150"> | Éclaireuse | `SCOUT` | chercher des habitats, les évaluer, les signaler par une danse |
 | <img src="img/role_suiveuse.svg" width="150"> | Suiveuse | `FOLLOWER` | observer les danses, décider d'aller voir, juger l'habitat elle-même |
-| <img src="img/role_reine.svg" width="150"> | Reine | `QUEEN` | suivre la décision collective, pondre, assurer la reproduction |
 
 🔬 **Biologie.** Ce découpage vient de l'essaimage de l'abeille mellifère. Lorsqu'un essaim quitte la colonie,
 seule une petite partie des ouvrières part en exploration : ce sont les **éclaireuses**. De retour sur l'essaim,
@@ -31,9 +30,9 @@ au départ (signaux de « piping ») puis s'envole vers ce site ([Seeley & Vissc
 [Visscher & Seeley 2007][visscher2007]). **La reine ne participe pas au choix** : elle accompagne l'essaim.
 
 🎮 **Simulation.** Les rôles sont **indépendants des espèces** : les cinq espèces du catalogue peuvent recevoir les
-trois rôles. Une abeille a **un rôle à la fois**, `FOLLOWER` par défaut, et peut en changer (`set_role`).
+deux rôles. Une abeille a **un rôle à la fois**, `FOLLOWER` par défaut, et peut en changer (`set_role`).
 *Simplification assumée* : chez les bourdons et les abeilles solitaires, il n'y a ni danse ni décision
-collective ; ces espèces pourront simplement ne pas utiliser certains rôles.
+collective ; ces espèces pourront simplement ne pas utiliser le rôle éclaireuse.
 
 ---
 
@@ -69,21 +68,7 @@ laquelle l'essaim choisit le plus souvent le meilleur site disponible ([Seeley 2
 
 ---
 
-## 4. Reine — `QUEEN`
-
-<img src="img/role_reine.svg" width="240" align="right">
-
-🔬 **Biologie.** La reine ne choisit pas le site : elle suit l'essaim. Installée, elle pond ; le développement de
-l'œuf à l'adulte dure en moyenne **16 jours pour une reine, 21 pour une ouvrière et 24 pour un mâle**
-(valeurs couramment citées, [Bee Professor][lifecycle]).
-
-🎮 **Simulation** — classe `QueenBehavior` : rôle déclaré, aucune action implémentée.
-
-À implémenter : réception de la décision collective, déplacement vers l'habitat retenu, ponte, cycle de reproduction.
-
----
-
-## 5. Architecture
+## 4. Architecture
 
 <img src="img/classes_roles.svg" width="100%">
 
@@ -98,12 +83,11 @@ Règles retenues :
 |---|---|---|
 | `BeeSpecies` | espèces et types d'habitats acceptés | `entities/bee_species.gd` |
 | `BeePersonality` | traits individuels | `entities/bee_personality.gd` |
-| `BeeRole` | liste des rôles, création du composant de comportement | `entities/roles/bee_role.gd` |
-| `BeeBehavior` (abstraite) et ses sous-classes | squelette des actions de chaque rôle | `entities/roles/*_behavior.gd` |
+| `BeeRole` | deux rôles (`SCOUT`, `FOLLOWER`), création du composant | `entities/roles/bee_role.gd` |
+| `ScoutBehavior`, `FollowerBehavior` | actions de chaque rôle | `entities/roles/*_behavior.gd` |
 | `Bee` | porte espèce, personnalité et rôle | `entities/bee.gd` |
 | Évaluation des habitats | **à créer** | — |
 | Décision collective | **à créer** | — |
-| Reproduction | **à créer** | — |
 
 ---
 
@@ -114,11 +98,9 @@ Règles retenues :
 - Seeley, T. D. & Buhrman, S. C. (2001). *Nest-site selection in honey bees: how well do swarms implement the "best-of-N" decision rule?* [PDF][buhrman]
 - *Sensory coding of nest site value in honeybee swarms*, Journal of Experimental Biology 211 (2008). [lien][jeb2008]
 - Seeley, T. D. (2010). *Honeybee Democracy*. Princeton University Press. (présentation : [Science Friday][seeley2010])
-- *Lifecycle of a honey bee*, Bee Professor (durées de développement). [lien][lifecycle]
 
 [quorum]: https://www.doi.org/10.1007/S00265-003-0664-6
 [visscher2007]: https://www.shoalsmarinelaboratory.org/sites/default/files/media/2026-02/Visscher%26Seeley%202007_SML136.pdf
 [buhrman]: https://www.shoalsmarinelaboratory.org/sites/default/files/media/2026-02/Seeley%26Buhrman%202001_SML105.pdf
 [jeb2008]: https://cob.silverchair.com/jeb/article/211/23/3691/17956/Sensory-coding-of-nest-site-value-in-honeybee
 [seeley2010]: https://www.sciencefriday.com/articles/how-do-bees-find-a-home/
-[lifecycle]: https://beeprofessor.com/lifecycle-of-a-honey-bee/

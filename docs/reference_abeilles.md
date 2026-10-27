@@ -160,8 +160,8 @@ et le rôle sont modélisés. La logique de choix d'habitat sera ajoutée ultér
 
 ### Rôles
 
-Chaque abeille porte un **rôle** (`SCOUT` éclaireuse, `FOLLOWER` suiveuse, `QUEEN` reine), indépendant de son
-espèce et de sa personnalité — voir le document dédié [Rôles et comportements](roles_comportements.md).
+Chaque abeille porte un **rôle** (`SCOUT` éclaireuse ou `FOLLOWER` suiveuse), indépendant de son espèce et de sa
+personnalité — voir le document dédié [Rôles et comportements](roles_comportements.md).
 
 ---
 

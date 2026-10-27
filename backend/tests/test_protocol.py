@@ -39,7 +39,7 @@ class ProtocolTest(unittest.TestCase):
         c = self.send("get_catalog")
         self.assertIn("tree_cavity", [t["name"] for t in c["habitat_types"]])
         self.assertIn("honey_bee", [s["name"] for s in c["species"]])
-        self.assertEqual(c["roles"], ["scout", "follower", "queen"])
+        self.assertEqual(c["roles"], ["scout", "follower"])
         self.assertEqual([t["name"] for t in c["traits"]], ["pickiness", "boldness", "sociability", "curiosity"])
         self.assertIn("équilibrée", c["presets"])
         self.assertEqual(c["world"], {"width": 1000, "height": 700})
@@ -190,7 +190,7 @@ class ProtocolTest(unittest.TestCase):
         for t, x in [("tree_cavity", 100), ("hive_box", 200), ("bare_soil", 300), ("hollow_stem", 400), ("dead_wood", 500)]:
             self.send("add_habitat", type=t, x=x, y=100)
         bees = [self.send("add_bee", species=s, x=50 + 10 * i, y=600, role=r)
-                for i, (s, r) in enumerate([("honey_bee", "scout"), ("honey_bee", "follower"), ("honey_bee", "queen"),
+                for i, (s, r) in enumerate([("honey_bee", "scout"), ("honey_bee", "follower"),
                                             ("bumblebee", "follower"), ("mining_bee", "follower")])]
         self.send("set_speed", speed=8)
         self.send("resume")
