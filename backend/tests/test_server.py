@@ -89,6 +89,53 @@ class ServerTest(unittest.TestCase):
             self.assertIsNone(k["decisions"]["mechanism"])
 
 
+class StubOllama:
+    """Stands in for OllamaLLM; `down` simulates an unreachable server."""
+
+    url, model, down = "http://ollama.test", "qwen2.5:0.5b", False
+
+    def installed(self):
+        if self.down:
+            raise OSError("connection refused")
+        return [{"name": "qwen2.5:0.5b", "size": 1}, {"name": "llama3.2:1b", "size": 2}]
+
+    def pull(self, name):
+        if name == "nope:1b":
+            raise ValueError("file does not exist")
+
+
+@unittest.skipIf(TestClient is None, "fastapi/httpx not installed")
+class ModelsApiTest(unittest.TestCase):
+    """Model routes need no Godot: the client is not entered, so the lifespan (Godot start) does not run."""
+
+    def setUp(self):
+        self.llm = StubOllama()
+        self.client = TestClient(create_app(llm=self.llm))
+
+    def test_list_and_switch_model(self):
+        c = self.client
+        m = c.get("/api/models").json()
+        self.assertEqual((m["available"], m["current"], len(m["installed"])), (True, "qwen2.5:0.5b", 2))
+        self.assertEqual(c.put("/api/models/current", json={"model": "llama3.2:1b"}).json(), {"current": "llama3.2:1b"})
+        self.assertEqual(self.llm.model, "llama3.2:1b")
+        self.assertEqual(c.put("/api/models/current", json={"model": "gemma3:1b"}).status_code, 400)  # not installed
+        self.assertEqual(c.put("/api/models/current", json={"model": "bad name; rm"}).status_code, 400)
+        self.assertEqual(c.put("/api/models/current", json=["x"]).status_code, 400)
+
+    def test_pull(self):
+        c = self.client
+        self.assertEqual(c.post("/api/models/pull", json={"model": "gemma3:1b"}).json(), {"pulled": "gemma3:1b"})
+        r = c.post("/api/models/pull", json={"model": "nope:1b"})
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("does not exist", r.json()["error"])
+
+    def test_ollama_down(self):
+        self.llm.down = True
+        m = self.client.get("/api/models").json()
+        self.assertEqual((m["available"], m["installed"]), (False, []))
+        self.assertEqual(self.client.put("/api/models/current", json={"model": "qwen2.5:0.5b"}).status_code, 503)
+
+
 class KpiDecisionFormatTest(unittest.TestCase):
     """The decision KPIs already understand the documented event format, though nothing emits it yet."""
 

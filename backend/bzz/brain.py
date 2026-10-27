@@ -76,20 +76,39 @@ DECISIONS = {
 
 
 class OllamaLLM:
-    """Calls a local Ollama server. `__call__` returns the raw text of the answer."""
+    """Calls a local Ollama server. `__call__` returns the raw text of the answer.
+
+    `model` is the model the bees use; the dashboard can change it (see server.py, /api/models).
+    Network errors surface as OSError (urllib's URLError/HTTPError are OSErrors).
+    """
+
+    PULL_TIMEOUT = 1800  # downloading a model can take minutes
 
     def __init__(self, url: str | None = None, model: str | None = None, timeout: float = 60):
         self.url = (url or os.environ.get("OLLAMA_URL") or "http://localhost:11434").rstrip("/")
         self.model = model or os.environ.get("BZZ_MODEL") or "qwen2.5:0.5b"
         self.timeout = timeout
 
+    def _request(self, path: str, body: dict | None = None, timeout: float | None = None) -> dict:
+        data = json.dumps(body).encode() if body is not None else None  # no body -> GET
+        req = urllib.request.Request(self.url + path, data, {"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=timeout or self.timeout) as r:
+            return json.load(r)
+
     def __call__(self, messages: list, schema: dict, seed: int) -> str:
         body = {"model": self.model, "messages": messages, "format": schema, "stream": False,
                 "options": {"temperature": TEMPERATURE, "seed": seed}}
-        req = urllib.request.Request(f"{self.url}/api/chat", json.dumps(body).encode(),
-                                     {"Content-Type": "application/json"})
-        with urllib.request.urlopen(req, timeout=self.timeout) as r:
-            return json.load(r)["message"]["content"]
+        return self._request("/api/chat", body)["message"]["content"]
+
+    def installed(self) -> list[dict]:
+        """Models present in Ollama: [{"name", "size"}], size in bytes."""
+        return [{"name": m["name"], "size": m["size"]} for m in self._request("/api/tags")["models"]]
+
+    def pull(self, name: str) -> None:
+        """Downloads `name` into Ollama (blocks until done). ValueError if Ollama reports an error (unknown model...)."""
+        r = self._request("/api/pull", {"model": name, "stream": False}, timeout=self.PULL_TIMEOUT)
+        if "error" in r:
+            raise ValueError(r["error"])
 
 
 class Brain:

@@ -105,10 +105,7 @@
     <section>
       <h2>Ajouter une abeille</h2>
       <form id="f-bee">
-        <div class="row">
-          <div><label for="b-species">Espèce</label><select id="b-species" required></select></div>
-          <div><label for="b-role">Rôle</label><select id="b-role"></select></div>
-        </div>
+        <label for="b-role">Rôle</label><select id="b-role"></select>
         <label for="b-name">Nom (facultatif)</label><input id="b-name" maxlength="40">
         <div class="row">
           <div><label for="b-x">x</label><input id="b-x" type="number" step="any" required></div>
@@ -138,7 +135,7 @@
     <section>
       <h2>Entités <span class="hint" id="ent-count"></span></h2>
       <div class="entities"><table>
-        <thead><tr><th>Id</th><th>Type / espèce</th><th>Position</th><th>Habitat</th><th></th></tr></thead>
+        <thead><tr><th>Id</th><th>Type / rôle</th><th>Position</th><th>Habitat</th><th></th></tr></thead>
         <tbody id="ent-body"></tbody></table>
       </div>
       <pre class="detail" id="detail" hidden></pre>
@@ -146,6 +143,24 @@
   </div>
 
   <div class="col-right">
+    <section>
+      <h2>Modèles LLM <span id="m-status" class="pill off">…</span></h2>
+      <p class="hint" id="m-url"></p>
+      <div class="notice" id="m-down" hidden>Ollama ne répond pas. Lancez <code>ollama serve</code>, puis
+        <button type="button" id="m-refresh">Réessayer</button></div>
+      <label for="m-select">Modèle utilisé par les abeilles</label>
+      <div class="row"><select id="m-select"></select><button type="button" class="primary" id="m-use" style="flex:0">Utiliser</button></div>
+      <table style="margin-top:8px"><thead><tr><th>Installés</th><th class="num">Taille</th></tr></thead>
+        <tbody id="m-list"></tbody></table>
+      <form id="f-pull">
+        <label for="m-pull">Télécharger un modèle</label>
+        <div class="row"><input id="m-pull" list="m-suggest" placeholder="ex. qwen2.5:0.5b" required>
+          <button class="primary" type="submit" style="flex:0" id="m-pull-btn">Télécharger</button></div>
+        <datalist id="m-suggest"><option value="qwen2.5:0.5b"><option value="qwen2.5:1.5b"><option value="llama3.2:1b">
+          <option value="gemma3:1b"><option value="smollm2:360m"></datalist>
+        <p class="hint">Le téléchargement peut prendre plusieurs minutes.</p>
+      </form>
+    </section>
     <section>
       <h2>Indicateurs</h2>
       <div class="kpis">
@@ -155,7 +170,6 @@
         <div class="kpi"><b id="k-homeless">0</b><span>abeilles sans habitat</span></div>
       </div>
       <label>Habitats par type</label><div class="bars" id="k-types"></div>
-      <label>Abeilles par espèce</label><div class="bars" id="k-species"></div>
       <label>Traits de personnalité (0 → 1, 5 classes)</label><div id="k-traits"></div>
       <details><summary>Taux d'occupation des habitats</summary>
         <table><thead><tr><th>Habitat</th><th>Type</th><th class="num">Occ.</th><th class="num">Taux</th></tr></thead>
@@ -174,7 +188,6 @@
         <div class="kpi"><b id="d-refused">0</b><span>refus</span></div>
         <div class="kpi" style="grid-column:1/-1"><b id="d-avg">—</b><span>score moyen des habitats choisis</span></div>
       </div>
-      <label>Choix / refus par espèce</label><div class="bars" id="d-species"></div>
       <details><summary>Choix / refus selon les traits</summary><div id="d-traits"></div></details>
       <label>Fil des décisions</label><ul class="feed" id="decision-feed"></ul>
     </section>
@@ -187,13 +200,12 @@
 const LABELS = {
   tree_cavity: "Cavité d'arbre", hive_box: "Ruche", rodent_burrow: "Terrier", bare_soil: "Sol nu",
   hollow_stem: "Tiges creuses", dead_wood: "Bois mort",
-  honey_bee: "Abeille mellifère", bumblebee: "Bourdon", mason_bee: "Osmie", mining_bee: "Andrène", carpenter_bee: "Xylocope",
-  scout: "Éclaireuse", follower: "Suiveuse", queen: "Reine",
+  scout: "Éclaireuse", follower: "Suiveuse",
   pickiness: "Exigence", boldness: "Audace", sociability: "Sociabilité", curiosity: "Curiosité",
 };
 const HAB_COLORS = { tree_cavity: "#8a5a34", hive_box: "#e0a93a", rodent_burrow: "#a07850", bare_soil: "#d9bf86",
                      hollow_stem: "#b5523a", dead_wood: "#6f5a45" };
-const BEE_COLORS = { honey_bee: "#d89a2b", bumblebee: "#1d1a17", mason_bee: "#c8552a", mining_bee: "#8d8a84", carpenter_bee: "#5b3fa0" };
+const BEE_COLOR = "#d89a2b";
 const label = k => LABELS[k] || k;
 const $ = id => document.getElementById(id);
 let catalog = null, snap = null, selected = null;
@@ -217,7 +229,6 @@ function opt(sel, values, fmt = label) {
 
 function buildForms() {
   opt($("h-type"), catalog.habitat_types.map(t => t.name));
-  opt($("b-species"), catalog.species.map(s => s.name));
   opt($("b-role"), catalog.roles); $("b-role").value = catalog.default_role;
   opt($("b-preset"), Object.keys(catalog.presets), p => p);
   const s = catalog.speed, speeds = [0.25, 0.5, 1, 2, 4, 8].filter(v => v >= s.min && v <= s.max);
@@ -230,7 +241,7 @@ function buildForms() {
   renderFeatureInputs();
   $("legend").innerHTML =
     catalog.habitat_types.map(t => `<span><i class="sw" style="background:${HAB_COLORS[t.name]}"></i>${label(t.name)}</span>`).join("") +
-    catalog.species.map(s => `<span><i class="sw dot" style="background:${BEE_COLORS[s.name]}"></i>${label(s.name)}</span>`).join("");
+    `<span><i class="sw dot" style="background:${BEE_COLOR}"></i>Abeille</span>`;
 }
 
 function renderFeatureInputs() {
@@ -269,7 +280,7 @@ $("f-bee").addEventListener("submit", async e => {
   if (mode === "preset") personality = { preset: $("b-preset").value };
   else if (mode === "traits") personality = { traits: Object.fromEntries(catalog.traits.map(t => [t.name, Number($("t-" + t.name).value)])) };
   else { personality = { random: true }; if ($("b-seed").value !== "") personality.seed = Number($("b-seed").value); }
-  const body = { species: $("b-species").value, role: $("b-role").value, x: Number($("b-x").value),
+  const body = { role: $("b-role").value, x: Number($("b-x").value),
                  y: Number($("b-y").value), personality };
   if ($("b-name").value) body.name = $("b-name").value;
   const r = await api("POST", "/api/bees", body).catch(() => null);
@@ -302,7 +313,7 @@ function drawWorld() {
     if (e.kind === "habitat") {
       ctx.fillStyle = HAB_COLORS[e.type]; ctx.fillRect(x - 9, y - 9, 18, 18); ctx.strokeRect(x - 9, y - 9, 18, 18);
     } else {
-      ctx.beginPath(); ctx.arc(x, y, 5, 0, 2 * Math.PI); ctx.fillStyle = BEE_COLORS[e.species]; ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.arc(x, y, 5, 0, 2 * Math.PI); ctx.fillStyle = BEE_COLOR; ctx.fill(); ctx.stroke();
     }
   }
 }
@@ -323,7 +334,7 @@ function renderEntities() {
   $("ent-count").textContent = `(${list.length})`;
   $("ent-body").innerHTML = list.map(e => `<tr class="${e.id === selected ? "sel" : ""}">
     <td><a href="#" onclick="showDetail('${e.id}');return false">${e.id}</a></td>
-    <td>${e.kind === "habitat" ? label(e.type) : `${label(e.species)} · ${label(e.role)}${e.name ? " · " + escapeHtml(e.name) : ""}`}</td>
+    <td>${e.kind === "habitat" ? label(e.type) : `Abeille · ${label(e.role)}${e.name ? " · " + escapeHtml(e.name) : ""}`}</td>
     <td>${Math.round(e.x)}, ${Math.round(e.y)}</td>
     <td>${e.kind === "habitat" ? `${e.occupants}/${e.capacity}` : (e.home_id || "—")}</td>
     <td><button class="danger" onclick="removeEntity('${e.id}')" aria-label="Retirer ${e.id}">✕</button></td></tr>`).join("")
@@ -347,7 +358,7 @@ function hist(el, dist) {
 function evText(ev) {
   const d = ev.data;
   switch (ev.type) {
-    case "entity_added": return `Ajout de ${d.id} (${label(d.type || d.species)})`;
+    case "entity_added": return `Ajout de ${d.id} (${d.type ? label(d.type) : "abeille"})`;
     case "entity_removed": return `Retrait de ${d.id}` + (d.released_bee_ids?.length ? ` — libère ${d.released_bee_ids.join(", ")}` : "");
     case "world_cleared": return `Monde vidé (${d.removed} entités)`;
     case "paused": return "Simulation en pause";
@@ -372,7 +383,7 @@ function render() {
   if (document.activeElement !== $("speed")) $("speed").value = s.speed;
   $("k-hab").textContent = s.habitats; $("k-bees").textContent = s.bees;
   $("k-settled").textContent = k.bees_settled; $("k-homeless").textContent = k.bees_homeless;
-  bars($("k-types"), k.habitats_by_type); bars($("k-species"), k.bees_by_species); hist($("k-traits"), k.trait_distribution);
+  bars($("k-types"), k.habitats_by_type); hist($("k-traits"), k.trait_distribution);
   $("k-occ").innerHTML = k.occupancy.map(o => `<tr><td>${o.id}</td><td>${label(o.type)}</td><td class="num">${o.occupants}/${o.capacity}</td>
     <td class="num">${Math.round(100 * o.rate)} %</td></tr>`).join("") || `<tr><td colspan="4" class="empty">Aucun habitat.</td></tr>`;
   feed($("world-feed"), snap.world_events, "Aucun événement pour l'instant.");
@@ -380,12 +391,40 @@ function render() {
   $("no-mechanism").hidden = !!d.mechanism;
   $("d-chosen").textContent = d.chosen; $("d-refused").textContent = d.refused;
   $("d-avg").textContent = d.avg_chosen_score ?? "—";
-  bars($("d-species"), Object.fromEntries(Object.entries(d.by_species).map(([sp, c]) => [sp, c.chosen + c.refused])));
   $("d-traits").innerHTML = Object.entries(d.by_trait).map(([t, bins]) => `<div class="hint">${label(t)} : ${bins.map(
     (b, i) => `[${(i / 5).toFixed(1)}–${((i + 1) / 5).toFixed(1)}] ${b.chosen}✓ ${b.refused}✗`).join(" · ")}</div>`).join("");
   feed($("decision-feed"), snap.decision_events, "Aucune décision : aucun mécanisme actif.");
   renderEntities(); drawWorld();
 }
+
+// --- LLM models (Ollama) ----------------------------------------------------------
+const fmtSize = b => b >= 1e9 ? (b / 1e9).toFixed(1) + " Go" : Math.round(b / 1e6) + " Mo";
+async function loadModels() {
+  const m = await api("GET", "/api/models").catch(() => null);
+  if (!m) return;
+  $("m-status").textContent = m.available ? "Ollama connecté" : "Ollama injoignable";
+  $("m-status").className = "pill " + (m.available ? "run" : "off");
+  $("m-url").textContent = `${m.url} · modèle actuel : ${m.current}`;
+  $("m-down").hidden = m.available;
+  const names = m.installed.map(i => i.name);
+  if (!names.includes(m.current)) names.unshift(m.current);  // configured but not downloaded yet
+  opt($("m-select"), names, n => m.installed.some(i => i.name === n) ? n : `${n} (non installé)`);
+  $("m-select").value = m.current;
+  $("m-list").innerHTML = m.installed.map(i => `<tr class="${i.name === m.current ? "sel" : ""}"><td>${escapeHtml(i.name)}</td>
+    <td class="num">${fmtSize(i.size)}</td></tr>`).join("") || `<tr><td colspan="2" class="empty">Aucun modèle installé.</td></tr>`;
+}
+$("m-refresh").onclick = loadModels;
+$("m-use").onclick = async () => {
+  const r = await api("PUT", "/api/models/current", { model: $("m-select").value }).catch(() => null);
+  if (r) { toast(`Les abeilles utilisent maintenant ${r.current}`, true); loadModels(); }
+};
+$("f-pull").addEventListener("submit", async e => {
+  e.preventDefault();
+  const btn = $("m-pull-btn"); btn.disabled = true; btn.textContent = "Téléchargement…";
+  const r = await api("POST", "/api/models/pull", { model: $("m-pull").value.trim() }).catch(() => null);
+  btn.disabled = false; btn.textContent = "Télécharger";
+  if (r) { toast(`${r.pulled} téléchargé`, true); $("m-pull").value = ""; loadModels(); }
+});
 
 // --- live feed ------------------------------------------------------------------
 function connect() {
@@ -399,6 +438,7 @@ function connect() {
   catalog = await api("GET", "/api/catalog");
   buildForms();
   connect();
+  loadModels();
 })();
 </script>
 </body>

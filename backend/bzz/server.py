@@ -4,24 +4,29 @@ The dashboard is a client of this backend only; every action goes through GodotE
 Godot's events are pulled by polling `get_events` with a cursor (see docs/api.md for why), then pushed to
 every WebSocket client together with the state, entities and KPIs.
 
-Environment: BZZ_HTTP_HOST (default 127.0.0.1), DASHBOARD_PORT (default 8000), plus the GODOT_* variables.
+Environment: BZZ_HTTP_HOST (default 127.0.0.1), DASHBOARD_PORT (default 8000), plus the GODOT_* variables
+and OLLAMA_URL / BZZ_MODEL for the bee brain's LLM (see brain.py).
 """
 
 import asyncio
 import os
+import re
 from collections import deque
 from contextlib import asynccontextmanager
 from pathlib import Path
+from urllib.error import HTTPError
 
 from fastapi import Body, FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse
 
 from . import kpi
+from .brain import OllamaLLM
 from .engine import CommandRejected, GodotEngine, GodotError
 
 STATIC_DIR = Path(__file__).parent / "static"
 POLL_INTERVAL = 0.25  # seconds between two event polls
 FEED_SIZE = 200       # events kept for clients that connect later
+MODEL_NAME = re.compile(r"[A-Za-z0-9][\w.\-/:]{0,99}")  # Ollama names, e.g. qwen2.5:0.5b, hf.co/user/model
 
 
 class Hub:
@@ -76,8 +81,9 @@ class Hub:
                 self.clients.discard(ws)
 
 
-def create_app(engine: GodotEngine | None = None) -> FastAPI:
+def create_app(engine: GodotEngine | None = None, llm: OllamaLLM | None = None) -> FastAPI:
     engine = engine or GodotEngine()
+    llm = llm or OllamaLLM()
     hub = Hub(engine)
 
     @asynccontextmanager
@@ -90,7 +96,7 @@ def create_app(engine: GodotEngine | None = None) -> FastAPI:
         await asyncio.to_thread(engine.stop)
 
     app = FastAPI(title="Bzz backend", lifespan=lifespan)
-    app.state.engine, app.state.hub = engine, hub
+    app.state.engine, app.state.hub, app.state.llm = engine, hub, llm
 
     def call(cmd: str, **args):
         try:
@@ -159,6 +165,52 @@ def create_app(engine: GodotEngine | None = None) -> FastAPI:
     @app.get("/api/kpi")
     def get_kpi():
         return hub.snapshot["kpi"] if hub.snapshot else JSONResponse({"error": "not ready"}, status_code=503)
+
+    # --- LLM models (Ollama) ---------------------------------------------------------
+    def model_name(payload):
+        name = payload.get("model") if isinstance(payload, dict) else None
+        if not isinstance(name, str) or not MODEL_NAME.fullmatch(name):
+            return None, JSONResponse({"error": "body must be {\"model\": \"<ollama model name>\"}"}, status_code=400)
+        return name, None
+
+    def ollama_down(e: Exception):
+        if isinstance(e, (HTTPError, ValueError)):  # Ollama answered with an error (e.g. unknown model): not an outage
+            detail = e.read().decode(errors="replace")[:300] if isinstance(e, HTTPError) else str(e)
+            return JSONResponse({"error": f"Ollama refused: {detail or e}"}, status_code=400)
+        return JSONResponse({"error": f"Ollama unavailable at {llm.url}: {e}"}, status_code=503)
+
+    @app.get("/api/models")
+    def models():
+        try:
+            installed = llm.installed()
+        except (OSError, ValueError, KeyError) as e:
+            return {"current": llm.model, "url": llm.url, "available": False, "installed": [], "error": str(e)}
+        return {"current": llm.model, "url": llm.url, "available": True, "installed": installed}
+
+    @app.put("/api/models/current")
+    def set_model(payload=Body(...)):
+        name, err = model_name(payload)
+        if err:
+            return err
+        try:
+            names = [m["name"] for m in llm.installed()]
+        except (OSError, ValueError, KeyError) as e:
+            return ollama_down(e)
+        if name not in names:
+            return JSONResponse({"error": f"model {name} is not installed; download it first"}, status_code=400)
+        llm.model = name
+        return {"current": name}
+
+    @app.post("/api/models/pull")
+    def pull_model(payload=Body(...)):
+        name, err = model_name(payload)
+        if err:
+            return err
+        try:
+            llm.pull(name)
+        except (OSError, ValueError, KeyError) as e:
+            return ollama_down(e)
+        return {"pulled": name}
 
     @app.websocket("/ws")
     async def ws(websocket: WebSocket):

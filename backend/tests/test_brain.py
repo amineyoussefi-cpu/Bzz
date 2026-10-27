@@ -2,12 +2,14 @@
 
 import json
 import sys
+import threading
 import unittest
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from bzz.brain import NOTEBOOK_SIZE, Brain, personality_card
+from bzz.brain import NOTEBOOK_SIZE, Brain, OllamaLLM, personality_card
 
 BEE = {"id": "bee-1", "personality": {"pickiness": 0.8, "boldness": 0.1, "sociability": 0.4, "curiosity": 0.2}}
 SITE = {"id": "hab-A", "description": {"cavity_volume_l": "large cavity", "predator_risk": "safe"}}
@@ -77,6 +79,67 @@ class BrainTest(unittest.TestCase):
         for _ in range(NOTEBOOK_SIZE + 2):
             brain.decide(BEE, "stay_or_leave", {"habitat": SITE})
         self.assertEqual(len(brain.notebooks["bee-1"]), NOTEBOOK_SIZE)
+
+
+class FakeOllama(BaseHTTPRequestHandler):
+    """Minimal stand-in for Ollama's /api/tags, /api/pull and /api/chat; records request bodies."""
+
+    requests: list = []
+
+    def _reply(self, code, body):
+        data = json.dumps(body).encode()
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def do_GET(self):
+        self._reply(200, {"models": [{"name": "qwen2.5:0.5b", "size": 397_000_000, "digest": "x"}]})
+
+    def do_POST(self):
+        body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+        FakeOllama.requests.append((self.path, body))
+        if self.path == "/api/pull":
+            self._reply(200, {"status": "success"} if body["model"] == "qwen2.5:0.5b" else {"error": "file does not exist"})
+        else:
+            self._reply(200, {"message": {"role": "assistant", "content": '{"score": 3}'}})
+
+    def log_message(self, *args):
+        pass
+
+
+class OllamaLLMTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.server = HTTPServer(("127.0.0.1", 0), FakeOllama)
+        threading.Thread(target=cls.server.serve_forever, daemon=True).start()
+        cls.llm = OllamaLLM(url=f"http://127.0.0.1:{cls.server.server_port}/", model="qwen2.5:0.5b")
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.server.shutdown()
+        cls.server.server_close()
+
+    def test_installed_models(self):
+        self.assertEqual(self.llm.installed(), [{"name": "qwen2.5:0.5b", "size": 397_000_000}])
+
+    def test_chat_sends_model_schema_temperature_and_seed(self):
+        self.assertEqual(self.llm([{"role": "user", "content": "hi"}], {"type": "object"}, 42), '{"score": 3}')
+        path, body = FakeOllama.requests[-1]
+        self.assertEqual(path, "/api/chat")
+        self.assertEqual((body["model"], body["format"], body["stream"]), ("qwen2.5:0.5b", {"type": "object"}, False))
+        self.assertEqual(body["options"], {"temperature": 0.7, "seed": 42})
+
+    def test_pull(self):
+        self.llm.pull("qwen2.5:0.5b")
+        self.assertEqual(FakeOllama.requests[-1], ("/api/pull", {"model": "qwen2.5:0.5b", "stream": False}))
+        with self.assertRaisesRegex(ValueError, "does not exist"):
+            self.llm.pull("nope:1b")
+
+    def test_unreachable_raises_oserror(self):
+        with self.assertRaises(OSError):
+            OllamaLLM(url="http://127.0.0.1:9", timeout=2).installed()
 
 
 if __name__ == "__main__":

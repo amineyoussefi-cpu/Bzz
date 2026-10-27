@@ -275,6 +275,18 @@ Toutes les réponses sont en JSON. En cas d'erreur, la réponse est `{"error": "
 | `GET /api/kpi` | KPI de la dernière capture | 200 |
 | `WS /ws` | flux temps réel (voir §5) | — |
 
+**Modèles LLM (Ollama).** Ces routes ne passent pas par Godot. Elles pilotent le modèle utilisé par le cerveau
+des abeilles (`backend/bzz/brain.py`, voir [methode_jeton.md](methode_jeton.md)).
+
+| Méthode et route | Rôle | Code de succès |
+|---|---|---|
+| `GET /api/models` | `{"current", "url", "available", "installed": [{"name", "size"}]}` ; `available: false` si Ollama ne répond pas | 200 |
+| `PUT /api/models/current` | `{"model": "llama3.2:1b"}` change le modèle des abeilles ; il doit être installé | 200 |
+| `POST /api/models/pull` | `{"model": "qwen2.5:0.5b"}` télécharge un modèle ; la requête bloque jusqu'à la fin | 200 |
+
+Erreurs : **400** si le nom est invalide, si le modèle n'est pas installé, ou si Ollama refuse (modèle inconnu) ;
+**503** si Ollama est injoignable. Le choix du modèle n'est pas sauvegardé : au redémarrage, c'est `BZZ_MODEL` qui s'applique.
+
 Exemples :
 
 ```sh
