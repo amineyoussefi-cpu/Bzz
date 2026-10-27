@@ -38,7 +38,7 @@ class ProtocolTest(unittest.TestCase):
     def test_catalog_uses_readable_names(self):
         c = self.send("get_catalog")
         self.assertIn("tree_cavity", [t["name"] for t in c["habitat_types"]])
-        self.assertIn("honey_bee", [s["name"] for s in c["species"]])
+        self.assertNotIn("species", c)
         self.assertEqual(c["roles"], ["scout", "follower"])
         self.assertEqual([t["name"] for t in c["traits"]], ["pickiness", "boldness", "sociability", "curiosity"])
         self.assertIn("équilibrée", c["presets"])
@@ -75,48 +75,43 @@ class ProtocolTest(unittest.TestCase):
     def test_error_lists_accepted_values(self):
         with self.assertRaisesRegex(ValueError, "accepted: tree_cavity, hive_box"):
             self.send("add_habitat", type="nest", x=1, y=1)
-        with self.assertRaisesRegex(CommandRejected, "accepted: honey_bee, bumblebee"):
-            self.godot_only("add_bee", species="wasp", x=1, y=1)
 
     # --- bees ------------------------------------------------------------------------
     def test_add_bee_personality_forms(self):
-        a = self.send("add_bee", species="honey_bee", x=1, y=2, personality={"traits": TRAITS}, name="Ada")
+        a = self.send("add_bee", x=1, y=2, personality={"traits": TRAITS}, name="Ada")
         self.assertEqual((a["personality"], a["name"], a["role"], a["home_id"]), (TRAITS, "Ada", "follower", None))
-        b = self.send("add_bee", species="bumblebee", x=1, y=2, personality={"preset": "prudente"}, role="scout")
+        b = self.send("add_bee", x=1, y=2, personality={"preset": "prudente"}, role="scout")
         self.assertEqual((b["personality"]["pickiness"], b["role"]), (0.8, "scout"))
-        c = self.send("add_bee", species="mason_bee", x=1, y=2)  # random by default
+        c = self.send("add_bee", x=1, y=2)  # random by default
         detail = self.send("get_entity", id=c["id"])
         self.assertEqual(detail["personality_source"], "random")
         self.assertGreaterEqual(detail["seed"], 1)
-        self.assertEqual(detail["accepted_habitat_types"], ["hollow_stem", "dead_wood"])
-        self.assertTrue(detail["preferences"])
 
     def test_same_seed_same_bee(self):
         p = {"random": True, "seed": 1234}
-        a = self.send("add_bee", species="honey_bee", x=1, y=1, personality=p)
-        b = self.send("add_bee", species="honey_bee", x=1, y=1, personality=p)
-        c = self.send("add_bee", species="honey_bee", x=1, y=1, personality={"random": True, "seed": 99})
+        a = self.send("add_bee", x=1, y=1, personality=p)
+        b = self.send("add_bee", x=1, y=1, personality=p)
+        c = self.send("add_bee", x=1, y=1, personality={"random": True, "seed": 99})
         self.assertEqual(a["personality"], b["personality"])
         self.assertNotEqual(a["personality"], c["personality"])
         # a random bee without seed can be reproduced from the seed it reports
-        d = self.send("add_bee", species="honey_bee", x=1, y=1)
+        d = self.send("add_bee", x=1, y=1)
         seed = self.send("get_entity", id=d["id"])["seed"]
-        e = self.send("add_bee", species="honey_bee", x=1, y=1, personality={"random": True, "seed": seed})
+        e = self.send("add_bee", x=1, y=1, personality={"random": True, "seed": seed})
         self.assertEqual(d["personality"], e["personality"])
 
     def test_add_bee_refusals_python_and_godot(self):
         bad = [
-            dict(species="wasp", x=1, y=1),
-            dict(species="honey_bee", x=5000, y=1),
-            dict(species="honey_bee", x=1, y=1, role="king"),
-            dict(species="honey_bee", x=1, y=1, name="x" * 41),
-            dict(species="honey_bee", x=1, y=1, personality={"preset": "grumpy"}),
-            dict(species="honey_bee", x=1, y=1, personality={"traits": {**TRAITS, "boldness": 1.2}}),
-            dict(species="honey_bee", x=1, y=1, personality={"traits": {"pickiness": 0.5}}),
-            dict(species="honey_bee", x=1, y=1, personality={"traits": {**TRAITS, "anger": 0.5}}),
-            dict(species="honey_bee", x=1, y=1, personality={"random": True, "seed": 0}),
-            dict(species="honey_bee", x=1, y=1, personality={"preset": "sociable", "seed": 3}),
-            dict(species="honey_bee", x=1, y=1, personality={"mood": "happy"}),
+            dict(x=5000, y=1),
+            dict(x=1, y=1, role="king"),
+            dict(x=1, y=1, name="x" * 41),
+            dict(x=1, y=1, personality={"preset": "grumpy"}),
+            dict(x=1, y=1, personality={"traits": {**TRAITS, "boldness": 1.2}}),
+            dict(x=1, y=1, personality={"traits": {"pickiness": 0.5}}),
+            dict(x=1, y=1, personality={"traits": {**TRAITS, "anger": 0.5}}),
+            dict(x=1, y=1, personality={"random": True, "seed": 0}),
+            dict(x=1, y=1, personality={"preset": "sociable", "seed": 3}),
+            dict(x=1, y=1, personality={"mood": "happy"}),
         ]
         for args in bad:
             with self.subTest(args=args):
@@ -129,7 +124,7 @@ class ProtocolTest(unittest.TestCase):
     # --- consultation & removal -----------------------------------------------------------
     def test_list_get_remove_clear(self):
         h = self.send("add_habitat", **TREE)
-        b = self.send("add_bee", species="honey_bee", x=5, y=5)
+        b = self.send("add_bee", x=5, y=5)
         self.assertEqual([e["id"] for e in self.send("list_entities")], [h["id"], b["id"]])
         self.assertEqual(self.send("get_entity", id=h["id"])["occupant_ids"], [])
         removed = self.send("remove_entity", id=h["id"])
@@ -190,8 +185,7 @@ class ProtocolTest(unittest.TestCase):
         for t, x in [("tree_cavity", 100), ("hive_box", 200), ("bare_soil", 300), ("hollow_stem", 400), ("dead_wood", 500)]:
             self.send("add_habitat", type=t, x=x, y=100)
         bees = [self.send("add_bee", species=s, x=50 + 10 * i, y=600, role=r)
-                for i, (s, r) in enumerate([("honey_bee", "scout"), ("honey_bee", "follower"),
-                                            ("bumblebee", "follower"), ("mining_bee", "follower")])]
+                for i, r in enumerate(["scout", "follower", "follower", "follower"])]
         self.send("set_speed", speed=8)
         self.send("resume")
         time.sleep(1.0)

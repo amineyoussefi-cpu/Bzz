@@ -18,7 +18,7 @@ COMMANDS: dict[str, dict[str, tuple[tuple[type, ...] | type, bool]]] = {
     "pause": {},
     "resume": {},
     "add_habitat": {"type": (str, True), "x": (NUM, True), "y": (NUM, True), "features": (dict, False)},
-    "add_bee": {"species": (str, True), "x": (NUM, True), "y": (NUM, True), "personality": (dict, False),
+    "add_bee": {"x": (NUM, True), "y": (NUM, True), "personality": (dict, False),
                 "name": (str, False), "role": (str, False)},
     "get_entity": {"id": (str, True)},
     "remove_entity": {"id": (str, True)},
@@ -67,7 +67,6 @@ def _check_values(cmd: str, args: dict, cat: dict) -> None:
         for key, value in args.get("features", {}).items():
             _check_feature(key, value, cat["features"])
     elif cmd == "add_bee":
-        _one_of("species", args["species"], [s["name"] for s in cat["species"]])
         if "role" in args:
             _one_of("role", args["role"], cat["roles"])
         if len(args.get("name", "")) > cat["max_name_length"]:

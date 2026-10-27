@@ -1,8 +1,7 @@
 class_name Bee
 extends Node2D
-## An bee with a species, personality, and role. No evaluation logic — brainless by design.
+## A bee with a personality and role. No species, no evaluation logic — brainless by design.
 
-@export var species: BeeSpecies.Id = BeeSpecies.Id.HONEY_BEE
 @export var bee_name := ""
 @export var personality: BeePersonality
 
@@ -12,9 +11,8 @@ var behavior: BeeBehavior  # the component for the current role; set by set_role
 
 
 ## Builds a bee with a random personality unless one is provided.
-static func create(p_species: BeeSpecies.Id, p_personality: BeePersonality = null, rng_seed := 0) -> Bee:
+static func create(p_personality: BeePersonality = null, rng_seed := 0) -> Bee:
 	var bee := Bee.new()
-	bee.species = p_species
 	var rng := RandomNumberGenerator.new()
 	if rng_seed != 0:
 		rng.seed = rng_seed

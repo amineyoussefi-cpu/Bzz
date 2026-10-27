@@ -28,22 +28,21 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(self.client.get("/").status_code, 200)
         self.assertIn("text/html", self.client.get("/").headers["content-type"])
         cat = self.client.get("/api/catalog").json()
-        self.assertIn("honey_bee", [s["name"] for s in cat["species"]])
+        self.assertNotIn("species", cat)
 
     def test_crud_and_errors(self):
         c = self.client
         r = c.post("/api/habitats", json={"type": "hive_box", "x": 10, "y": 10})
         self.assertEqual(r.status_code, 201)
         hab = r.json()["id"]
-        r = c.post("/api/bees", json={"species": "honey_bee", "x": 20, "y": 20, "personality": {"preset": "curieuse"}})
+        r = c.post("/api/bees", json={"x": 20, "y": 20, "personality": {"preset": "curieuse"}})
         self.assertEqual(r.status_code, 201)
         bee = r.json()["id"]
         self.assertEqual([e["id"] for e in c.get("/api/entities").json()], [hab, bee])
         self.assertEqual(c.get(f"/api/entities/{bee}").json()["personality"]["curiosity"], 0.9)
 
-        r = c.post("/api/bees", json={"species": "wasp", "x": 1, "y": 1})
+        r = c.post("/api/bees", json={"x": 1, "y": 9999})
         self.assertEqual(r.status_code, 400)
-        self.assertIn("accepted: honey_bee", r.json()["error"])
         self.assertEqual(c.post("/api/habitats", json={"type": "hive_box", "x": 1}).status_code, 400)
         self.assertEqual(c.post("/api/habitats", json=[1, 2]).status_code, 400)
         self.assertEqual(c.get("/api/entities/nope").status_code, 404)
@@ -69,7 +68,7 @@ class ServerTest(unittest.TestCase):
             self.assertEqual(first["type"], "snapshot")
             self.assertEqual(first["entities"], [])
             c.post("/api/habitats", json={"type": "bare_soil", "x": 5, "y": 5})
-            c.post("/api/bees", json={"species": "mining_bee", "x": 6, "y": 6,
+            c.post("/api/bees", json={"x": 6, "y": 6,
                                       "personality": {"traits": {"pickiness": 0.1, "boldness": 0.3,
                                                                  "sociability": 0.5, "curiosity": 0.95}}})
             deadline = time.monotonic() + 5
@@ -80,7 +79,7 @@ class ServerTest(unittest.TestCase):
                     break
             k = snap["kpi"]
             self.assertEqual(k["habitats_by_type"]["bare_soil"], 1)
-            self.assertEqual(k["bees_by_species"]["mining_bee"], 1)
+            self.assertNotIn("bees_by_species", k)
             self.assertEqual(k["trait_distribution"]["curiosity"], [0, 0, 0, 0, 1])
             self.assertEqual((k["bees_settled"], k["bees_homeless"]), (0, 1))
             self.assertEqual(k["occupancy"][0]["rate"], 0)
@@ -96,10 +95,9 @@ class KpiDecisionFormatTest(unittest.TestCase):
     def test_decision_aggregation(self):
         from bzz import kpi
 
-        catalog = {"traits": [{"name": "boldness"}], "species": [{"name": "honey_bee"}],
-                   "habitat_types": [{"name": "tree_cavity"}]}
+        catalog = {"traits": [{"name": "boldness"}], "habitat_types": [{"name": "tree_cavity"}]}
         state = {"tick": 120, "ticks_per_second": 60, "paused": False, "speed": 1}
-        bees = [{"id": "bee-1", "kind": "bee", "species": "honey_bee", "personality": {"boldness": 0.9}, "home_id": "hab-2"}]
+        bees = [{"id": "bee-1", "kind": "bee", "personality": {"boldness": 0.9}, "home_id": "hab-2"}]
         ev = lambda outcome, chosen, score: {"seq": 1, "tick": 10, "type": "decision", "data": {
             "bee_id": "bee-1", "evaluated": [{"habitat_id": "hab-2", "score": score, "breakdown": {}}],
             "chosen_habitat_id": chosen, "outcome": outcome, "reason": "", "source": "test", "result": "none"}}
@@ -107,7 +105,7 @@ class KpiDecisionFormatTest(unittest.TestCase):
         self.assertEqual(k["sim"]["seconds"], 2)
         d = k["decisions"]
         self.assertEqual((d["count"], d["chosen"], d["refused"], d["avg_chosen_score"]), (2, 1, 1, 0.8))
-        self.assertEqual(d["by_species"]["honey_bee"], {"chosen": 1, "refused": 1})
+        self.assertNotIn("by_species", d)
         self.assertEqual(d["by_trait"]["boldness"][4], {"chosen": 1, "refused": 1})
 
 

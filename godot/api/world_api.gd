@@ -2,8 +2,7 @@ class_name WorldApi
 extends RefCounted
 ## World toolbox behind the TCP protocol: catalogue, adding/removing habitats and bees,
 ## simulation clock (pause/resume/speed) and the event log polled by the backend.
-## It never calls the choice logic (Bee.evaluate_habitat, choose_habitat, settle, role behaviors):
-## decisions come with the next step. Commands are documented in docs/api.md.
+## Commands are documented in docs/api.md.
 
 const DEFAULT_SIZE := Vector2(1000, 700)  # world size unless --world-width/--world-height are given
 const EVENT_LOG_SIZE := 1000
@@ -16,7 +15,7 @@ const MAX_NAME_LENGTH := 40
 const ARGS := {
 	"get_state": [], "get_catalog": [], "list_entities": [], "clear_world": [], "pause": [], "resume": [],
 	"add_habitat": ["type", "x", "y", "features"],
-	"add_bee": ["species", "x", "y", "personality", "name", "role"],
+	"add_bee": ["x", "y", "personality", "name", "role"],
 	"get_entity": ["id"], "remove_entity": ["id"],
 	"set_speed": ["speed"], "get_events": ["since"],
 }
@@ -89,17 +88,9 @@ func _cmd_get_catalog(_args: Dictionary) -> Dictionary:
 	var habitat_types := []
 	for t in Habitat.Type.values():
 		habitat_types.append({"name": HabitatCatalog.type_name(t), "defaults": HabitatCatalog.defaults(t)})
-	var species := []
-	for id in BeeSpecies.Id.values():
-		species.append({
-			"name": BeeSpecies.species_name(id),
-			"accepted_habitat_types": BeeSpecies.accepted_types(id).map(func(t): return HabitatCatalog.type_name(t)),
-			"preferences": BeeSpecies.default_preferences(id).map(_pref_dict),
-		})
 	return _ok({
 		"habitat_types": habitat_types,
 		"features": HabitatCatalog.FEATURES,
-		"species": species,
 		"roles": BeeRole.names(),
 		"default_role": BeeRole.names()[BeeRole.Id.FOLLOWER],
 		"traits": BeePersonality.TRAITS.map(func(t): return {"name": t, "min": 0.0, "max": 1.0}),
@@ -109,10 +100,6 @@ func _cmd_get_catalog(_args: Dictionary) -> Dictionary:
 		"ticks_per_second": BASE_TICKS_PER_SECOND,
 		"max_name_length": MAX_NAME_LENGTH,
 	})
-
-
-func _pref_dict(p: Preference) -> Dictionary:
-	return {"criterion": p.criterion, "ideal": p.ideal, "tolerance": p.tolerance, "weight": p.weight}
 
 
 # --- adding entities ----------------------------------------------------------------
@@ -152,10 +139,6 @@ func _cmd_add_habitat(args: Dictionary) -> Dictionary:
 
 
 func _cmd_add_bee(args: Dictionary) -> Dictionary:
-	var species_name = args.get("species")
-	var species := BeeSpecies.from_name(species_name) if typeof(species_name) == TYPE_STRING else -1
-	if species == -1:
-		return _err("unknown species %s; accepted: %s" % [species_name, ", ".join(BeeSpecies.names())])
 	var pos_err := _position_error(args)
 	if pos_err:
 		return _err(pos_err)
@@ -171,7 +154,7 @@ func _cmd_add_bee(args: Dictionary) -> Dictionary:
 	if "error" in parsed:
 		return _err(parsed.error)
 
-	var bee := Bee.create(species, parsed.personality, parsed.seed)
+	var bee := Bee.create(parsed.personality, parsed.seed)
 	bee.bee_name = bee_name
 	if role != bee.role:
 		bee.set_role(role)
@@ -234,7 +217,7 @@ func _summary(e: Node2D) -> Dictionary:
 		d.merge({"kind": "habitat", "type": HabitatCatalog.type_name(e.habitat_type),
 			"capacity": e.capacity, "occupants": e.occupants.size()})
 	else:
-		d.merge({"kind": "bee", "species": BeeSpecies.species_name(e.species), "name": e.bee_name,
+		d.merge({"kind": "bee", "name": e.bee_name,
 			"role": BeeRole.names()[e.role], "personality": e.personality.to_dict(),
 			"home_id": e.home.get_meta("id") if e.home else null})
 	return d
@@ -253,8 +236,6 @@ func _cmd_get_entity(args: Dictionary) -> Dictionary:
 		d["features"] = HabitatCatalog.features_of(e)
 		d["occupant_ids"] = e.occupants.map(func(b): return b.get_meta("id"))
 	else:
-		d["accepted_habitat_types"] = e.accepted_types.map(func(t): return HabitatCatalog.type_name(t))
-		d["preferences"] = e.preferences.map(_pref_dict)
 		d["seed"] = e.get_meta("seed")
 		d["personality_source"] = e.get_meta("personality_source")
 	return _ok(d)
@@ -266,10 +247,12 @@ func _free_entity(e: Node2D) -> Array:
 	var released := []
 	if e is Habitat:
 		for b: Bee in e.occupants.duplicate():
-			b.leave_home()
+			b.home = null
 			released.append(b.get_meta("id"))
-	else:
-		e.leave_home()
+		e.occupants.clear()
+	elif e is Bee and e.home:
+		e.home.occupants.erase(e)
+		e.home = null
 	entities.erase(e.get_meta("id"))
 	world.remove_child(e)
 	e.free()
