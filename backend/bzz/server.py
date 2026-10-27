@@ -134,6 +134,12 @@ def create_app(engine: GodotEngine | None = None, llm: OllamaLLM | None = None) 
     def remove_entity(entity_id: str):
         return call("remove_entity", id=entity_id)
 
+    @app.put("/api/entities/{entity_id}/position")
+    def move_entity(entity_id: str, payload=Body(...)):
+        if not isinstance(payload, dict):
+            return JSONResponse({"error": "request body must be a JSON object"}, status_code=400)
+        return call("move_entity", **{**payload, "id": entity_id})
+
     @app.post("/api/habitats", status_code=201)
     def add_habitat(payload=Body(...)):
         return body_call("add_habitat", payload)

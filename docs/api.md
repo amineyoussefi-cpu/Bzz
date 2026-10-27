@@ -178,6 +178,15 @@ C'est ce que perçoit une abeille. Les chiffres de `features` restent la référ
 
 Retirer un habitat libère ses occupants (`Bee.leave_home`) ; leurs identifiants sont listés dans `released_bee_ids`.
 
+### `move_entity`
+
+```json
+→ {"id": "bee-2", "x": 300, "y": 200}
+← {"id": "bee-2", "kind": "bee", "x": 300.0, "y": 200.0, ...}
+```
+
+Déplace une entité dans le monde (glisser-déposer du tableau de bord). Émet `entity_moved` `{"id", "x", "y"}`.
+
 ### `pause`, `resume`, `set_speed`
 
 ```json
@@ -211,6 +220,7 @@ Chaque événement a la forme `{"seq": int, "tick": int, "type": str, "data": {.
 |---|---|
 | `entity_added` | le résumé de l'entité (comme dans `list_entities`) |
 | `entity_removed` | `{"id", "kind", "released_bee_ids"}` |
+| `entity_moved` | `{"id", "x", "y"}` |
 | `world_cleared` | `{"removed": n}` |
 | `paused`, `resumed` | `{}` |
 | `speed_changed` | `{"speed"}` |
@@ -265,6 +275,7 @@ Toutes les réponses sont en JSON. En cas d'erreur, la réponse est `{"error": "
 | `GET /api/entities` | `list_entities` | 200 |
 | `GET /api/entities/{id}` | `get_entity` | 200 |
 | `DELETE /api/entities/{id}` | `remove_entity` | 200 |
+| `PUT /api/entities/{id}/position` | `move_entity` (`{"x": 300, "y": 200}`) | 200 |
 | `POST /api/habitats` | `add_habitat` (corps = arguments) | 201 |
 | `POST /api/bees` | `add_bee` (corps = arguments) | 201 |
 | `POST /api/world/clear` | `clear_world` | 200 |

@@ -16,7 +16,7 @@ const ARGS := {
 	"get_state": [], "get_catalog": [], "list_entities": [], "clear_world": [], "pause": [], "resume": [],
 	"add_habitat": ["type", "x", "y", "features"],
 	"add_bee": ["x", "y", "personality", "name", "role"],
-	"get_entity": ["id"], "remove_entity": ["id"],
+	"get_entity": ["id"], "remove_entity": ["id"], "move_entity": ["id", "x", "y"],
 	"set_speed": ["speed"], "get_events": ["since"],
 }
 
@@ -240,6 +240,20 @@ func _cmd_get_entity(args: Dictionary) -> Dictionary:
 		d["seed"] = e.get_meta("seed")
 		d["personality_source"] = e.get_meta("personality_source")
 	return _ok(d)
+
+
+# --- moving ----------------------------------------------------------------------------
+
+func _cmd_move_entity(args: Dictionary) -> Dictionary:
+	var e = entities.get(args.get("id"))
+	if e == null:
+		return _err("unknown entity %s" % args.get("id"))
+	var pos_err := _position_error(args)
+	if pos_err:
+		return _err(pos_err)
+	e.position = Vector2(args.x, args.y)
+	_emit("entity_moved", {"id": args.id, "x": e.position.x, "y": e.position.y})
+	return _ok(_summary(e))
 
 
 # --- removing -------------------------------------------------------------------------

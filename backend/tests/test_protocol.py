@@ -121,6 +121,19 @@ class ProtocolTest(unittest.TestCase):
                     self.godot_only("add_bee", **args)
         self.assertEqual(self.count(), 0)
 
+    # --- moving ------------------------------------------------------------------------------
+    def test_move_entity(self):
+        b = self.send("add_bee", x=5, y=5)
+        moved = self.send("move_entity", id=b["id"], x=300, y=200)
+        self.assertEqual((moved["x"], moved["y"]), (300, 200))
+        self.assertEqual(self.send("get_entity", id=b["id"])["x"], 300)
+        with self.assertRaisesRegex(CommandRejected, "outside the world"):
+            self.godot_only("move_entity", id=b["id"], x=-1, y=0)
+        with self.assertRaisesRegex(CommandRejected, "unknown entity"):
+            self.send("move_entity", id="bee-999", x=1, y=1)
+        types = [e["type"] for e in self.send("get_events")["events"]]
+        self.assertEqual(types, ["entity_added", "entity_moved"])
+
     # --- consultation & removal -----------------------------------------------------------
     def test_list_get_remove_clear(self):
         h = self.send("add_habitat", **TREE)

@@ -22,6 +22,7 @@ COMMANDS: dict[str, dict[str, tuple[tuple[type, ...] | type, bool]]] = {
                 "name": (str, False), "role": (str, False)},
     "get_entity": {"id": (str, True)},
     "remove_entity": {"id": (str, True)},
+    "move_entity": {"id": (str, True), "x": (NUM, True), "y": (NUM, True)},
     "set_speed": {"speed": (NUM, True)},
     "get_events": {"since": (int, False)},
 }
