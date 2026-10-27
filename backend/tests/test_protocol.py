@@ -226,23 +226,22 @@ class ProtocolTest(unittest.TestCase):
         self.assertEqual(self.send("get_events", since=5)["events"], [])
 
     # --- no decision yet ------------------------------------------------------------------
-    def test_no_decision_is_taken(self):
-        for t, x in [("tree_cavity", 100), ("hive_box", 200), ("bare_soil", 300), ("hollow_stem", 400), ("dead_wood", 500)]:
+    def test_running_world_asks_the_brain(self):
+        for t, x in [("tree_cavity", 100), ("hive_box", 200), ("bare_soil", 300)]:
             self.send("add_habitat", type=t, x=x, y=100)
-        bees = [self.send("add_bee", species=s, x=50 + 10 * i, y=600, role=r)
-                for i, r in enumerate(["scout", "follower", "follower", "follower"])]
+        for r in ["scout", "scout", "follower"]:
+            self.send("add_bee", role=r)
         self.send("set_speed", speed=8)
         self.send("resume")
-        time.sleep(1.0)
+        time.sleep(1.5)
         state = self.send("get_state")
-        self.assertGreater(state["tick"], 200)
-        self.assertIsNone(state["decision_mechanism"])
-        after = {e["id"]: e for e in self.send("list_entities")}
-        for b in bees:
-            self.assertIsNone(after[b["id"]]["home_id"])
-            self.assertEqual((after[b["id"]]["x"], after[b["id"]]["y"]), (b["x"], b["y"]))
-        self.assertTrue(all(e["occupants"] == 0 for e in after.values() if e["kind"] == "habitat"))
-        self.assertNotIn("decision", [e["type"] for e in self.send("get_events")["events"]])
+        self.assertEqual(state["decision_mechanism"], "llm")
+        asked = [e["data"] for e in self.send("get_events")["events"] if e["type"] == "decision_needed"]
+        self.assertTrue(asked and all(a["kind"] == "evaluate_site" for a in asked))  # scouts reached a site
+        self.assertIn("description", asked[0]["situation"]["habitat"])  # the bee is given words, not numbers
+        bees = [e for e in self.send("list_entities") if e["kind"] == "bee"]
+        self.assertTrue(all(b["home_id"] is None for b in bees))  # nobody answered: nobody settles
+        self.assertIn("waiting", [b["state"] for b in bees])
 
 
 class WorldSizeTest(unittest.TestCase):

@@ -38,6 +38,7 @@ func test_world_api() -> void:
 	check(world.get_child_count() == 2 and h.id != b.id, "entities added as world children with unique ids")
 	check(not api.handle("add_bee", {"x": 20, "y": 9999}).ok and world.get_child_count() == 2,
 		"refused command creates nothing")
+	check(api.handle("remove_entity", {"id": b.id}).ok and world.get_child_count() == 1, "remove_entity")
 
 	var tick := api.tick
 	api.step()
@@ -106,7 +107,8 @@ func test_swarm() -> void:
 				"judge_dances":
 					reply = {"follow": d.situation.dances[0].site_id}
 			var r = api.handle("answer_decision", {"bee_id": d.bee_id, "kind": d.kind, "answer": reply})
-			check(r.ok, "answer accepted: %s" % [r])
+			# a question can go stale (quorum reached, the bee left): Godot refuses it, like the backend expects
+			check(r.ok or "is not waiting" in r.error, "answer accepted: %s" % [r])
 		if api.swarm.status().phase == "settled":
 			break
 	var st: Dictionary = api.swarm.status()
