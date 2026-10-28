@@ -18,8 +18,12 @@
   button, input, select { font: inherit; color: inherit; }
   :focus-visible { outline: 2px solid var(--forest); outline-offset: 2px; }
 
-  header { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 10px 20px; background: var(--panel); border-bottom: 1px solid var(--line); }
-  .brand { font-family: var(--display); font-weight: 700; font-size: 22px; letter-spacing: -.02em; margin-right: auto; display: flex; align-items: center; gap: 8px; }
+  html, body { height: 100%; overflow: hidden; }
+  /* the map fills the window; the header and the bottom bar float over it */
+  header { position: fixed; top: 0; left: 0; right: 0; z-index: 3; display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+           padding: 8px 16px; background: rgba(255, 255, 255, .9); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+  .brand { font-family: var(--display); font-weight: 700; font-size: 22px; letter-spacing: -.02em; display: flex; align-items: center; gap: 8px; }
+  .spacer { margin-left: auto; }
   .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--err); display: inline-block; }
   .dot.on { background: var(--ok); }
   .status { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
@@ -35,19 +39,30 @@
   .btn:disabled { opacity: .6; cursor: progress; }
   select { border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; background: var(--panel); }
 
-  main { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 16px; padding: 16px 20px; align-items: start; }
-  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
-  @media (max-width: 760px) { main { padding: 12px; } header { padding: 10px 12px; } }
-  .below { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-top: 16px; align-items: start; }
-  .map-panel { padding: 14px; }
-  .inspector { position: absolute; top: 12px; right: 12px; width: 340px; max-height: calc(100% - 24px); overflow: auto;
+  .map-wrap { position: fixed; inset: 0; }
+  .inspector { position: fixed; top: 64px; right: 12px; width: 340px; max-height: calc(100vh - 150px); overflow: auto; z-index: 2;
                box-shadow: 0 10px 30px rgba(29, 43, 34, .2); }
   .inspector[hidden] { display: none; }
   .inspector .close { position: absolute; top: 10px; right: 14px; font-size: 15px; }
-  @media (max-width: 760px) { .inspector { position: static; width: auto; max-height: none; margin-top: 12px; box-shadow: none; } }
+  @media (max-width: 760px) { .inspector { left: 12px; width: auto; } header { padding: 8px 12px; } }
+
+  /* bottom bar: one button per panel, one panel open at a time, the replay always visible */
+  .dock { position: fixed; left: 0; right: 0; bottom: 0; z-index: 3; }
+  .bar { display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap; padding: 8px 12px;
+         background: rgba(255, 255, 255, .92); backdrop-filter: blur(8px); border-top: 1px solid var(--line); }
+  .nav { display: flex; gap: 2px; flex-wrap: wrap; }
+  .nav button { position: relative; border: 0; background: none; border-radius: 8px; padding: 6px 10px; cursor: pointer; font-size: 13.5px; }
+  .nav button:hover { background: var(--ground); }
+  .nav button[aria-expanded=true] { background: var(--forest); color: #fff; }
+  .nav button.ping::after { content: ""; position: absolute; top: 3px; right: 3px; width: 8px; height: 8px; border-radius: 50%; background: var(--honey); }
+  .sheet { position: absolute; bottom: 100%; left: 12px; margin-bottom: 10px; width: min(400px, calc(100vw - 24px));
+           max-height: calc(100vh - 160px); overflow: auto; box-shadow: 0 10px 30px rgba(29, 43, 34, .25); }
+  .sheet[hidden] { display: none; }
+  .sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+  .sheet-head h2 { margin: 0; }
+  .sheet .feed, .sheet .list { max-height: 55vh; }
 
   .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
-  aside .panel + .panel { margin-top: 16px; }
   h2 { font-family: var(--display); font-weight: 700; font-size: 17px; letter-spacing: -.01em; margin: 0 0 12px; }
   h3 { font-size: 13px; font-weight: 650; margin: 16px 0 6px; color: var(--muted); }
   .hint { font-size: 12.5px; color: var(--muted); margin: 6px 0 0; }
@@ -72,13 +87,11 @@
   .gen { width: 100%; padding: 10px; font-size: 15px; }
 
   /* map */
-  .map-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 10px; }
-  .map-head h2 { margin: 0; }
   .swarm-status { font-size: 13px; font-weight: 600; color: var(--forest); }
   .replay-badge { font-size: 12px; font-weight: 650; background: var(--honey); color: var(--honey-ink); border-radius: 99px; padding: 2px 9px; }
   .replay-badge[hidden] { display: none; }
   /* replay bar */
-  .timeline { display: flex; align-items: center; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+  .timeline { display: flex; align-items: center; gap: 6px; flex: 1; min-width: min(100%, 420px); }
   .btn.tl { padding: 5px 9px; font-size: 13px; line-height: 1.2; }
   .btn.tl.live.on { background: var(--forest); border-color: var(--forest); color: #fff; }
   .track { position: relative; flex: 1; min-width: 180px; height: 30px; }
@@ -111,14 +124,14 @@
   .step-box summary { font-family: inherit; font-size: 13px; font-weight: 500; }
   .step-box summary::after { content: ""; }
   .counts { font-size: 13px; color: var(--muted); }
-  canvas#world { width: 100%; display: block; border-radius: 10px; touch-action: none; background: #e9f0f3; }
+  canvas#world { width: 100%; height: 100%; display: block; touch-action: none; background: #8cc65a; }
   canvas#world.grab { cursor: grab; } canvas#world.grabbing { cursor: grabbing; }
-  .legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12.5px; color: var(--muted); margin-top: 10px; }
+  .legend { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; font-size: 13px; color: var(--muted); }
   .legend span { display: inline-flex; align-items: center; gap: 6px; }
   .empty-map[hidden] { display: none; }
-  .empty-map { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; color: var(--forest); pointer-events: none; }
-  .empty-map p { font-family: var(--display); font-size: 20px; margin: 0; }
-  .map-wrap { position: relative; }
+  .empty-map { position: fixed; inset: 0; display: grid; place-items: center; text-align: center; pointer-events: none; }
+  .empty-map > div { background: rgba(255, 255, 255, .9); border-radius: 14px; padding: 18px 22px; pointer-events: auto; box-shadow: 0 10px 30px rgba(29, 43, 34, .2); }
+  .empty-map p { font-family: var(--display); font-size: 20px; margin: 0 0 10px; color: var(--forest); }
 
   /* inspector */
   .insp-title { font-family: var(--display); font-size: 20px; font-weight: 700; margin: 0; }
@@ -160,103 +173,116 @@
   .list button { width: 100%; text-align: left; border: 0; background: none; padding: 4px 2px; cursor: pointer; display: flex; gap: 8px; align-items: center; font-size: 13px; }
   .list button:hover, .list button[aria-current] { background: var(--ground); }
 
-  #toast { position: fixed; right: 20px; bottom: 20px; max-width: 420px; padding: 10px 14px; border-radius: 10px;
+  #toast { position: fixed; right: 20px; bottom: 80px; max-width: 420px; padding: 10px 14px; border-radius: 10px;
            background: var(--err); color: #fff; display: none; z-index: 10; }
   #toast.ok { background: var(--forest); }
   @media (prefers-reduced-motion: no-preference) { #toast { transition: opacity .2s; } }
 </style>
 </head>
 <body>
-<header>
+<header id="hdr">
   <div class="brand">🐝 Bzz</div>
-  <span class="status"><span class="dot" id="conn"></span><span id="conn-text">Hors ligne</span></span>
+  <span class="swarm-status" id="swarm-status"></span>
+  <span class="counts" id="counts"></span>
+  <span class="replay-badge" id="replay-badge" hidden>Relecture</span>
+  <span class="status spacer"><span class="dot" id="conn"></span><span id="conn-text">Hors ligne</span></span>
   <span class="clock">Tick <b id="tick">0</b>, <span id="secs">0</span> s simulées</span>
   <label class="status">Vitesse <select id="speed"></select></label>
+  <button class="btn" id="btn-center" type="button">Recentrer</button>
   <button class="btn dark" id="btn-toggle">Lancer</button>
 </header>
 
-<main>
-  <aside class="left">
-    <section class="panel" aria-labelledby="t-compose">
-      <h2 id="t-compose">Composer le monde</h2>
-      <h3>Habitats</h3>
-      <div class="rows" id="hab-rows"></div>
-      <h3>Abeilles</h3>
-      <table class="bees"><thead><tr><th>Personnalité</th><th>Éclaireuses</th><th>Suiveuses</th></tr></thead>
-        <tbody id="bee-rows"></tbody></table>
-      <div class="total"><span id="tot-hab">0 habitat</span><span id="tot-bee">0 abeille</span></div>
-      <button class="btn primary gen" id="btn-generate">Générer le monde</button>
-      <p class="hint">Les habitats sont placés au hasard, les abeilles se posent sur la branche au centre.
-        Glissez un élément sur la carte pour le déplacer.</p>
-    </section>
-  </aside>
+<div class="map-wrap">
+  <canvas id="world" aria-label="Carte du monde : glissez le sol pour vous déplacer, la molette pour zoomer, un élément pour le déplacer ; cliquez pour l'inspecter"></canvas>
+</div>
+<div class="empty-map" id="empty-map" hidden><div><p>La carte est vide</p>
+  <button class="btn primary" type="button" data-open="compose">Composer le monde</button></div></div>
+<section class="panel inspector" id="inspector" aria-live="polite" hidden>
+  <button class="btn quiet close" id="insp-close" type="button" aria-label="Fermer la sélection">✕</button>
+  <div id="insp-body"></div>
+</section>
 
-  <div class="center">
-    <section class="panel map-panel" aria-labelledby="t-map">
-      <div class="map-head"><h2 id="t-map">Carte</h2><span class="counts" id="counts"></span><span class="swarm-status" id="swarm-status"></span><span class="replay-badge" id="replay-badge" hidden>Relecture</span>
-        <button class="btn quiet" id="btn-clear" style="margin-left:auto">Vider la carte</button></div>
-      <div class="map-wrap">
-        <canvas id="world" aria-label="Carte du monde : glissez un élément pour le déplacer, cliquez pour l'inspecter"></canvas>
-        <div class="empty-map" id="empty-map" hidden><div><p>La carte est vide</p>
-          <span class="hint">Choisissez des quantités à gauche, puis générez le monde.</span></div></div>
-        <section class="panel inspector" id="inspector" aria-live="polite" hidden>
-          <button class="btn quiet close" id="insp-close" type="button" aria-label="Fermer la sélection">✕</button>
-          <div id="insp-body"></div>
-        </section>
-      </div>
-      <div class="timeline" aria-label="Relecture">
-        <button class="btn tl" id="tl-start" type="button" aria-label="Revenir au début">⏮</button>
-        <button class="btn tl" id="tl-back" type="button" aria-label="Reculer de 5 secondes">◀◀</button>
-        <button class="btn tl" id="tl-play" type="button" aria-label="Lire ou mettre en pause la relecture">▶</button>
-        <button class="btn tl" id="tl-fwd" type="button" aria-label="Avancer de 5 secondes">▶▶</button>
-        <div class="track"><div class="marks" id="tl-marks"></div>
-          <input type="range" id="tl-range" min="0" max="0" value="0" step="1" aria-label="Moment de l'enregistrement"></div>
-        <span class="tl-time" id="tl-time">0 s</span>
-        <select id="tl-rate" aria-label="Vitesse de relecture"><option value="0.25">×0,25</option><option value="0.5">×0,5</option>
-          <option value="1" selected>×1</option><option value="2">×2</option><option value="4">×4</option></select>
-        <button class="btn tl live on" id="tl-live" type="button">En direct</button>
-        <button class="btn tl" id="tl-save" type="button" aria-label="Télécharger l'enregistrement en JSON">⬇ JSON</button>
-      </div>
-      <div class="legend" id="legend"></div>
-    </section>
-    <div class="below">
-    <section class="panel" aria-labelledby="t-dec">
-      <h2 id="t-dec">Décisions</h2>
-      <p class="hint" id="brain-stats" style="margin:0 0 6px"></p>
-      <label class="switch"><input type="checkbox" id="step-mode"> Pas à pas : s'arrêter à chaque question</label>
-      <div class="step-box" id="step-box" hidden>
-        <p style="margin:0 0 6px" id="step-what"></p>
-        <details open><summary>Prompt qui sera envoyé</summary><pre class="json" id="step-prompt"></pre></details>
-        <button class="btn primary" type="button" id="step-next">Envoyer à la LLM</button>
-      </div>
-      <ul class="feed" id="decision-feed" style="margin-top:0"></ul>
-    </section>
+<div class="dock">
+  <section class="panel sheet" id="p-compose" aria-labelledby="t-compose" hidden>
+    <div class="sheet-head"><h2 id="t-compose">Composer le monde</h2><button class="btn quiet" id="btn-clear">Vider la carte</button></div>
+    <h3 style="margin-top:0">Habitats</h3>
+    <div class="rows" id="hab-rows"></div>
+    <h3>Abeilles</h3>
+    <table class="bees"><thead><tr><th>Personnalité</th><th>Éclaireuses</th><th>Suiveuses</th></tr></thead>
+      <tbody id="bee-rows"></tbody></table>
+    <div class="total"><span id="tot-hab">0 habitat</span><span id="tot-bee">0 abeille</span></div>
+    <button class="btn primary gen" id="btn-generate">Générer le monde</button>
+    <p class="hint">Les habitats sont placés au hasard dans la zone de jeu, les abeilles se posent sur la branche au centre.
+      Glissez un élément sur la carte pour le déplacer.</p>
+  </section>
 
-    <section class="panel" aria-labelledby="t-models">
-      <h2 id="t-models">Modèle des abeilles</h2>
-      <p class="hint" style="margin:-4px 0 10px">Modèle par défaut. Chaque abeille peut avoir le sien : cliquez-la sur la carte.</p>
-      <div class="model-state"><span class="dot" id="m-dot"></span><span id="m-state">…</span></div>
-      <div class="notice" id="m-down" hidden>Ollama ne répond pas. Lancez <code>ollama serve</code>, puis
-        <button class="btn" type="button" id="m-refresh">réessayez</button>.</div>
-      <ul class="mlist" id="m-list" role="radiogroup" aria-label="Modèle par défaut des abeilles"></ul>
-      <label class="hint" for="m-pull" style="display:block;margin-bottom:4px">Ajouter un modèle</label>
-      <form class="pull" id="f-pull">
-        <input id="m-pull" list="m-suggest" placeholder="ex. qwen2.5:1.5b" required>
-        <button class="btn" type="submit" id="m-pull-btn">Télécharger</button>
-        <datalist id="m-suggest"><option value="qwen2.5:0.5b"><option value="qwen2.5:1.5b"><option value="llama3.2:1b">
-          <option value="gemma3:1b"><option value="smollm2:360m"></datalist>
-      </form>
-    </section>
+  <section class="panel sheet" id="p-dec" aria-labelledby="t-dec" hidden>
+    <div class="sheet-head"><h2 id="t-dec">Décisions</h2></div>
+    <p class="hint" id="brain-stats" style="margin:0 0 6px"></p>
+    <label class="switch"><input type="checkbox" id="step-mode"> Pas à pas : s'arrêter à chaque question</label>
+    <div class="step-box" id="step-box" hidden>
+      <p style="margin:0 0 6px" id="step-what"></p>
+      <details open><summary>Prompt qui sera envoyé</summary><pre class="json" id="step-prompt"></pre></details>
+      <button class="btn primary" type="button" id="step-next">Envoyer à la LLM</button>
+    </div>
+    <ul class="feed" id="decision-feed" style="margin-top:0"></ul>
+  </section>
 
-    <section class="panel">
-      <details><summary>Éléments de la carte</summary><ul class="list" id="ent-list"></ul></details>
-    </section>
-    <section class="panel">
-      <details><summary>Journal</summary><ul class="feed" id="world-feed"></ul></details>
-    </section>
+  <section class="panel sheet" id="p-models" aria-labelledby="t-models" hidden>
+    <div class="sheet-head"><h2 id="t-models">Modèle des abeilles</h2></div>
+    <p class="hint" style="margin:-4px 0 10px">Modèle par défaut. Chaque abeille peut avoir le sien : cliquez-la sur la carte.</p>
+    <div class="model-state"><span class="dot" id="m-dot"></span><span id="m-state">…</span></div>
+    <div class="notice" id="m-down" hidden>Ollama ne répond pas. Lancez <code>ollama serve</code>, puis
+      <button class="btn" type="button" id="m-refresh">réessayez</button>.</div>
+    <ul class="mlist" id="m-list" role="radiogroup" aria-label="Modèle par défaut des abeilles"></ul>
+    <label class="hint" for="m-pull" style="display:block;margin-bottom:4px">Ajouter un modèle</label>
+    <form class="pull" id="f-pull">
+      <input id="m-pull" list="m-suggest" placeholder="ex. qwen2.5:1.5b" required>
+      <button class="btn" type="submit" id="m-pull-btn">Télécharger</button>
+      <datalist id="m-suggest"><option value="qwen2.5:0.5b"><option value="qwen2.5:1.5b"><option value="llama3.2:1b">
+        <option value="gemma3:1b"><option value="smollm2:360m"></datalist>
+    </form>
+  </section>
+
+  <section class="panel sheet" id="p-list" aria-labelledby="t-list" hidden>
+    <div class="sheet-head"><h2 id="t-list">Éléments de la carte</h2></div>
+    <ul class="list" id="ent-list" style="margin:0"></ul>
+  </section>
+
+  <section class="panel sheet" id="p-journal" aria-labelledby="t-journal" hidden>
+    <div class="sheet-head"><h2 id="t-journal">Journal</h2></div>
+    <ul class="feed" id="world-feed" style="margin:0"></ul>
+  </section>
+
+  <section class="panel sheet" id="p-legend" aria-labelledby="t-legend" hidden>
+    <div class="sheet-head"><h2 id="t-legend">Légende</h2></div>
+    <div class="legend" id="legend"></div>
+  </section>
+
+  <div class="bar" id="bar">
+    <nav class="nav" aria-label="Panneaux">
+      <button type="button" data-panel="compose" aria-expanded="false">🌱 Composer</button>
+      <button type="button" data-panel="dec" aria-expanded="false" id="nav-dec">💬 Décisions</button>
+      <button type="button" data-panel="models" aria-expanded="false">🧠 Modèle</button>
+      <button type="button" data-panel="list" aria-expanded="false">📋 Éléments</button>
+      <button type="button" data-panel="journal" aria-expanded="false">📜 Journal</button>
+      <button type="button" data-panel="legend" aria-expanded="false">🗺 Légende</button>
+    </nav>
+    <div class="timeline" aria-label="Relecture">
+      <button class="btn tl" id="tl-start" type="button" aria-label="Revenir au début">⏮</button>
+      <button class="btn tl" id="tl-back" type="button" aria-label="Reculer de 5 secondes">◀◀</button>
+      <button class="btn tl" id="tl-play" type="button" aria-label="Lire ou mettre en pause la relecture">▶</button>
+      <button class="btn tl" id="tl-fwd" type="button" aria-label="Avancer de 5 secondes">▶▶</button>
+      <div class="track"><div class="marks" id="tl-marks"></div>
+        <input type="range" id="tl-range" min="0" max="0" value="0" step="1" aria-label="Moment de l'enregistrement"></div>
+      <span class="tl-time" id="tl-time">0 s</span>
+      <select id="tl-rate" aria-label="Vitesse de relecture"><option value="0.25">×0,25</option><option value="0.5">×0,5</option>
+        <option value="1" selected>×1</option><option value="2">×2</option><option value="4">×4</option></select>
+      <button class="btn tl live on" id="tl-live" type="button">En direct</button>
+      <button class="btn tl" id="tl-save" type="button" aria-label="Télécharger l'enregistrement en JSON">⬇ JSON</button>
     </div>
   </div>
-</main>
+</div>
 <div id="toast" role="alert"></div>
 
 <script>
@@ -304,208 +330,327 @@ function persName(p) {
   return Object.keys(catalog.presets).find(n => catalog.traits.every(t => catalog.presets[n][t.name] === p[t.name])) || null;
 }
 
-// --- pseudo-3D drawing ------------------------------------------------------------------
-// The world stays 2D (Godot coordinates). It is drawn as a tilted ground slab seen from the front:
-// depth t = y / height goes from the far edge (t=0, top, smaller) to the near edge (t=1, bottom).
-const VIEW = { far: 0.8, top: 0.12, ground: 0.8, fill: 0.95, slab: 22 };
-const FLY = 40, PERCH = 62;  // heights (px at the near edge) of flying bees and of the swarm's branch
-const SIZE = { hab: 1.5, bee: 1.6, branch: 1.2 };  // sprite scale against the slab
-const TALL = { tree_cavity: 56, hive_box: 24, rodent_burrow: 10, bare_soil: 6, hollow_stem: 29, dead_wood: 13 };  // sprite heights
-let view = null;
+// --- isometric drawing --------------------------------------------------------------------
+// The world stays 2D (Godot coordinates) and bounded: that is the play area. It is drawn in isometric view on an
+// endless meadow, under a camera that pans and zooms. World x runs down-right, world y down-left, so depth is x + y.
+const ISO = { c: Math.cos(Math.PI / 6), k0: .65, zmin: .35, zmax: 2.5 };  // k0: zoom (px per world unit) of sprite scale 1
+const FLY = 40, PERCH = 62;  // heights (px at scale 1) of flying bees and of the swarm's branch
+const SIZE = { hab: 1.6, bee: 2.1, branch: 1.25 };  // sprite scale
+const TALL = { tree_cavity: 60, hive_box: 30, rodent_burrow: 12, bare_soil: 6, hollow_stem: 34, dead_wood: 16 };  // sprite heights
+const THINK = { evaluate_site: "⭐", judge_dances: "👀", stay_or_leave: "🏠" };  // thought bubble of a bee asking the LLM
+let view = null, cam = null;  // cam: world point at the centre of the screen, k: zoom in px per world unit
 
-const sAt = t => VIEW.far + (1 - VIEW.far) * t;
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 function project(x, y) {
-  const t = y / catalog.world.height, s = sAt(t);
-  return { x: view.w / 2 + (x - catalog.world.width / 2) * view.k * s, y: view.top + t * view.gh, s };
+  const a = x - y - (cam.x - cam.y), b = x + y - (cam.x + cam.y);
+  return { x: view.cx + a * ISO.c * cam.k, y: view.cy + b * .5 * cam.k, s: cam.k / ISO.k0 };
 }
-function unproject(sx, sy) {
-  const t = Math.min(1, Math.max(0, (sy - view.top) / view.gh)), s = sAt(t);
-  const x = catalog.world.width / 2 + (sx - view.w / 2) / (view.k * s);
-  return { x: Math.min(catalog.world.width, Math.max(0, x)), y: t * catalog.world.height };
+function unproject(sx, sy, free = false) {  // free: not held inside the play area (for the camera)
+  const a = (sx - view.cx) / (ISO.c * cam.k) + cam.x - cam.y, b = (sy - view.cy) / (.5 * cam.k) + cam.x + cam.y;
+  const x = (a + b) / 2, y = (b - a) / 2;
+  return free ? { x, y } : { x: clamp(x, 0, catalog.world.width), y: clamp(y, 0, catalog.world.height) };
+}
+function fitCamera() {  // the whole play area in view, centred on the swarm's branch
+  const W = catalog.world.width, H = catalog.world.height;
+  const k = Math.min(view.w * .9 / ((W + H) * ISO.c), (view.bottom - view.top) * .85 / ((W + H) * .5));
+  cam = { x: catalog.branch.x, y: catalog.branch.y, k: clamp(k, ISO.zmin, ISO.zmax) };
 }
 const lift = e => e.kind === "bee" ? FLY : 0;  // how high an entity is drawn above its ground point
 
 function shadow(c, x, y, rx, ry, a = .2) {
-  c.fillStyle = `rgba(29,43,34,${a})`; c.beginPath(); c.ellipse(x + rx * .25, y, rx, ry, 0, 0, 7); c.fill();
+  c.fillStyle = `rgba(29,43,34,${a})`; c.beginPath(); c.ellipse(x + rx * .2, y, rx, ry, 0, 0, 7); c.fill();
 }
 function ball(c, x, y, r, col, light) {
   const g = c.createRadialGradient(x - r * .4, y - r * .45, r * .1, x, y, r);
   g.addColorStop(0, light); g.addColorStop(1, col); c.fillStyle = g; c.beginPath(); c.arc(x, y, r, 0, 7); c.fill();
 }
-function box(c, x, y, w, h, d, front, side, top) {  // a cube standing on (x, y), depth d drawn up and to the right
-  c.fillStyle = side; c.beginPath(); c.moveTo(x + w / 2, y); c.lineTo(x + w / 2 + d, y - d * .7);
-  c.lineTo(x + w / 2 + d, y - h - d * .7); c.lineTo(x + w / 2, y - h); c.fill();
-  c.fillStyle = top; c.beginPath(); c.moveTo(x - w / 2, y - h); c.lineTo(x + w / 2, y - h);
-  c.lineTo(x + w / 2 + d, y - h - d * .7); c.lineTo(x - w / 2 + d, y - h - d * .7); c.fill();
-  c.fillStyle = front; c.fillRect(x - w / 2, y - h, w, h);
+function poly(c, pts, fill) { c.fillStyle = fill; c.beginPath(); pts.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y)); c.closePath(); c.fill(); }
+// An isometric block standing on (x, y): w wide along world x, d deep along world y, h tall.
+function block(c, x, y, w, d, h, top, left, right) {
+  const cx = ISO.c, R = [x + w * cx, y - w * .5], L = [x - d * cx, y - d * .5], B = [x + (w - d) * cx, y - (w + d) * .5];
+  poly(c, [[x, y], R, [R[0], R[1] - h], [x, y - h]], right);
+  poly(c, [[x, y], L, [L[0], L[1] - h], [x, y - h]], left);
+  poly(c, [[x, y - h], R.map((v, i) => i ? v - h : v), [B[0], B[1] - h], L.map((v, i) => i ? v - h : v)], top);
+}
+// Leafy crown: overlapping balls, dark at the back and sunlit at the top-left.
+const CROWN = [[-.55, .1, .55], [.55, .05, .55], [0, .25, .6], [-.3, -.35, .55], [.35, -.3, .55], [0, -.6, .5], [-.1, -.05, .6]];
+function crown(c, x, y, r) {
+  for (const [dx, dy, k] of CROWN) ball(c, x + dx * r, y + dy * r, k * r, "#2f6b34", "#7cc05a");
+  c.fillStyle = "rgba(255,255,220,.35)";
+  for (const [dx, dy] of [[-.4, -.55], [-.15, -.8], [.1, -.5]]) { c.beginPath(); c.arc(x + dx * r, y + dy * r, r * .09, 0, 7); c.fill(); }
+}
+function mushroom(c, x, y, s) {
+  c.fillStyle = "#f4ead6"; c.fillRect(x - s * 1.2, y - s * 4, s * 2.4, s * 4);
+  c.fillStyle = "#d8473a"; c.beginPath(); c.ellipse(x, y - s * 4, s * 3.6, s * 2.6, 0, Math.PI, 0); c.fill();
+  c.fillStyle = "#fff"; for (const [a, b] of [[-1.6, -5], [1, -5.6], [2.2, -4.4]]) { c.beginPath(); c.arc(x + a * s, y + b * s, s * .55, 0, 7); c.fill(); }
 }
 // Habitat sprite standing on ground point (x, y), at scale s. Shadows are drawn separately.
 function habitatSprite(c, type, x, y, s) {
   const S = v => v * s;
   switch (type) {
     case "tree_cavity": {
-      const g = c.createLinearGradient(x - S(4), 0, x + S(4), 0); g.addColorStop(0, "#8a5f38"); g.addColorStop(1, "#5a3c22");
-      c.fillStyle = g; c.fillRect(x - S(4), y - S(30), S(8), S(30));
-      c.fillStyle = "#24160b"; c.beginPath(); c.ellipse(x, y - S(15), S(2), S(3), 0, 0, 7); c.fill();
-      ball(c, x - S(7), y - S(34), S(10), "#3f7a45", "#7cb36a"); ball(c, x + S(7), y - S(36), S(10), "#3f7a45", "#7cb36a");
-      ball(c, x, y - S(44), S(12), "#3f7a45", "#8cc276"); break;
+      c.fillStyle = "#6b4527";  // roots
+      for (const k of [-1, 1]) { c.beginPath(); c.moveTo(x + k * S(3), y - S(6)); c.quadraticCurveTo(x + k * S(6), y - S(1), x + k * S(10), y + S(1)); c.lineTo(x + k * S(3), y + S(1)); c.fill(); }
+      const g = c.createLinearGradient(x - S(5), 0, x + S(5), 0); g.addColorStop(0, "#9a6a3c"); g.addColorStop(.6, "#6e4628"); g.addColorStop(1, "#4d301a");
+      c.fillStyle = g; c.beginPath(); c.moveTo(x - S(5.5), y + S(1)); c.lineTo(x - S(3.5), y - S(38)); c.lineTo(x + S(3.5), y - S(38)); c.lineTo(x + S(5.5), y + S(1)); c.fill();
+      c.strokeStyle = "rgba(40,22,10,.35)"; c.lineWidth = Math.max(.5, S(.6));
+      for (const k of [-2, 1.5]) { c.beginPath(); c.moveTo(x + S(k), y - S(2)); c.lineTo(x + S(k * .8), y - S(30)); c.stroke(); }
+      c.fillStyle = "#b98a58"; c.beginPath(); c.ellipse(x, y - S(17), S(3), S(4.2), 0, 0, 7); c.fill();  // cavity: bark rim
+      c.fillStyle = "#1b0f06"; c.beginPath(); c.ellipse(x, y - S(17), S(2.1), S(3.2), 0, 0, 7); c.fill();
+      crown(c, x, y - S(46), S(17)); break;
     }
     case "hive_box":
-      box(c, x, y, S(20), S(14), S(7), "#e0a21c", "#b07c12", "#f2c45a");
-      box(c, x, y - S(14), S(22), S(3), S(7), "#7a5230", "#5a3c22", "#9a6c42");
-      c.fillStyle = "rgba(0,0,0,.18)"; c.fillRect(x - S(10), y - S(8), S(20), S(1));
-      c.fillStyle = "#2b1c10"; c.fillRect(x - S(5), y - S(2.5), S(10), S(1.5)); break;
+      c.fillStyle = "#7a5230"; c.fillRect(x - S(8), y - S(4), S(3), S(4)); c.fillRect(x + S(5), y - S(4), S(3), S(4));  // stand
+      block(c, x - S(1), y - S(4), S(16), S(14), S(9), "#f6eccf", "#f1e2bb", "#d8c393");
+      block(c, x - S(1), y - S(13), S(16), S(14), S(9), "#f6eccf", "#bfe0d6", "#93c2b4");  // pastel upper box
+      block(c, x - S(2), y - S(22), S(18), S(16), S(4), "#e7795c", "#c9573d", "#a8432e");  // lid
+      c.fillStyle = "#3a2410"; c.beginPath(); c.moveTo(x - S(6.5), y - S(7.6)); c.lineTo(x - S(1.5), y - S(5.1)); c.lineTo(x - S(1.5), y - S(6.3)); c.lineTo(x - S(6.5), y - S(8.8)); c.fill();  // entrance
+      c.fillStyle = "#e0a21c"; c.beginPath(); c.arc(x + S(6), y - S(15), S(2.2), 0, 7); c.fill(); break;  // painted honey dot
     case "rodent_burrow": {
-      const g = c.createRadialGradient(x - S(4), y - S(6), S(1), x, y - S(2), S(16)); g.addColorStop(0, "#b48c63"); g.addColorStop(1, "#7d5c3d");
-      c.fillStyle = g; c.beginPath(); c.ellipse(x, y - S(2), S(16), S(8), 0, Math.PI, 0); c.lineTo(x + S(16), y); c.ellipse(x, y, S(16), S(3), 0, 0, Math.PI); c.fill();
-      c.fillStyle = "#1e130a"; c.beginPath(); c.ellipse(x + S(2), y - S(1), S(5), S(3), 0, 0, 7); c.fill(); break;
+      const g = c.createRadialGradient(x - S(5), y - S(9), S(1), x, y - S(3), S(18)); g.addColorStop(0, "#c39a6b"); g.addColorStop(1, "#80603f");
+      c.fillStyle = g; c.beginPath(); c.ellipse(x, y, S(17), S(10), 0, Math.PI, 0); c.ellipse(x, y, S(17), S(4), 0, 0, Math.PI); c.fill();
+      c.fillStyle = "#6fae4a"; c.beginPath(); c.ellipse(x - S(2), y - S(8.5), S(9), S(3), 0, 0, 7); c.fill();  // grass cap
+      c.strokeStyle = "#4f8f35"; c.lineWidth = Math.max(.6, S(.7)); c.beginPath();
+      for (let j = -3; j <= 3; j++) { c.moveTo(x + S(j * 2), y - S(9)); c.lineTo(x + S(j * 2.4), y - S(13)); } c.stroke();
+      const hole = c.createRadialGradient(x + S(3), y - S(3), S(.5), x + S(3), y - S(3), S(6)); hole.addColorStop(0, "#000"); hole.addColorStop(1, "#3a2615");
+      c.fillStyle = hole; c.beginPath(); c.ellipse(x + S(3), y - S(2.5), S(5.5), S(4), 0, 0, 7); c.fill();
+      c.fillStyle = "#a9a39a"; for (const [a, b] of [[-12, 1], [11, 2]]) { c.beginPath(); c.ellipse(x + S(a), y + S(b), S(2), S(1.3), 0, 0, 7); c.fill(); }
+      break;
     }
     case "bare_soil":
-      c.fillStyle = "#d8bb7f"; c.beginPath(); c.ellipse(x, y, S(19), S(7), 0, 0, 7); c.fill();
-      c.fillStyle = "#c4a466"; c.beginPath(); c.ellipse(x - S(3), y + S(1), S(12), S(4), 0, 0, 7); c.fill();
-      c.fillStyle = "#3a2a16";
-      for (const [a, b] of [[-9, -1], [-2, -3], [5, 0], [10, -2], [0, 3], [-6, 3]]) { c.beginPath(); c.ellipse(x + S(a), y + S(b), S(1.3), S(.8), 0, 0, 7); c.fill(); }
+      c.fillStyle = "#a57c4f"; c.beginPath(); c.ellipse(x, y, S(19), S(9), 0, 0, 7); c.fill();
+      c.fillStyle = "#c79e6a"; c.beginPath(); c.ellipse(x - S(2), y - S(1), S(15), S(6.5), 0, 0, 7); c.fill();
+      for (const [a, b, r] of [[-8, -2, 2.4], [-1, -4, 1.8], [6, -1, 2.6], [10, -3, 1.6], [0, 2, 2], [-6, 3, 1.5]]) {
+        c.fillStyle = "#8c6640"; c.beginPath(); c.ellipse(x + S(a), y + S(b), S(r), S(r * .65), 0, 0, 7); c.fill();
+        c.fillStyle = "#d9b582"; c.beginPath(); c.ellipse(x + S(a - .4), y + S(b - .5), S(r * .5), S(r * .3), 0, 0, 7); c.fill();
+      }
+      c.fillStyle = "#2a1b0d"; for (const [a, b] of [[-4, 0], [4, 2.5]]) { c.beginPath(); c.ellipse(x + S(a), y + S(b), S(1.2), S(.8), 0, 0, 7); c.fill(); }
       break;
-    case "hollow_stem":
-      box(c, x, y, S(18), S(18), S(6), "#b5523a", "#8a3a28", "#c96a50");
-      c.fillStyle = "#7a3424"; c.beginPath(); c.moveTo(x - S(11), y - S(18)); c.lineTo(x + S(1), y - S(27)); c.lineTo(x + S(13), y - S(18)); c.fill();
-      for (let r = 0; r < 3; r++) for (let q = 0; q < 3; q++) {
-        c.fillStyle = "#e8c9a0"; c.beginPath(); c.arc(x - S(5.5) + q * S(5.5), y - S(14) + r * S(5), S(2.1), 0, 7); c.fill();
-        c.fillStyle = "#2b1c10"; c.beginPath(); c.arc(x - S(5.5) + q * S(5.5), y - S(14) + r * S(5), S(1), 0, 7); c.fill();
-      } break;
+    case "hollow_stem": {  // a bee hotel on a post, full of hollow stems
+      c.fillStyle = "#7a5230"; c.fillRect(x - S(1.5), y - S(10), S(3), S(10));
+      block(c, x - S(5), y - S(8), S(14), S(6), S(16), "#c28a55", "#8f5f34", "#b07a48");
+      const fx = x - S(5), fy = y - S(8);  // stem ends on the left face
+      for (let r = 0; r < 3; r++) for (let q = 0; q < 2; q++) {
+        const px = fx - (q + .5) * S(3) * ISO.c, py = fy - (q + .5) * S(1.5) - S(3 + r * 5);
+        c.fillStyle = "#ead3a6"; c.beginPath(); c.arc(px, py, S(1.9), 0, 7); c.fill();
+        c.fillStyle = "#3a2410"; c.beginPath(); c.arc(px, py, S(.9), 0, 7); c.fill();
+      }
+      const t = [fx + S(7) * ISO.c - S(3) * ISO.c, fy - S(16) - S(3.5) - S(7)];  // ridge of the roof
+      poly(c, [[fx - S(8) * ISO.c, fy - S(16) - S(.5)], [fx, fy - S(16) + S(3.5)], [fx + S(16) * ISO.c, fy - S(16) - S(4.5)], t], "#cf4f3a");
+      poly(c, [[fx - S(8) * ISO.c, fy - S(16) - S(.5)], [t[0] - S(14) * ISO.c, t[1] + S(7)], t, [fx, fy - S(16) + S(3.5)]], "#a83b2a");
+      break;
+    }
     case "dead_wood": {
-      const g = c.createLinearGradient(0, y - S(12), 0, y); g.addColorStop(0, "#8a6b4f"); g.addColorStop(1, "#4f3c2b");
-      c.fillStyle = g; c.beginPath(); c.roundRect(x - S(18), y - S(11), S(32), S(11), S(5)); c.fill();
-      c.fillStyle = "#c9a77c"; c.beginPath(); c.ellipse(x + S(14), y - S(5.5), S(3.5), S(5.5), 0, 0, 7); c.fill();
-      c.strokeStyle = "#8f704f"; c.lineWidth = Math.max(.6, S(.8)); c.beginPath(); c.ellipse(x + S(14), y - S(5.5), S(1.6), S(2.8), 0, 0, 7); c.stroke();
+      const g = c.createLinearGradient(0, y - S(13), 0, y); g.addColorStop(0, "#9a7a58"); g.addColorStop(1, "#4f3b2a");
+      c.fillStyle = g; c.beginPath(); c.roundRect(x - S(18), y - S(12), S(32), S(12), S(6)); c.fill();
+      c.strokeStyle = "rgba(40,25,12,.35)"; c.lineWidth = Math.max(.5, S(.6));
+      for (const k of [-12, -4, 4]) { c.beginPath(); c.moveTo(x + S(k), y - S(11)); c.lineTo(x + S(k + 5), y - S(1)); c.stroke(); }
+      c.fillStyle = "#7fa84c"; c.beginPath(); c.ellipse(x - S(6), y - S(11.5), S(8), S(2.4), 0, 0, 7); c.fill();  // moss
+      c.fillStyle = "#d9b98c"; c.beginPath(); c.ellipse(x + S(14), y - S(6), S(4), S(6), 0, 0, 7); c.fill();  // cut end
+      c.strokeStyle = "#a5835c"; c.lineWidth = Math.max(.5, S(.7));
+      for (const k of [2.6, 1.3]) { c.beginPath(); c.ellipse(x + S(14), y - S(6), S(k), S(k * 1.5), 0, 0, 7); c.stroke(); }
+      mushroom(c, x - S(13), y + S(1), S(.9)); mushroom(c, x - S(9), y + S(2), S(.6));
       break;
     }
   }
 }
-function beeSprite(c, role, color, x, y, s, active) {
-  const r = 6 * s;
-  c.fillStyle = "rgba(255,255,255,.5)";  // wings
-  for (const dx of [-1, 1]) { c.beginPath(); c.ellipse(x + dx * r * .7, y - r * .9, r * .55, r * .85, dx * .5, 0, 7); c.fill(); }
-  const body = () => { c.beginPath(); if (role === "scout") { c.moveTo(x, y - r * 1.25); c.lineTo(x + r * 1.15, y); c.lineTo(x, y + r * 1.25); c.lineTo(x - r * 1.15, y); c.closePath(); } else c.arc(x, y, r, 0, 7); };
-  if (role === "scout") { c.fillStyle = color; body(); c.fill(); } else ball(c, x, y, r, color, "rgba(255,255,255,.9)");
-  c.save(); body(); c.clip(); c.fillStyle = "rgba(25,20,10,.5)";  // stripes
-  for (const k of [-.45, .25]) c.fillRect(x + k * r, y - r * 1.3, r * .28, r * 2.6);
-  c.fillStyle = "rgba(255,255,255,.35)"; c.beginPath(); c.arc(x - r * .35, y - r * .4, r * .35, 0, 7); c.fill(); c.restore();
-  c.strokeStyle = "rgba(25,20,10,.35)"; c.lineWidth = .8; body(); c.stroke();
-  if (active) { c.strokeStyle = "#1d2b22"; c.lineWidth = 2; c.beginPath(); c.arc(x, y, r * 1.7, 0, 7); c.stroke(); }
+// A honey bee seen from the side, facing left (dir = -1) or right (dir = 1). Role: scouts wear an explorer hat.
+// Personality: the colour of its collar.
+function beeSprite(c, role, color, x, y, s, now, dir = -1) {
+  const r = 5 * s;
+  c.save(); c.translate(x, y); c.scale(-dir, 1);  // drawn facing left
+  const flap = Math.sin(now / 22) * .45;
+  for (const [dx, k] of [[.35, 1], [-.05, .8]]) {  // wings, beating
+    c.save(); c.translate(dx * r, -r * .55); c.rotate(-.5 + flap * k);
+    c.fillStyle = "rgba(235,248,255,.75)"; c.strokeStyle = "rgba(120,160,190,.6)"; c.lineWidth = .7;
+    c.beginPath(); c.ellipse(0, -r * .75, r * .45, r * .85, .2, 0, 7); c.fill(); c.stroke(); c.restore();
+  }
+  c.fillStyle = "#3a2a10"; c.beginPath(); c.moveTo(r * 2.05, r * .05); c.lineTo(r * 1.55, -r * .2); c.lineTo(r * 1.55, r * .3); c.fill();  // stinger
+  const body = () => { c.beginPath(); c.ellipse(r * .55, 0, r * 1.15, r * .85, 0, 0, 7); };
+  const g = c.createRadialGradient(r * .2, -r * .4, r * .1, r * .55, 0, r * 1.2); g.addColorStop(0, "#ffe27a"); g.addColorStop(1, "#e19a12");
+  c.fillStyle = g; body(); c.fill();
+  c.save(); body(); c.clip(); c.fillStyle = "#3a2a10";
+  for (const k of [.25, .85, 1.4]) c.fillRect(k * r, -r, r * .28, r * 2);
+  c.restore();
+  c.fillStyle = color; c.beginPath(); c.ellipse(-r * .55, 0, r * .3, r * .62, 0, 0, 7); c.fill();  // collar
+  ball(c, -r * 1.05, -r * .05, r * .62, "#2c1f0c", "#5a4320");  // head
+  c.fillStyle = "#fff"; c.beginPath(); c.ellipse(-r * 1.3, -r * .2, r * .27, r * .32, 0, 0, 7); c.fill();
+  c.fillStyle = "#111"; c.beginPath(); c.arc(-r * 1.38, -r * .17, r * .14, 0, 7); c.fill();
+  c.fillStyle = "#fff"; c.beginPath(); c.arc(-r * 1.42, -r * .24, r * .05, 0, 7); c.fill();
+  c.strokeStyle = "#2c1f0c"; c.lineWidth = Math.max(.6, r * .12); c.lineCap = "round";  // antennae
+  for (const k of [0, .35]) { c.beginPath(); c.moveTo(-r * (1.15 - k), -r * .55); c.quadraticCurveTo(-r * (1.5 - k), -r * 1.3, -r * (1.85 - k), -r * 1.25); c.stroke(); }
+  if (role === "scout") {  // explorer hat
+    c.fillStyle = "#c7a76a"; c.beginPath(); c.ellipse(-r * 1.05, -r * .55, r * .85, r * .22, 0, 0, 7); c.fill();
+    c.fillStyle = "#dcc088"; c.beginPath(); c.ellipse(-r * 1.05, -r * .62, r * .5, r * .5, 0, Math.PI, 0); c.fill();
+    c.fillStyle = "#8a6a36"; c.fillRect(-r * 1.55, -r * .72, r, r * .12);
+  }
+  c.restore();
+}
+// The Sims' green crystal over the selection, bobbing and turning.
+function plumbob(c, x, y, s, now) {
+  y += Math.sin(now / 380) * 3 * s;
+  const hh = 13 * s, hw = 6.5 * s, turn = Math.sin(now / 600), mid = x + hw * .55 * turn;
+  c.save(); c.shadowColor = "rgba(90,230,80,.8)"; c.shadowBlur = 10 * s;
+  poly(c, [[x, y - hh], [x - hw, y], [x, y + hh], [x + hw, y]], "#3fbf3a"); c.restore();
+  poly(c, [[x, y - hh], [x - hw, y], [mid, y]], "#b4f78f"); poly(c, [[x, y - hh], [mid, y], [x + hw, y]], "#6fdc52");
+  poly(c, [[x, y + hh], [x - hw, y], [mid, y]], "#4fcf40"); poly(c, [[x, y + hh], [mid, y], [x + hw, y]], "#2a9a2a");
+}
+function thought(c, x, y, s, emoji) {
+  c.save(); c.shadowColor = "rgba(0,0,0,.15)"; c.shadowBlur = 4; c.fillStyle = "#fff";
+  for (const [dx, dy, r] of [[4, -5, 1.6], [8, -11, 2.4]]) { c.beginPath(); c.arc(x + dx * s, y + dy * s, r * s, 0, 7); c.fill(); }
+  const bx = x + 18 * s, by = y - 24 * s;
+  c.beginPath(); for (const [dx, dy, r] of [[-7, 1, 7], [0, -4, 8.5], [7, 1, 7], [0, 4, 7]]) c.arc(bx + dx * s, by + dy * s, r * s, 0, 7); c.fill();
+  c.restore(); c.font = `${Math.round(11 * s)}px "Apple Color Emoji","Segoe UI Emoji",sans-serif`; c.textAlign = "center"; c.textBaseline = "middle";
+  c.fillText(emoji, bx, by); c.textAlign = "start"; c.textBaseline = "alphabetic";
 }
 function branchSprite(c, x, y, s, groundY) {
-  const S = v => v * s;
+  const S = v => v * s, tx = x - S(84);
   c.save(); c.lineCap = "round";
-  const tg = c.createLinearGradient(x - S(94), 0, x - S(74), 0); tg.addColorStop(0, "#8a5f38"); tg.addColorStop(1, "#5a3c22");
+  const tg = c.createLinearGradient(tx - S(8), 0, tx + S(8), 0); tg.addColorStop(0, "#9a6a3c"); tg.addColorStop(.6, "#6e4628"); tg.addColorStop(1, "#4d301a");
+  c.fillStyle = "#6b4527";  // roots
+  for (const k of [-1, 1]) { c.beginPath(); c.moveTo(tx + k * S(4), groundY - S(8)); c.quadraticCurveTo(tx + k * S(9), groundY - S(1), tx + k * S(15), groundY + S(1)); c.lineTo(tx + k * S(4), groundY + S(1)); c.fill(); }
   c.fillStyle = tg; c.beginPath();  // the tree the branch grows from
-  c.moveTo(x - S(92), groundY); c.lineTo(x - S(87), y - S(30)); c.lineTo(x - S(79), y - S(30)); c.lineTo(x - S(75), groundY); c.fill();
-  for (const [lx, ly, r] of [[-98, -38, 13], [-70, -40, 13], [-84, -54, 15]]) ball(c, x + S(lx), y + S(ly), S(r), "#3f7a45", "#8cc276");
+  c.moveTo(tx - S(8), groundY + S(1)); c.lineTo(tx - S(5), y - S(34)); c.lineTo(tx + S(5), y - S(34)); c.lineTo(tx + S(8), groundY + S(1)); c.fill();
   c.strokeStyle = "#6b4a2b"; c.lineWidth = S(7);
-  c.beginPath(); c.moveTo(x - S(80), y + S(8)); c.quadraticCurveTo(x - S(10), y - S(14), x + S(80), y - S(4)); c.stroke();
+  c.beginPath(); c.moveTo(tx + S(4), y + S(8)); c.quadraticCurveTo(x - S(10), y - S(14), x + S(80), y - S(4)); c.stroke();
   c.strokeStyle = "rgba(255,255,255,.18)"; c.lineWidth = S(2);
-  c.beginPath(); c.moveTo(x - S(78), y + S(5)); c.quadraticCurveTo(x - S(10), y - S(17), x + S(78), y - S(7)); c.stroke();
+  c.beginPath(); c.moveTo(tx + S(6), y + S(5)); c.quadraticCurveTo(x - S(10), y - S(17), x + S(78), y - S(7)); c.stroke();
   c.strokeStyle = "#6b4a2b"; c.lineWidth = S(3.5); c.beginPath(); c.moveTo(x + S(28), y - S(8)); c.quadraticCurveTo(x + S(44), y - S(24), x + S(60), y - S(28)); c.stroke();
   for (const [lx, ly, a] of [[-56, 1, -0.6], [-24, -8, 0.5], [60, -28, -0.3], [70, -4, 0.8], [8, -10, -0.9]]) {
-    c.save(); c.translate(x + S(lx), y + S(ly)); c.rotate(a); ball(c, 0, -S(7), S(5), "#4f8a4f", "#93c47d"); c.restore();
+    c.save(); c.translate(x + S(lx), y + S(ly)); c.rotate(a); ball(c, 0, -S(7), S(5), "#3f7f3a", "#8fd06a"); c.restore();
   }
+  crown(c, tx, y - S(50), S(28));
   c.restore();
 }
 function icon(type) {
   const cv = document.createElement("canvas"), d = devicePixelRatio || 1;
   cv.width = cv.height = 30 * d; const c = cv.getContext("2d"); c.scale(d, d);
-  shadow(c, 15, 26, 11, 3, .15); habitatSprite(c, type, 15, 26, type === "tree_cavity" ? .5 : .62);
+  shadow(c, 15, 26, 11, 3, .15); habitatSprite(c, type, 15, 26, type === "tree_cavity" ? .4 : .62);
   return cv;
+}
+function beeIcon(role) {
+  const cv = document.createElement("canvas"), d = devicePixelRatio || 1;
+  cv.width = cv.height = 22 * d; const c = cv.getContext("2d"); c.scale(d, d);
+  beeSprite(c, role, "#9aa79e", 11, 13, 1.25, 0); return cv;
 }
 
 const canvas = $("world"), ctx = canvas.getContext("2d");
 // Positions glide between two snapshots (the backend sends ~7 per second).
-const LERP_MS = 150, anim = {};  // id -> {fx, fy, tx, ty, t0}
+const LERP_MS = 150, anim = {};  // id -> {fx, fy, tx, ty, t0, dir}
 function glide(a) { const k = Math.min(1, (performance.now() - a.t0) / LERP_MS); return { x: a.fx + (a.tx - a.fx) * k, y: a.fy + (a.ty - a.fy) * k }; }
 function retarget(list) {
-  for (const e of list) { const a = anim[e.id], from = a ? glide(a) : e; anim[e.id] = { fx: from.x, fy: from.y, tx: e.x, ty: e.y, t0: performance.now() }; }
+  for (const e of list) {
+    const a = anim[e.id], from = a ? glide(a) : e, sx = (e.x - from.x) - (e.y - from.y);  // screen-x motion
+    anim[e.id] = { fx: from.x, fy: from.y, tx: e.x, ty: e.y, t0: performance.now(), dir: Math.abs(sx) > .3 ? Math.sign(sx) : a?.dir ?? -1 };
+  }
 }
 const posOf = e => drag?.id === e.id ? drag : anim[e.id] ? glide(anim[e.id]) : e;
 
-// Scenery that never moves (sky, hills, meadow, soil edge) is painted once per canvas size.
-let ground = null;
+// Endless meadow, generated in square chunks of ground around the camera. A chunk is painted once (its own seed:
+// the same grass at the same place) and cached; the play area is a mowed lawn drawn on top of the base grass.
+const CHUNK = 300, CHUNK_KMAX = 1.3, CHUNKS_MAX = 260, chunks = new Map();  // "i,j" -> {cv, k, pad}
+let zoomedAt = 0;
 function seeded(n) { return () => { n = (n + 0x6D2B79F5) | 0; let t = Math.imul(n ^ (n >>> 15), 1 | n); t ^= t + Math.imul(t ^ (t >>> 7), 61 | t); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
-function paintGround() {
-  const { w, h } = view, d = devicePixelRatio || 1, W = catalog.world.width, H = catalog.world.height, rnd = seeded(7);
-  const cv = document.createElement("canvas"); cv.width = w * d; cv.height = h * d;
-  const c = cv.getContext("2d"); c.scale(d, d);
-  const [a, b, c2, d2] = [project(0, 0), project(W, 0), project(W, H), project(0, H)];
-  // sky and distant hills
-  const sky = c.createLinearGradient(0, 0, 0, a.y + 30); sky.addColorStop(0, "#dbe9f1"); sky.addColorStop(1, "#f1f3e8");
-  c.fillStyle = sky; c.fillRect(0, 0, w, h);
-  for (const [col, amp, base, f] of [["#c9d9bd", 16, 24, 160], ["#b2c9a0", 10, 12, 95]]) {
-    c.fillStyle = col; c.beginPath(); c.moveTo(0, a.y + 2);
-    for (let x = 0; x <= w; x += 6) c.lineTo(x, a.y - base - Math.sin(x / f + base) * amp - Math.sin(x / (f / 3)) * amp * .3);
-    c.lineTo(w, a.y + 2); c.fill();
+function paintChunk(i, j, k) {
+  const W = catalog.world.width, H = catalog.world.height, s = k / ISO.k0, pad = 50 * s, x0 = i * CHUNK, y0 = j * CHUNK;
+  const cv = document.createElement("canvas");  // 1 px per css px: the decor stays light in memory
+  cv.width = Math.ceil(2 * CHUNK * ISO.c * k + 2 * pad); cv.height = Math.ceil(CHUNK * k + 2 * pad);
+  const c = cv.getContext("2d"), rnd = seeded(i * 7919 + j * 104729 + 17);
+  const P = (x, y) => ({ x: pad + (CHUNK + x - x0 - (y - y0)) * ISO.c * k, y: pad + (x - x0 + y - y0) * .5 * k });
+  const wild = (x, y, m = 60) => x < -m || y < -m || x > W + m || y > H + m;  // far enough from the play area for tall things
+  for (let n = 0; n < 3; n++) {  // large soft patches, so the meadow is not flat
+    const p = P(x0 + rnd() * CHUNK, y0 + rnd() * CHUNK), r = (50 + rnd() * 90) * k;
+    const g = c.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
+    g.addColorStop(0, rnd() < .5 ? "rgba(255,255,190,.12)" : "rgba(40,95,30,.1)"); g.addColorStop(1, "rgba(0,0,0,0)");
+    c.save(); c.translate(p.x, p.y); c.scale(1, .5); c.translate(-p.x, -p.y); c.fillStyle = g; c.fillRect(p.x - r, p.y - r, 2 * r, 2 * r); c.restore();
   }
-  for (let x = a.x - 20; x < b.x + 20; x += 9 + rnd() * 8) {  // tree line along the far edge
-    const r = 6 + rnd() * 6; c.fillStyle = rnd() < .5 ? "#86a872" : "#7a9c67"; c.beginPath(); c.arc(x, a.y - r * .6, r, 0, 7); c.fill();
+  for (let n = 0; n < 420; n++) {  // texture speckles
+    const p = P(x0 + rnd() * CHUNK, y0 + rnd() * CHUNK); c.fillStyle = rnd() < .5 ? "rgba(50,105,35,.2)" : "rgba(235,250,200,.25)";
+    c.fillRect(p.x, p.y, 1.4 * s, 1.4 * s);
   }
-  // fields beyond the world: muted, so the slab reads as the play area
-  const field = c.createLinearGradient(0, a.y, 0, h); field.addColorStop(0, "#c3d0b2"); field.addColorStop(1, "#a9b996");
-  c.fillStyle = field; c.fillRect(0, a.y, w, h - a.y);
-  // soil edge under the near side: strata and a few pebbles
-  const soil = c.createLinearGradient(0, d2.y, 0, d2.y + VIEW.slab); soil.addColorStop(0, "#7d5c3d"); soil.addColorStop(1, "#4f3826");
-  c.fillStyle = soil; c.fillRect(d2.x, d2.y, c2.x - d2.x, VIEW.slab);
-  c.strokeStyle = "rgba(0,0,0,.15)"; c.lineWidth = 1;
-  for (const f of [.35, .7]) { c.beginPath(); c.moveTo(d2.x, d2.y + VIEW.slab * f); c.lineTo(c2.x, d2.y + VIEW.slab * f); c.stroke(); }
-  for (let i = 0; i < 70; i++) { c.fillStyle = `rgba(${200 + rnd() * 40},${180 + rnd() * 40},${150 + rnd() * 40},.5)`;
-    c.beginPath(); c.ellipse(d2.x + rnd() * (c2.x - d2.x), d2.y + 3 + rnd() * (VIEW.slab - 6), 1 + rnd() * 1.6, .8 + rnd(), 0, 0, 7); c.fill(); }
-  // meadow, lit from the far left; clipped to the slab
-  c.save(); c.shadowColor = "rgba(40,60,30,.35)"; c.shadowBlur = 14; c.shadowOffsetY = 4;  // the slab sits on the field
-  c.fillStyle = "#97bd75"; c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); c.lineTo(c2.x, c2.y); c.lineTo(d2.x, d2.y); c.closePath(); c.fill(); c.restore();
-  c.save(); c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); c.lineTo(c2.x, c2.y); c.lineTo(d2.x, d2.y); c.closePath(); c.clip();
-  const grass = c.createLinearGradient(0, a.y, 0, d2.y); grass.addColorStop(0, "#c9dcad"); grass.addColorStop(1, "#97bd75");
-  c.fillStyle = grass; c.fillRect(0, 0, w, h);
-  const light = c.createRadialGradient(a.x, a.y, 10, a.x, a.y, w * .9); light.addColorStop(0, "rgba(255,250,220,.25)"); light.addColorStop(1, "rgba(255,250,220,0)");
-  c.fillStyle = light; c.fillRect(0, 0, w, h);
-  for (let i = 0; i < 14; i += 2) {  // mowing bands across the depth
-    const p1 = project(0, i * H / 14), p2 = project(W, i * H / 14), p3 = project(W, (i + 1) * H / 14), p4 = project(0, (i + 1) * H / 14);
-    c.fillStyle = "rgba(255,255,255,.05)"; c.beginPath(); c.moveTo(p1.x, p1.y); c.lineTo(p2.x, p2.y); c.lineTo(p3.x, p3.y); c.lineTo(p4.x, p4.y); c.fill();
-  }
-  for (let i = 0; i < 2600; i++) {  // texture speckles
-    const p = project(rnd() * W, rnd() * H); c.fillStyle = rnd() < .5 ? "rgba(60,100,45,.18)" : "rgba(235,245,210,.22)";
-    c.fillRect(p.x, p.y, 1.4 * p.s, 1.4 * p.s);
-  }
-  const pts = Array.from({ length: 260 }, () => ({ x: rnd() * W, y: rnd() * H, k: rnd() })).sort((u, v) => u.y - v.y);
-  for (const q of pts) {
-    const p = project(q.x, q.y), s2 = p.s;
-    if (q.k < .7) {  // grass tuft: a few thin blades leaning with the wind
-      c.strokeStyle = q.k < .35 ? "rgba(70,115,50,.75)" : "rgba(95,140,70,.7)"; c.lineWidth = .8; c.beginPath();
-      for (let j = 0; j < 4; j++) {
-        const bx = p.x + (j - 1.5) * 1.1 * s2, len = (3 + rnd() * 3.5) * s2, lean = (rnd() - .3) * 2.2 * s2;
+  const items = Array.from({ length: 40 }, () => ({ x: x0 + rnd() * CHUNK, y: y0 + rnd() * CHUNK, k: rnd() }));
+  if (rnd() < .8) items.push({ x: x0 + rnd() * CHUNK, y: y0 + rnd() * CHUNK, k: 2 });  // a bush
+  if (rnd() < .4) items.push({ x: x0 + rnd() * CHUNK, y: y0 + rnd() * CHUNK, k: 3 });  // a tree
+  for (const q of items.sort((u, v) => u.x + u.y - v.x - v.y)) {
+    const p = P(q.x, q.y), out = wild(q.x, q.y);
+    if (q.k === 2 || q.k === 3) {
+      if (!wild(q.x, q.y, q.k === 3 ? 140 : 60)) continue;  // a tree's crown must not cover the play area
+      if (q.k === 2) {
+        const r = (7 + rnd() * 6) * s; shadow(c, p.x, p.y + 1, r * 1.1, r * .35, .18);
+        for (const [dx, dy, f] of [[-.6, 0, .7], [.6, 0, .7], [0, -.4, .85]]) ball(c, p.x + dx * r, p.y - r * .6 + dy * r, f * r, "#3d7c3a", "#86c862");
+      } else {
+        shadow(c, p.x, p.y, 22 * s, 7 * s, .2);
+        c.fillStyle = "#6e4628"; c.fillRect(p.x - 3 * s, p.y - 30 * s, 6 * s, 30 * s);
+        crown(c, p.x, p.y - 38 * s, 18 * s);
+      }
+    } else if (q.k < (out ? .82 : .72)) {  // grass tuft, taller in the wild meadow
+      c.strokeStyle = q.k < .36 ? "rgba(60,120,40,.75)" : "rgba(95,150,60,.7)"; c.lineWidth = .9; c.beginPath();
+      for (let n = 0; n < 4; n++) {
+        const bx = p.x + (n - 1.5) * 1.2 * s, len = (3 + rnd() * 3.5) * s * (out ? 1.5 : 1), lean = (rnd() - .3) * 2.2 * s;
         c.moveTo(bx, p.y); c.quadraticCurveTo(bx + lean * .3, p.y - len * .6, bx + lean, p.y - len);
       }
       c.stroke();
-    } else {  // small flower
-      c.fillStyle = ["#ffffff", "#f6d95a", "#c9a3e6", "#f2a7b5"][Math.floor(q.k * 40) % 4];
-      c.beginPath(); c.arc(p.x, p.y - 2 * s2, 1.6 * s2, 0, 7); c.fill();
+    } else {  // a little clump of flowers
+      const col = ["#ffffff", "#ffd84a", "#c7a0f0", "#ff9fb4", "#7fc4ff"][Math.floor(q.k * 50) % 5];
+      for (let n = 0; n < 3; n++) {
+        const fx = p.x + (rnd() - .5) * 8 * s, fy = p.y + (rnd() - .5) * 4 * s;
+        c.strokeStyle = "#4f8f35"; c.lineWidth = .8; c.beginPath(); c.moveTo(fx, fy + 2 * s); c.lineTo(fx, fy - 2 * s); c.stroke();
+        c.fillStyle = col; for (let m = 0; m < 5; m++) { c.beginPath(); c.arc(fx + Math.cos(m * 1.26) * 1.3 * s, fy - 2.5 * s + Math.sin(m * 1.26) * 1.3 * s, s, 0, 7); c.fill(); }
+        c.fillStyle = "#f2b31b"; c.beginPath(); c.arc(fx, fy - 2.5 * s, .7 * s, 0, 7); c.fill();
+      }
     }
   }
-  const haze = c.createLinearGradient(0, a.y, 0, a.y + view.gh * .45); haze.addColorStop(0, "rgba(241,243,232,.55)"); haze.addColorStop(1, "rgba(241,243,232,0)");
-  c.fillStyle = haze; c.fillRect(0, 0, w, h);
-  c.restore();
-  return cv;
+  return { cv, k, pad };
+}
+function drawTerrain(now) {
+  const { w, h } = view, W = catalog.world.width, H = catalog.world.height;
+  ctx.fillStyle = "#8cc65a"; ctx.fillRect(0, 0, w, h);
+  // the play area: a lawn mowed in a checkerboard, 100 world units per square
+  const lot = [project(0, 0), project(W, 0), project(W, H), project(0, H)].map(p => [p.x, p.y]);
+  poly(ctx, lot, "#a3da6c");
+  for (let i = 0; i < W / 100; i++) for (let j = 0; j < H / 100; j++) {
+    if ((i + j) % 2) continue;
+    poly(ctx, [[i, j], [i + 1, j], [i + 1, j + 1], [i, j + 1]].map(([u, v]) => { const p = project(u * 100, v * 100); return [p.x, p.y]; }), "rgba(255,255,225,.1)");
+  }
+  // chunks under the screen, back to front; a few new ones are painted per frame, the others reused (rescaled while zooming)
+  const corners = [[0, 0], [w, 0], [0, h], [w, h]].map(([x, y]) => unproject(x, y, true));
+  const xs = corners.map(q => q.x), ys = corners.map(q => q.y), list = [];
+  for (let i = Math.floor(Math.min(...xs) / CHUNK) - 1; i <= Math.floor(Math.max(...xs) / CHUNK); i++)
+    for (let j = Math.floor(Math.min(...ys) / CHUNK) - 1; j <= Math.floor(Math.max(...ys) / CHUNK); j++) list.push([i, j]);
+  const kPaint = Math.min(cam.k, CHUNK_KMAX), settled = now - zoomedAt > 250;
+  let painted = 0;
+  for (const [i, j] of list.sort((u, v) => u[0] + u[1] - v[0] - v[1])) {
+    const p = project(i * CHUNK, j * CHUNK), half = CHUNK * ISO.c * cam.k;
+    if (p.x + half < -60 || p.x - half > w + 60 || p.y > h + 60 || p.y + CHUNK * cam.k < -60) continue;
+    const key = i + "," + j;
+    let ch = chunks.get(key);
+    if ((!ch || settled && Math.abs(ch.k / kPaint - 1) > .2) && painted < 8) {
+      ch = paintChunk(i, j, kPaint); painted++;
+      chunks.delete(key); chunks.set(key, ch);
+      if (chunks.size > CHUNKS_MAX) chunks.delete(chunks.keys().next().value);  // forget the oldest
+    }
+    if (!ch) continue;
+    const r = cam.k / ch.k;
+    ctx.drawImage(ch.cv, p.x - (ch.pad + CHUNK * ISO.c * ch.k) * r, p.y - ch.pad * r, ch.cv.width * r, ch.cv.height * r);
+  }
+  // edge of the play area: bees and habitats stay inside it
+  ctx.save(); ctx.setLineDash([7, 7]); ctx.strokeStyle = "rgba(255,255,240,.85)"; ctx.lineWidth = 1.5;
+  ctx.beginPath(); lot.forEach(([x, y], n) => n ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.closePath(); ctx.stroke(); ctx.restore();
 }
 function sizeCanvas() {
-  const w = canvas.clientWidth, h = Math.round(w * .64), d = devicePixelRatio || 1;
-  canvas.style.height = h + "px"; canvas.width = w * d; canvas.height = h * d;
+  const w = canvas.clientWidth, h = canvas.clientHeight, d = devicePixelRatio || 1;
+  canvas.width = w * d; canvas.height = h * d;
   ctx.setTransform(d, 0, 0, d, 0, 0);
-  view = { w, h, top: h * VIEW.top, gh: h * VIEW.ground, k: w * VIEW.fill / catalog.world.width };
-  ground = paintGround();
+  const top = $("hdr").offsetHeight, bottom = h - $("bar").offsetHeight;
+  view = { w, h, top, bottom, cx: w / 2, cy: (top + bottom) / 2 };
+  if (!cam) fitCamera();
 }
 function drawWorld() {
   if (!catalog) return;
-  if (!view || view.w !== canvas.clientWidth) sizeCanvas();
-  const { w, h } = view;
-  const W = catalog.world.width, H = catalog.world.height;
+  if (!view || view.w !== canvas.clientWidth || view.h !== canvas.clientHeight) sizeCanvas();
+  const now = performance.now();
 
-  ctx.drawImage(ground, 0, 0, w, h);
+  drawTerrain(now);
 
   const sh = shown(), list = sh.entities;
   const items = list.map(e => { const q = mode === "live" ? posOf(e) : e; return { e, x: q.x, y: q.y }; });
@@ -513,40 +658,58 @@ function drawWorld() {
   // shadows first, so nothing floats over another object's shadow
   for (const it of [...items, br]) {
     const p = project(it.x, it.y);
-    if (it.branch) { shadow(ctx, p.x, p.y, 80 * p.s, 8 * p.s, .12); shadow(ctx, p.x - 98 * p.s, p.y, 16 * p.s, 5 * p.s); }
-    else if (it.e.kind === "bee") shadow(ctx, p.x, p.y, 4 * p.s * SIZE.bee, 1.6 * p.s * SIZE.bee, .22);
-    else if (it.e.type !== "bare_soil") shadow(ctx, p.x, p.y, 18 * p.s * SIZE.hab, 5 * p.s * SIZE.hab);
-    if (!it.branch && it.e.id === selected) {
-      ctx.strokeStyle = "#2f5d46"; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(p.x, p.y, 24 * p.s * SIZE.hab, 8 * p.s * SIZE.hab, 0, 0, 7); ctx.stroke();
+    if (it.branch) { shadow(ctx, p.x, p.y, 80 * p.s, 9 * p.s, .1); shadow(ctx, p.x - 84 * p.s * SIZE.branch, p.y, 30 * p.s, 9 * p.s, .2); }
+    else if (it.e.kind === "bee") shadow(ctx, p.x, p.y, 4.5 * p.s * SIZE.bee, 1.8 * p.s * SIZE.bee, .2);
+    else if (it.e.type !== "bare_soil") shadow(ctx, p.x, p.y, 18 * p.s * SIZE.hab, 6 * p.s * SIZE.hab, .22);
+    if (!it.branch && it.e.id === selected) {  // selection disc on the ground
+      const rx = (it.e.kind === "bee" ? 8 * SIZE.bee : 22 * SIZE.hab) * p.s;
+      ctx.fillStyle = "rgba(90,220,80,.22)"; ctx.strokeStyle = "rgba(60,180,60,.8)"; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.ellipse(p.x, p.y, rx, rx * .5, 0, 0, 7); ctx.fill(); ctx.stroke();
     }
   }
   // dances: a honey trail on the ground from the branch to the site, bolder for a more vigorous dance
-  const bp = project(catalog.branch.x, catalog.branch.y), now = performance.now();
+  const bp = project(catalog.branch.x, catalog.branch.y);
   for (const it of items.filter(it => it.e.state === "dancing")) {
     const site = list.find(e => e.id === it.e.site_id); if (!site) continue;
     const sp = project(site.x, site.y);
-    ctx.save(); ctx.strokeStyle = `rgba(230,168,23,${.25 + .15 * (it.e.dance_level - 2)})`; ctx.lineWidth = 1 + it.e.dance_level * .7;
-    ctx.setLineDash([8, 6]); ctx.lineDashOffset = -now / 40; ctx.beginPath(); ctx.moveTo(bp.x, bp.y); ctx.lineTo(sp.x, sp.y); ctx.stroke(); ctx.restore();
+    ctx.save(); ctx.strokeStyle = `rgba(240,170,20,${.3 + .15 * (it.e.dance_level - 2)})`; ctx.lineWidth = 1 + it.e.dance_level * .7; ctx.lineCap = "round";
+    ctx.setLineDash([1, 9]); ctx.lineDashOffset = -now / 40; ctx.beginPath(); ctx.moveTo(bp.x, bp.y); ctx.lineTo(sp.x, sp.y); ctx.stroke(); ctx.restore();
   }
   // back to front; the branch sorts like an object standing at its ground point
-  for (const it of [...items, br].sort((u, v) => u.y - v.y || (u.branch ? -1 : 0))) {
+  const overlay = [];  // plumbob, thought bubbles and badges go on top of everything
+  for (const it of [...items, br].sort((u, v) => u.x + u.y - v.x - v.y || (u.branch ? -1 : 0))) {
     const p = project(it.x, it.y);
     if (it.branch) branchSprite(ctx, p.x, p.y - PERCH * p.s, p.s * SIZE.branch, p.y);
     else if (it.e.kind === "bee") {
-      const wiggle = it.e.state === "dancing" ? Math.sin(now / 45) * 3 * p.s : 0;
-      beeSprite(ctx, it.e.role, PERS[persName(it.e.personality)] || "#777", p.x + wiggle, p.y - FLY * p.s, p.s * SIZE.bee, it.e.id === selected);
-      if (it.e.state === "waiting") { ctx.fillStyle = "#1d2b22"; ctx.font = `${Math.round(11 * p.s)}px system-ui`; ctx.fillText("…", p.x + 8 * p.s, p.y - (FLY + 8) * p.s); }
+      const e = it.e, dancing = e.state === "dancing", t = now / 230 + e.id.length;
+      const wx = dancing ? Math.sin(t) * 7 * p.s : 0, wy = dancing ? Math.sin(2 * t) * 3 * p.s : Math.sin(now / 300 + p.x) * 1.2 * p.s;  // waggle: a figure eight
+      const bx = p.x + wx, by = p.y - FLY * p.s + wy;
+      beeSprite(ctx, e.role, PERS[persName(e.personality)] || "#777", bx, by, p.s * SIZE.bee, now, dancing ? Math.sign(Math.cos(t)) || -1 : anim[e.id]?.dir ?? -1);
+      if (dancing) overlay.push(() => {  // little notes rising while it dances
+        for (const k of [0, .5]) {
+          const ph = (now / 1400 + k + e.id.length * .13) % 1;
+          ctx.fillStyle = `rgba(200,130,10,${1 - ph})`; ctx.font = `700 ${Math.round(11 * p.s)}px system-ui`;
+          ctx.fillText(k ? "♫" : "♪", bx + (k ? 8 : -12) * p.s, by - (12 + ph * 18) * p.s);
+        }
+      });
+      if (e.state === "waiting") overlay.push(() => thought(ctx, bx, by - 6 * p.s, p.s, THINK[e.waiting_for] || "💭"));
+      if (e.id === selected) overlay.push(() => plumbob(ctx, bx, by - 24 * p.s, p.s, now));
     } else {
       habitatSprite(ctx, it.e.type, p.x, p.y, p.s * SIZE.hab);
-      const chosen = sh.swarm?.chosen_id === it.e.id;
-      if (it.e.committed || chosen) {  // quorum progress above the site
-        const label = chosen ? "choisi" : `${it.e.committed}/${sh.swarm?.quorum ?? 3}`;
-        ctx.font = "600 12px system-ui"; const tw = ctx.measureText(label).width + 12, by = p.y - TALL[it.e.type] * p.s * SIZE.hab - 16;
-        ctx.fillStyle = chosen ? "#2f5d46" : "#e6a817"; ctx.beginPath(); ctx.roundRect(p.x - tw / 2, by - 10, tw, 20, 10); ctx.fill();
+      // above the sprite and above bees hovering over it
+      const top = Math.min(p.y - TALL[it.e.type] * p.s * SIZE.hab, p.y - (FLY + 16) * p.s), chosen = sh.swarm?.chosen_id === it.e.id;
+      if (it.e.id === selected) overlay.push(() => plumbob(ctx, p.x, top - (it.e.committed || chosen ? 44 : 20) * p.s, p.s, now));
+      if (it.e.committed || chosen) overlay.push(() => {  // quorum progress above the site
+        const label = chosen ? "★ choisi" : `${it.e.committed}/${sh.swarm?.quorum ?? 3}`;
+        ctx.font = "700 12px system-ui"; const tw = ctx.measureText(label).width + 16, by = top - 16;
+        ctx.save(); ctx.shadowColor = "rgba(0,0,0,.2)"; ctx.shadowBlur = 5; ctx.shadowOffsetY = 2;
+        ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.roundRect(p.x - tw / 2 - 2, by - 12, tw + 4, 24, 12); ctx.fill(); ctx.restore();
+        ctx.fillStyle = chosen ? "#3a9a3a" : "#f0b323"; ctx.beginPath(); ctx.roundRect(p.x - tw / 2, by - 10, tw, 20, 10); ctx.fill();
         ctx.fillStyle = chosen ? "#fff" : "#4a3500"; ctx.textAlign = "center"; ctx.fillText(label, p.x, by + 4); ctx.textAlign = "start";
-      }
+      });
     }
   }
+  overlay.forEach(f => f());
   $("empty-map").hidden = list.length > 0;
 }
 new ResizeObserver(() => { if (catalog) { sizeCanvas(); drawWorld(); } }).observe(canvas);
@@ -573,19 +736,53 @@ function hit(ev) {
   }
   return { e: best, mx, my };
 }
+// Dragging the ground pans the camera, the wheel (or a pinch) zooms around the cursor.
+const pointers = new Map();  // pointer id -> screen position, for the pinch
+let pan = null, pinch = null;
+const local = ev => { const r = canvas.getBoundingClientRect(); return { x: ev.clientX - r.left, y: ev.clientY - r.top }; };
+function zoomAt(mx, my, k) {
+  const before = unproject(mx, my, true);
+  cam.k = clamp(k, ISO.zmin, ISO.zmax);
+  const after = unproject(mx, my, true);
+  cam.x += before.x - after.x; cam.y += before.y - after.y; zoomedAt = performance.now();
+}
+canvas.addEventListener("wheel", ev => {
+  ev.preventDefault();
+  const m = local(ev); zoomAt(m.x, m.y, cam.k * Math.exp(-ev.deltaY * (ev.ctrlKey ? .01 : .0015)));  // ctrl: trackpad pinch
+}, { passive: false });
 canvas.addEventListener("pointerdown", ev => {
-  const { e, mx, my } = hit(ev); if (!e) { if (selected) deselect(); return; }
+  pointers.set(ev.pointerId, local(ev)); canvas.setPointerCapture(ev.pointerId);
+  if (pointers.size === 2) {  // a second finger: pinch to zoom, cancel the drag
+    const [a, b] = [...pointers.values()]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y) || 1, k: cam.k }; drag = pan = null; return;
+  }
+  const { e, mx, my } = hit(ev);
+  if (!e) { pan = { mx, my, x: cam.x, y: cam.y, moved: false }; return; }
   if (mode !== "live") { select(e.id); return; }  // the past cannot be edited: replay only inspects
   const p = project(e.x, e.y);  // keep the grab offset between the cursor and the entity's ground point
   drag = { id: e.id, x: e.x, y: e.y, ox: p.x - mx, oy: p.y - my, moved: false };
-  canvas.setPointerCapture(ev.pointerId); canvas.className = "grabbing";
+  canvas.className = "grabbing";
 });
 canvas.addEventListener("pointermove", ev => {
+  if (pointers.has(ev.pointerId)) pointers.set(ev.pointerId, local(ev));
+  if (pinch) {
+    if (pointers.size === 2) { const [a, b] = [...pointers.values()]; zoomAt((a.x + b.x) / 2, (a.y + b.y) / 2, pinch.k * Math.hypot(a.x - b.x, a.y - b.y) / pinch.d); }
+    return;
+  }
+  if (pan) {  // screen motion -> world motion, at the zoom of the camera
+    const m = local(ev), da = (m.x - pan.mx) / (ISO.c * cam.k), db = (m.y - pan.my) / (.5 * cam.k);
+    cam.x = pan.x - (da + db) / 2; cam.y = pan.y - (db - da) / 2;
+    if (Math.hypot(m.x - pan.mx, m.y - pan.my) > 4) { pan.moved = true; canvas.className = "grabbing"; }
+    return;
+  }
   if (!drag) { canvas.className = hit(ev).e ? "grab" : ""; return; }
   const { mx, my } = hit(ev), w = unproject(mx + drag.ox, my + drag.oy);
   drag.x = w.x; drag.y = w.y; drag.moved = true; drawWorld();
 });
-canvas.addEventListener("pointerup", async () => {
+canvas.addEventListener("pointercancel", ev => { pointers.delete(ev.pointerId); pinch = pan = null; });
+canvas.addEventListener("pointerup", async ev => {
+  pointers.delete(ev.pointerId);
+  if (pinch) { if (pointers.size < 2) pinch = null; return; }
+  if (pan) { const p = pan; pan = null; canvas.className = ""; if (!p.moved && selected) deselect(); return; }
   if (!drag) return;
   const d = drag; canvas.className = "grab";
   if (!d.moved) { drag = null; select(d.id); return; }
@@ -595,6 +792,20 @@ canvas.addEventListener("pointerup", async () => {
   await api("PUT", `/api/entities/${encodeURIComponent(d.id)}/position`, { x: Math.round(d.x), y: Math.round(d.y) }).catch(() => {});
   if (selected === d.id) select(d.id);
 });
+$("btn-center").onclick = () => { if (view) fitCamera(); };
+
+// --- bottom bar: one panel open at a time ------------------------------------------------------
+function openPanel(name) {
+  for (const b of document.querySelectorAll("[data-panel]")) {
+    const on = b.dataset.panel === name;
+    b.setAttribute("aria-expanded", on); $("p-" + b.dataset.panel).hidden = !on;
+  }
+  try { localStorage.setItem("bzz-panel", name || ""); } catch {}
+}
+document.querySelectorAll("[data-panel]").forEach(b => b.onclick = () => openPanel(b.getAttribute("aria-expanded") === "true" ? null : b.dataset.panel));
+document.querySelectorAll("[data-open]").forEach(b => b.onclick = () => openPanel(b.dataset.open));
+document.addEventListener("keydown", ev => { if (ev.key === "Escape") openPanel(null); });
+try { openPanel(localStorage.getItem("bzz-panel") || null); } catch { openPanel(null); }
 
 // --- inspector ----------------------------------------------------------------------
 async function select(id) {
@@ -766,7 +977,7 @@ $("btn-generate").onclick = async () => {
   if (snap?.entities.length && !confirm("Remplacer la carte actuelle par le nouveau monde ?")) return;
   const btn = $("btn-generate"); btn.disabled = true;
   // habitats keep clear of the swarm's branch and of the tree trunk drawn to its left
-  const jobs = [], spots = [{ ...catalog.branch }, { x: catalog.branch.x - 110, y: catalog.branch.y }];
+  const jobs = [], spots = [{ ...catalog.branch }, { x: catalog.branch.x - 55, y: catalog.branch.y + 55 }];
   for (const t of catalog.habitat_types)
     for (let i = 0; i < qty("q-" + t.name); i++) jobs.push(["/api/habitats", { type: t.name, ...randomSpot(spots, HAB_GAP) }]);
   const n = { scout: 0, follower: 0 };
@@ -791,8 +1002,9 @@ $("speed").onchange = () => api("POST", "/api/simulation/speed", { speed: Number
 function buildLegend() {
   $("legend").innerHTML = catalog.habitat_types.map(t => `<span data-leg="${t.name}">${HAB[t.name][0]}</span>`).join("") +
     Object.entries(PERS).map(([p, c]) => `<span><i class="swatch" style="background:${c}"></i>${p}</span>`).join("") +
-    `<span>◆ éclaireuse</span><span>● suiveuse</span><span>Branche de l'essaim au centre</span>`;
+    `<span data-bee="scout">éclaireuse (chapeau)</span><span data-bee="follower">suiveuse</span><span>Couleur du collier : personnalité</span>`;
   for (const el of document.querySelectorAll("[data-leg]")) { const c = icon(el.dataset.leg); c.style.width = c.style.height = "22px"; el.prepend(c); }
+  for (const el of document.querySelectorAll("[data-bee]")) { const c = beeIcon(el.dataset.bee); c.style.width = c.style.height = "22px"; el.prepend(c); }
 }
 
 // --- models (Ollama) -------------------------------------------------------------------
@@ -878,6 +1090,7 @@ function renderStep() {
   const b = snap.brain || {}, n = b.next;
   if (document.activeElement !== $("step-mode")) $("step-mode").checked = !!b.step_mode;
   $("step-box").hidden = !n;
+  $("nav-dec").classList.toggle("ping", !!n);  // a question waits: visible even with the panel folded
   const key = n ? `${n.bee_id}|${n.kind}|${n.tick}` : "";
   if (n && key !== stepKey) {
     $("step-what").textContent = `${nameOf(n.bee_id)} attend : ${KIND_FN[n.kind] || n.kind} (t${n.tick}).`;
