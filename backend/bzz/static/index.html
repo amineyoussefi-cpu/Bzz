@@ -35,14 +35,19 @@
   .btn:disabled { opacity: .6; cursor: progress; }
   select { border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; background: var(--panel); }
 
-  main { display: grid; grid-template-columns: 330px minmax(0, 1fr) 300px; gap: 16px; padding: 16px 20px; align-items: start; }
-  @media (max-width: 1180px) { main { grid-template-columns: 330px minmax(0, 1fr); } aside.right { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; } }
-  @media (max-width: 760px) { main { grid-template-columns: 1fr; padding: 12px; } header { padding: 10px 12px; } }
+  main { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 16px; padding: 16px 20px; align-items: start; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  @media (max-width: 760px) { main { padding: 12px; } header { padding: 10px 12px; } }
+  .below { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-top: 16px; align-items: start; }
+  .map-panel { padding: 14px; }
+  .inspector { position: absolute; top: 12px; right: 12px; width: 300px; max-height: calc(100% - 24px); overflow: auto;
+               box-shadow: 0 10px 30px rgba(29, 43, 34, .2); }
+  .inspector[hidden] { display: none; }
+  .inspector .close { position: absolute; top: 10px; right: 14px; font-size: 15px; }
+  @media (max-width: 760px) { .inspector { position: static; width: auto; max-height: none; margin-top: 12px; box-shadow: none; } }
 
   .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
   aside .panel + .panel { margin-top: 16px; }
-  aside.right .panel + .panel { margin-top: 0; }
-  @media (min-width: 1181px) { aside.right .panel + .panel { margin-top: 16px; } }
   h2 { font-family: var(--display); font-weight: 700; font-size: 17px; letter-spacing: -.01em; margin: 0 0 12px; }
   h3 { font-size: 13px; font-weight: 650; margin: 16px 0 6px; color: var(--muted); }
   .hint { font-size: 12.5px; color: var(--muted); margin: 6px 0 0; }
@@ -71,7 +76,7 @@
   .map-head h2 { margin: 0; }
   .swarm-status { font-size: 13px; font-weight: 600; color: var(--forest); }
   .counts { font-size: 13px; color: var(--muted); }
-  canvas#world { width: 100%; display: block; border-radius: 10px; touch-action: none; }
+  canvas#world { width: 100%; display: block; border-radius: 10px; touch-action: none; background: #e9f0f3; }
   canvas#world.grab { cursor: grab; } canvas#world.grabbing { cursor: grabbing; }
   .legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12.5px; color: var(--muted); margin-top: 10px; }
   .legend span { display: inline-flex; align-items: center; gap: 6px; }
@@ -150,24 +155,22 @@
     </section>
   </aside>
 
-  <section class="panel center" aria-labelledby="t-map">
-    <div class="map-head"><h2 id="t-map">Carte</h2><span class="counts" id="counts"></span><span class="swarm-status" id="swarm-status"></span>
-      <button class="btn quiet" id="btn-clear" style="margin-left:auto">Vider la carte</button></div>
-    <div class="map-wrap">
-      <canvas id="world" aria-label="Carte du monde : glissez un élément pour le déplacer, cliquez pour l'inspecter"></canvas>
-      <div class="empty-map" id="empty-map" hidden><div><p>La carte est vide</p>
-        <span class="hint">Choisissez des quantités à gauche, puis générez le monde.</span></div></div>
-    </div>
-    <div class="legend" id="legend"></div>
-  </section>
-
-  <aside class="right">
-    <section class="panel" id="inspector" aria-live="polite">
-      <h2>Sélection</h2>
-      <p class="hint" id="insp-empty">Cliquez sur un habitat ou une abeille.</p>
-      <div id="insp-body" hidden></div>
+  <div class="center">
+    <section class="panel map-panel" aria-labelledby="t-map">
+      <div class="map-head"><h2 id="t-map">Carte</h2><span class="counts" id="counts"></span><span class="swarm-status" id="swarm-status"></span>
+        <button class="btn quiet" id="btn-clear" style="margin-left:auto">Vider la carte</button></div>
+      <div class="map-wrap">
+        <canvas id="world" aria-label="Carte du monde : glissez un élément pour le déplacer, cliquez pour l'inspecter"></canvas>
+        <div class="empty-map" id="empty-map" hidden><div><p>La carte est vide</p>
+          <span class="hint">Choisissez des quantités à gauche, puis générez le monde.</span></div></div>
+        <section class="panel inspector" id="inspector" aria-live="polite" hidden>
+          <button class="btn quiet close" id="insp-close" type="button" aria-label="Fermer la sélection">✕</button>
+          <div id="insp-body"></div>
+        </section>
+      </div>
+      <div class="legend" id="legend"></div>
     </section>
-
+    <div class="below">
     <section class="panel" aria-labelledby="t-dec">
       <h2 id="t-dec">Décisions</h2>
       <p class="hint" id="brain-stats" style="margin:0 0 6px"></p>
@@ -195,7 +198,8 @@
     <section class="panel">
       <details><summary>Journal</summary><ul class="feed" id="world-feed"></ul></details>
     </section>
-  </aside>
+    </div>
+  </div>
 </main>
 <div id="toast" role="alert"></div>
 
@@ -243,7 +247,7 @@ function persName(p) {
 // --- pseudo-3D drawing ------------------------------------------------------------------
 // The world stays 2D (Godot coordinates). It is drawn as a tilted ground slab seen from the front:
 // depth t = y / height goes from the far edge (t=0, top, smaller) to the near edge (t=1, bottom).
-const VIEW = { far: 0.68, top: 0.07, ground: 0.8, fill: 0.94, slab: 16 };
+const VIEW = { far: 0.8, top: 0.12, ground: 0.8, fill: 0.95, slab: 22 };
 const FLY = 40, PERCH = 62;  // heights (px at the near edge) of flying bees and of the swarm's branch
 const SIZE = { hab: 1.5, bee: 1.6, branch: 1.2 };  // sprite scale against the slab
 const TALL = { tree_cavity: 56, hive_box: 24, rodent_burrow: 10, bare_soil: 6, hollow_stem: 29, dead_wood: 13 };  // sprite heights
@@ -322,10 +326,12 @@ function beeSprite(c, role, color, x, y, s, active) {
   const r = 6 * s;
   c.fillStyle = "rgba(255,255,255,.5)";  // wings
   for (const dx of [-1, 1]) { c.beginPath(); c.ellipse(x + dx * r * .7, y - r * .9, r * .55, r * .85, dx * .5, 0, 7); c.fill(); }
-  if (role === "scout") {
-    c.fillStyle = color; c.beginPath(); c.moveTo(x, y - r * 1.25); c.lineTo(x + r * 1.15, y); c.lineTo(x, y + r * 1.25); c.lineTo(x - r * 1.15, y); c.closePath(); c.fill();
-    c.fillStyle = "rgba(255,255,255,.35)"; c.beginPath(); c.moveTo(x, y - r * 1.25); c.lineTo(x - r * 1.15, y); c.lineTo(x, y); c.closePath(); c.fill();
-  } else ball(c, x, y, r, color, "rgba(255,255,255,.9)");
+  const body = () => { c.beginPath(); if (role === "scout") { c.moveTo(x, y - r * 1.25); c.lineTo(x + r * 1.15, y); c.lineTo(x, y + r * 1.25); c.lineTo(x - r * 1.15, y); c.closePath(); } else c.arc(x, y, r, 0, 7); };
+  if (role === "scout") { c.fillStyle = color; body(); c.fill(); } else ball(c, x, y, r, color, "rgba(255,255,255,.9)");
+  c.save(); body(); c.clip(); c.fillStyle = "rgba(25,20,10,.5)";  // stripes
+  for (const k of [-.45, .25]) c.fillRect(x + k * r, y - r * 1.3, r * .28, r * 2.6);
+  c.fillStyle = "rgba(255,255,255,.35)"; c.beginPath(); c.arc(x - r * .35, y - r * .4, r * .35, 0, 7); c.fill(); c.restore();
+  c.strokeStyle = "rgba(25,20,10,.35)"; c.lineWidth = .8; body(); c.stroke();
   if (active) { c.strokeStyle = "#1d2b22"; c.lineWidth = 2; c.beginPath(); c.arc(x, y, r * 1.7, 0, 7); c.stroke(); }
 }
 function branchSprite(c, x, y, s, groundY) {
@@ -361,11 +367,77 @@ function retarget(list) {
 }
 const posOf = e => drag?.id === e.id ? drag : anim[e.id] ? glide(anim[e.id]) : e;
 
+// Scenery that never moves (sky, hills, meadow, soil edge) is painted once per canvas size.
+let ground = null;
+function seeded(n) { return () => { n = (n + 0x6D2B79F5) | 0; let t = Math.imul(n ^ (n >>> 15), 1 | n); t ^= t + Math.imul(t ^ (t >>> 7), 61 | t); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+function paintGround() {
+  const { w, h } = view, d = devicePixelRatio || 1, W = catalog.world.width, H = catalog.world.height, rnd = seeded(7);
+  const cv = document.createElement("canvas"); cv.width = w * d; cv.height = h * d;
+  const c = cv.getContext("2d"); c.scale(d, d);
+  const [a, b, c2, d2] = [project(0, 0), project(W, 0), project(W, H), project(0, H)];
+  // sky and distant hills
+  const sky = c.createLinearGradient(0, 0, 0, a.y + 30); sky.addColorStop(0, "#dbe9f1"); sky.addColorStop(1, "#f1f3e8");
+  c.fillStyle = sky; c.fillRect(0, 0, w, h);
+  for (const [col, amp, base, f] of [["#c9d9bd", 16, 24, 160], ["#b2c9a0", 10, 12, 95]]) {
+    c.fillStyle = col; c.beginPath(); c.moveTo(0, a.y + 2);
+    for (let x = 0; x <= w; x += 6) c.lineTo(x, a.y - base - Math.sin(x / f + base) * amp - Math.sin(x / (f / 3)) * amp * .3);
+    c.lineTo(w, a.y + 2); c.fill();
+  }
+  for (let x = a.x - 20; x < b.x + 20; x += 9 + rnd() * 8) {  // tree line along the far edge
+    const r = 6 + rnd() * 6; c.fillStyle = rnd() < .5 ? "#86a872" : "#7a9c67"; c.beginPath(); c.arc(x, a.y - r * .6, r, 0, 7); c.fill();
+  }
+  // fields beyond the world: muted, so the slab reads as the play area
+  const field = c.createLinearGradient(0, a.y, 0, h); field.addColorStop(0, "#c3d0b2"); field.addColorStop(1, "#a9b996");
+  c.fillStyle = field; c.fillRect(0, a.y, w, h - a.y);
+  // soil edge under the near side: strata and a few pebbles
+  const soil = c.createLinearGradient(0, d2.y, 0, d2.y + VIEW.slab); soil.addColorStop(0, "#7d5c3d"); soil.addColorStop(1, "#4f3826");
+  c.fillStyle = soil; c.fillRect(d2.x, d2.y, c2.x - d2.x, VIEW.slab);
+  c.strokeStyle = "rgba(0,0,0,.15)"; c.lineWidth = 1;
+  for (const f of [.35, .7]) { c.beginPath(); c.moveTo(d2.x, d2.y + VIEW.slab * f); c.lineTo(c2.x, d2.y + VIEW.slab * f); c.stroke(); }
+  for (let i = 0; i < 70; i++) { c.fillStyle = `rgba(${200 + rnd() * 40},${180 + rnd() * 40},${150 + rnd() * 40},.5)`;
+    c.beginPath(); c.ellipse(d2.x + rnd() * (c2.x - d2.x), d2.y + 3 + rnd() * (VIEW.slab - 6), 1 + rnd() * 1.6, .8 + rnd(), 0, 0, 7); c.fill(); }
+  // meadow, lit from the far left; clipped to the slab
+  c.save(); c.shadowColor = "rgba(40,60,30,.35)"; c.shadowBlur = 14; c.shadowOffsetY = 4;  // the slab sits on the field
+  c.fillStyle = "#97bd75"; c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); c.lineTo(c2.x, c2.y); c.lineTo(d2.x, d2.y); c.closePath(); c.fill(); c.restore();
+  c.save(); c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); c.lineTo(c2.x, c2.y); c.lineTo(d2.x, d2.y); c.closePath(); c.clip();
+  const grass = c.createLinearGradient(0, a.y, 0, d2.y); grass.addColorStop(0, "#c9dcad"); grass.addColorStop(1, "#97bd75");
+  c.fillStyle = grass; c.fillRect(0, 0, w, h);
+  const light = c.createRadialGradient(a.x, a.y, 10, a.x, a.y, w * .9); light.addColorStop(0, "rgba(255,250,220,.25)"); light.addColorStop(1, "rgba(255,250,220,0)");
+  c.fillStyle = light; c.fillRect(0, 0, w, h);
+  for (let i = 0; i < 14; i += 2) {  // mowing bands across the depth
+    const p1 = project(0, i * H / 14), p2 = project(W, i * H / 14), p3 = project(W, (i + 1) * H / 14), p4 = project(0, (i + 1) * H / 14);
+    c.fillStyle = "rgba(255,255,255,.05)"; c.beginPath(); c.moveTo(p1.x, p1.y); c.lineTo(p2.x, p2.y); c.lineTo(p3.x, p3.y); c.lineTo(p4.x, p4.y); c.fill();
+  }
+  for (let i = 0; i < 2600; i++) {  // texture speckles
+    const p = project(rnd() * W, rnd() * H); c.fillStyle = rnd() < .5 ? "rgba(60,100,45,.18)" : "rgba(235,245,210,.22)";
+    c.fillRect(p.x, p.y, 1.4 * p.s, 1.4 * p.s);
+  }
+  const pts = Array.from({ length: 260 }, () => ({ x: rnd() * W, y: rnd() * H, k: rnd() })).sort((u, v) => u.y - v.y);
+  for (const q of pts) {
+    const p = project(q.x, q.y), s2 = p.s;
+    if (q.k < .7) {  // grass tuft: a few thin blades leaning with the wind
+      c.strokeStyle = q.k < .35 ? "rgba(70,115,50,.75)" : "rgba(95,140,70,.7)"; c.lineWidth = .8; c.beginPath();
+      for (let j = 0; j < 4; j++) {
+        const bx = p.x + (j - 1.5) * 1.1 * s2, len = (3 + rnd() * 3.5) * s2, lean = (rnd() - .3) * 2.2 * s2;
+        c.moveTo(bx, p.y); c.quadraticCurveTo(bx + lean * .3, p.y - len * .6, bx + lean, p.y - len);
+      }
+      c.stroke();
+    } else {  // small flower
+      c.fillStyle = ["#ffffff", "#f6d95a", "#c9a3e6", "#f2a7b5"][Math.floor(q.k * 40) % 4];
+      c.beginPath(); c.arc(p.x, p.y - 2 * s2, 1.6 * s2, 0, 7); c.fill();
+    }
+  }
+  const haze = c.createLinearGradient(0, a.y, 0, a.y + view.gh * .45); haze.addColorStop(0, "rgba(241,243,232,.55)"); haze.addColorStop(1, "rgba(241,243,232,0)");
+  c.fillStyle = haze; c.fillRect(0, 0, w, h);
+  c.restore();
+  return cv;
+}
 function sizeCanvas() {
-  const w = canvas.clientWidth, h = Math.round(w * .62), d = devicePixelRatio || 1;
+  const w = canvas.clientWidth, h = Math.round(w * .64), d = devicePixelRatio || 1;
   canvas.style.height = h + "px"; canvas.width = w * d; canvas.height = h * d;
   ctx.setTransform(d, 0, 0, d, 0, 0);
   view = { w, h, top: h * VIEW.top, gh: h * VIEW.ground, k: w * VIEW.fill / catalog.world.width };
+  ground = paintGround();
 }
 function drawWorld() {
   if (!catalog) return;
@@ -373,23 +445,7 @@ function drawWorld() {
   const { w, h } = view;
   const W = catalog.world.width, H = catalog.world.height;
 
-  const sky = ctx.createLinearGradient(0, 0, 0, h); sky.addColorStop(0, "#f3f6ee"); sky.addColorStop(1, "#e2e9da");
-  ctx.fillStyle = sky; ctx.fillRect(0, 0, w, h);
-  const [a, b, c2, d2] = [project(0, 0), project(W, 0), project(W, H), project(0, H)];
-  ctx.fillStyle = "#7d5c3d"; ctx.beginPath();  // soil edge under the near side of the slab
-  ctx.moveTo(d2.x, d2.y); ctx.lineTo(c2.x, c2.y); ctx.lineTo(c2.x, c2.y + VIEW.slab); ctx.lineTo(d2.x, d2.y + VIEW.slab); ctx.fill();
-  ctx.fillStyle = "#5f4430"; ctx.fillRect(d2.x, d2.y + VIEW.slab - 4, c2.x - d2.x, 4);
-  const grass = ctx.createLinearGradient(0, a.y, 0, d2.y); grass.addColorStop(0, "#e4ecd9"); grass.addColorStop(1, "#c5d8b2");
-  ctx.fillStyle = grass; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.lineTo(c2.x, c2.y); ctx.lineTo(d2.x, d2.y); ctx.fill();
-  ctx.lineWidth = 1;  // contour lines, fixed so they never shift between frames
-  for (let i = 0; i < 9; i++) {
-    ctx.strokeStyle = `rgba(47,93,70,${.06 + .06 * i / 8})`; ctx.beginPath();
-    for (let x = 0; x <= W; x += 10) {
-      const p = project(x, Math.min(H, Math.max(0, (i + .5) * H / 9 + Math.sin(x / 90 + i * 1.7) * 18 + Math.sin(x / 37 + i) * 5)));
-      x ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y);
-    }
-    ctx.stroke();
-  }
+  ctx.drawImage(ground, 0, 0, w, h);
 
   const list = snap?.entities || [];
   const items = list.map(e => { const q = posOf(e); return { e, x: q.x, y: q.y }; });
@@ -449,7 +505,7 @@ function hit(ev) {
   return { e: best, mx, my };
 }
 canvas.addEventListener("pointerdown", ev => {
-  const { e, mx, my } = hit(ev); if (!e) return;
+  const { e, mx, my } = hit(ev); if (!e) { if (selected) deselect(); return; }
   const p = project(e.x, e.y);  // keep the grab offset between the cursor and the entity's ground point
   drag = { id: e.id, x: e.x, y: e.y, ox: p.x - mx, oy: p.y - my, moved: false };
   canvas.setPointerCapture(ev.pointerId); canvas.className = "grabbing";
@@ -474,7 +530,7 @@ canvas.addEventListener("pointerup", async () => {
 async function select(id) {
   selected = id; drawWorld(); renderList();
   const d = await api("GET", "/api/entities/" + encodeURIComponent(id)).catch(() => null);
-  $("insp-empty").hidden = !!d; $("insp-body").hidden = !d;
+  $("inspector").hidden = !d;
   if (!d) return;
   const del = `<p style="margin:14px 0 0"><button class="btn quiet" onclick="removeEntity('${d.id}')">Retirer de la carte</button></p>`;
   if (d.kind === "habitat") {
@@ -512,9 +568,11 @@ async function saveFeature(id, el) {
   for (const [f, w] of Object.entries(d.description)) { const c = document.querySelector(`[data-word="${f}"]`); if (c) c.textContent = w; }
   $("occ") && ($("occ").textContent = `${d.occupants}/${d.capacity}`);
 }
+function deselect() { selected = null; $("inspector").hidden = true; renderList(); }
+$("insp-close").onclick = deselect;
 async function removeEntity(id) {
   const r = await api("DELETE", "/api/entities/" + encodeURIComponent(id)).catch(() => null);
-  if (r) { toast(`${id} retiré de la carte`, true); selected = null; $("insp-body").hidden = true; $("insp-empty").hidden = false; }
+  if (r) { toast(`${id} retiré de la carte`, true); selected = null; $("inspector").hidden = true; }
 }
 function renderList() {
   const list = snap?.entities || [];
@@ -575,7 +633,7 @@ $("btn-generate").onclick = async () => {
   try {
     await api("POST", "/api/world/clear");
     for (const [i, [path, body]] of jobs.entries()) { btn.textContent = `Placement ${i + 1}/${jobs.length}…`; await api("POST", path, body); }
-    toast("Monde généré", true); selected = null; $("insp-body").hidden = true; $("insp-empty").hidden = false;
+    toast("Monde généré", true); selected = null; $("inspector").hidden = true;
   } catch { /* the toast already explains */ }
   btn.disabled = false; btn.textContent = "Générer le monde";
 };
@@ -660,7 +718,7 @@ function render() {
     `<li><span class="t">t${ev.tick}</span>${esc(evText(ev))}</li>`).join("") || `<li class="hint">Lancez la simulation : les abeilles poseront leurs questions à la LLM.</li>`;
   $("world-feed").innerHTML = snap.world_events.filter(ev => !["bee_decided", "bee_danced"].includes(ev.type)).reverse().map(ev =>
     `<li><span class="t">t${ev.tick}</span>${esc(evText(ev))}</li>`).join("") || `<li class="hint">Rien pour l'instant.</li>`;
-  if (selected && !list.some(e => e.id === selected)) { selected = null; $("insp-body").hidden = true; $("insp-empty").hidden = false; }
+  if (selected && !list.some(e => e.id === selected)) { selected = null; $("inspector").hidden = true; }
   renderList();
   if (selected && snap.entities.find(e => e.id === selected)?.kind === "bee") refreshBee();
 }
