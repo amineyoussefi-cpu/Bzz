@@ -143,6 +143,8 @@ class FakeEngine:
     def send(self, cmd, **args):
         from bzz.engine import CommandRejected
         self.sent.append((cmd, args))
+        if cmd == "get_state":
+            return {"paused": False}
         if self.reject:
             raise CommandRejected("bee bee-1 is not waiting for evaluate_site")
 
@@ -169,6 +171,21 @@ class HubBrainTest(unittest.TestCase):
         self.assertTrue(hub.answer_next())
         self.assertEqual(engine.sent, [("answer_decision", {"bee_id": "bee-1", "kind": "evaluate_site", "answer": {"score": 4}})])
         self.assertEqual(hub.answered, 1)
+
+    def test_step_mode_holds_each_question_until_released(self):
+        engine = FakeEngine()
+        hub = self.Hub(engine, self.brain)
+        hub.step_mode = True
+        hub.pending.append({**self.need(), "tick": 7})
+        self.assertFalse(hub.answer_next())  # held: the world is paused, nothing is asked
+        self.assertIn(("pause", {}), engine.sent)
+        self.assertEqual(hub.next_question()["kind"], "evaluate_site")
+        self.assertIn("large cavity", hub.next_question()["messages"][1]["content"])
+        hub.released = 1
+        self.assertTrue(hub.answer_next())
+        self.assertEqual(engine.sent[-2][0], "answer_decision")
+        self.assertEqual(engine.sent[-1], ("resume", {}))  # bees act on the answer until the next question
+        self.assertEqual(self.brain.calls["bee-1"][-1]["tick"], 7)
 
     def test_stale_question_is_dropped(self):
         hub = self.Hub(FakeEngine(reject=True), self.brain)

@@ -74,6 +74,18 @@ class BrainTest(unittest.TestCase):
         self.assertEqual(brain.decide(BEE, "stay_or_leave", {"habitat": SITE}), {"choice": "go_back"})
         self.assertEqual(brain.failures, 1)
 
+    def test_each_call_is_logged_with_prompt_and_raw_replies(self):
+        brain = Brain(FakeLLM("oops", {"score": 4}))
+        brain.decide(BEE, "evaluate_site", {"habitat": SITE}, tick=120)
+        call = brain.calls["bee-1"][-1]
+        self.assertEqual((call["tick"], call["kind"], call["answer"], call["fallback"]), (120, "evaluate_site", {"score": 4}, False))
+        self.assertEqual([a["raw"] for a in call["attempts"]], ["oops", '{"score": 4}'])
+        self.assertIn("large cavity", call["messages"][1]["content"])
+        brain = Brain(FakeLLM(OSError("refused"), OSError("refused")))
+        brain.decide(BEE, "stay_or_leave", {"habitat": SITE})
+        self.assertTrue(brain.calls["bee-1"][-1]["fallback"])
+        self.assertIn("refused", brain.calls["bee-1"][-1]["attempts"][0]["error"])
+
     def test_notebook_keeps_only_last_lines(self):
         brain = Brain(FakeLLM(*[{"choice": "go_back"}] * (NOTEBOOK_SIZE + 2)))
         for _ in range(NOTEBOOK_SIZE + 2):

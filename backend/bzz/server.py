@@ -39,8 +39,11 @@ class Hub:
     def __init__(self, engine: GodotEngine, brain: Brain | None = None):
         self.engine = engine
         self.brain = brain
-        self.pending: deque = deque()  # decision_needed data waiting for the brain
+        self.pending: deque = deque()  # decision_needed data (+ tick) waiting for the brain
         self.answered = 0
+        # step mode: the world pauses at each question and waits for release() before asking the LLM
+        self.step_mode = False
+        self.released = 0
         self.clients: set[WebSocket] = set()
         self.cursor = 0
         self.world_events: deque = deque(maxlen=FEED_SIZE)
@@ -55,7 +58,7 @@ class Hub:
         self.events_lost |= res["lost"]
         for ev in res["events"]:
             if ev["type"] == "decision_needed":
-                self.pending.append(ev["data"])
+                self.pending.append({**ev["data"], "tick": ev["tick"]})
             else:
                 (self.decision_events if ev["type"] == "decision" else self.world_events).append(ev)
         state = self.engine.send("get_state")
@@ -69,21 +72,39 @@ class Hub:
             "decision_events": list(self.decision_events),
             "events_lost": self.events_lost,
             "brain": {"model": getattr(self.brain.llm, "model", None) if self.brain else None, "answered": self.answered,
-                      "fallbacks": self.brain.failures if self.brain else 0, "pending": len(self.pending)},
+                      "fallbacks": self.brain.failures if self.brain else 0, "pending": len(self.pending),
+                      "step_mode": self.step_mode, "next": self.next_question()},
         }
         return res["events"]
+
+    def next_question(self) -> dict | None:
+        """In step mode, the question about to be sent, with its exact prompt (shown by the dashboard)."""
+        if not (self.step_mode and self.pending and self.brain):
+            return None
+        d = self.pending[0]
+        return {"bee_id": d["bee_id"], "kind": d["kind"], "tick": d["tick"],
+                "messages": self.brain.prompt({"id": d["bee_id"], "personality": d["personality"]}, d["kind"], d["situation"])}
 
     def answer_next(self) -> bool:
         """Answers the oldest pending decision (blocking: one LLM call). False when there is nothing to do."""
         if not self.pending or not self.brain:
             return False
+        if self.step_mode:
+            if not self.released:  # hold the question; freeze the world so nothing runs ahead of it
+                if not self.engine.send("get_state")["paused"]:
+                    self.engine.send("pause")
+                return False
+            self.released -= 1
         d = self.pending.popleft()
-        answer = self.brain.decide({"id": d["bee_id"], "personality": d["personality"]}, d["kind"], d["situation"])
+        answer = self.brain.decide({"id": d["bee_id"], "personality": d["personality"]}, d["kind"], d["situation"],
+                                   d.get("tick"))
         try:
             self.engine.send("answer_decision", bee_id=d["bee_id"], kind=d["kind"], answer=answer)
         except CommandRejected:
             pass  # the bee moved on meanwhile (swarm left, bee removed): its question is void
         self.answered += 1
+        if self.step_mode and not self.pending:
+            self.engine.send("resume")  # let the bees act on the answer until the next question
         return True
 
     async def think(self) -> None:
@@ -213,6 +234,28 @@ def create_app(engine: GodotEngine | None = None, llm: OllamaLLM | None = None) 
     @app.get("/api/kpi")
     def get_kpi():
         return hub.snapshot["kpi"] if hub.snapshot else JSONResponse({"error": "not ready"}, status_code=503)
+
+    # --- what each bee thinks (brain log) and step mode -------------------------------------
+    @app.get("/api/bees/{bee_id}/brain")
+    def bee_brain(bee_id: str):
+        brain = hub.brain
+        return {"notebook": list(brain.notebooks.get(bee_id, [])), "calls": list(brain.calls.get(bee_id, []))}
+
+    @app.post("/api/step-mode")
+    def set_step_mode(payload=Body(...)):
+        if not isinstance(payload, dict) or not isinstance(payload.get("on"), bool):
+            return JSONResponse({"error": 'body must be {"on": true|false}'}, status_code=400)
+        hub.step_mode, hub.released = payload["on"], 0
+        return {"step_mode": hub.step_mode}
+
+    @app.post("/api/step-mode/next")
+    def step_next():
+        if not hub.step_mode:
+            return JSONResponse({"error": "step mode is off"}, status_code=400)
+        if not hub.pending:
+            return JSONResponse({"error": "no question is waiting"}, status_code=400)
+        hub.released += 1
+        return {"released": hub.released}
 
     # --- LLM models (Ollama) ---------------------------------------------------------
     def model_name(payload):

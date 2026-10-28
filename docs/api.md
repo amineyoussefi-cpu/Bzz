@@ -263,6 +263,7 @@ Chaque événement a la forme `{"seq": int, "tick": int, "type": str, "data": {.
 | `bee_decided` | `{"bee_id", "kind", "answer", "habitat_id"?}` |
 | `bee_committed` | `{"bee_id", "habitat_id", "score"}` |
 | `bee_danced` | `{"bee_id", "habitat_id", "level"}` |
+| `bee_acted` | `{"bee_id", "fn", "target"}` : fonction exécutée (`explore`, `visit_habitat`, `go_back`, `go_back_to_branch`, `join_swarm`) |
 | `swarm_decided` | `{"habitat_id", "committed"}` : quorum atteint, l'essaim part |
 | `world_cleared` | `{"removed": n}` |
 | `paused`, `resumed` | `{}` |

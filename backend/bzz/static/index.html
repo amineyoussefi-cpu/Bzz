@@ -40,7 +40,7 @@
   @media (max-width: 760px) { main { padding: 12px; } header { padding: 10px 12px; } }
   .below { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-top: 16px; align-items: start; }
   .map-panel { padding: 14px; }
-  .inspector { position: absolute; top: 12px; right: 12px; width: 300px; max-height: calc(100% - 24px); overflow: auto;
+  .inspector { position: absolute; top: 12px; right: 12px; width: 340px; max-height: calc(100% - 24px); overflow: auto;
                box-shadow: 0 10px 30px rgba(29, 43, 34, .2); }
   .inspector[hidden] { display: none; }
   .inspector .close { position: absolute; top: 10px; right: 14px; font-size: 15px; }
@@ -75,6 +75,41 @@
   .map-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 10px; }
   .map-head h2 { margin: 0; }
   .swarm-status { font-size: 13px; font-weight: 600; color: var(--forest); }
+  .replay-badge { font-size: 12px; font-weight: 650; background: var(--honey); color: var(--honey-ink); border-radius: 99px; padding: 2px 9px; }
+  .replay-badge[hidden] { display: none; }
+  /* replay bar */
+  .timeline { display: flex; align-items: center; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+  .btn.tl { padding: 5px 9px; font-size: 13px; line-height: 1.2; }
+  .btn.tl.live.on { background: var(--forest); border-color: var(--forest); color: #fff; }
+  .track { position: relative; flex: 1; min-width: 180px; height: 30px; }
+  .track input { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; margin: 0; accent-color: var(--forest); }
+  .marks { position: absolute; left: 8px; right: 8px; top: 0; height: 9px; }
+  .marks i { position: absolute; top: 0; width: 3px; height: 9px; margin-left: -1px; border-radius: 1px; cursor: pointer; }
+  .marks i.big { width: 9px; height: 9px; margin-left: -4px; border-radius: 50%; }
+  .tl-time { font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; min-width: 118px; text-align: right; }
+  /* bee tabs */
+  .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin: 12px 0 8px; }
+  .tabs button { border: 0; background: none; padding: 6px 8px; font-size: 12.5px; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; }
+  .tabs button[aria-selected=true] { color: var(--ink); border-bottom-color: var(--forest); font-weight: 600; }
+  .tab-body { max-height: 330px; overflow: auto; }
+  pre.json { background: var(--ground); border-radius: 6px; padding: 8px; font-size: 11.5px; white-space: pre-wrap; word-break: break-word; margin: 6px 0; }
+  .fns { list-style: none; margin: 0; padding: 0; font-size: 12.5px; }
+  .fns li { padding: 4px 0; border-bottom: 1px solid var(--ground); }
+  .fns .t { color: var(--muted); margin-right: 6px; font-variant-numeric: tabular-nums; }
+  .future { opacity: .35; }
+  .call { border-bottom: 1px solid var(--ground); padding: 7px 0; font-size: 12.5px; }
+  .call-head { display: flex; justify-content: space-between; gap: 8px; }
+  .call-head span { color: var(--muted); }
+  .call details summary { font-family: inherit; font-size: 12.5px; font-weight: 500; color: var(--forest); margin-top: 4px; }
+  .call details summary::after { content: ""; }
+  .raw { margin-top: 3px; word-break: break-word; } .raw code { background: var(--ground); padding: 1px 4px; border-radius: 4px; }
+  /* step mode */
+  .switch { display: flex; align-items: center; gap: 8px; font-size: 13px; margin: 0 0 8px; cursor: pointer; }
+  .switch input { accent-color: var(--forest); width: 16px; height: 16px; margin: 0; }
+  .step-box { background: #fdf3d8; border-radius: 8px; padding: 10px; margin: 0 0 10px; font-size: 13px; }
+  .step-box[hidden] { display: none; }
+  .step-box summary { font-family: inherit; font-size: 13px; font-weight: 500; }
+  .step-box summary::after { content: ""; }
   .counts { font-size: 13px; color: var(--muted); }
   canvas#world { width: 100%; display: block; border-radius: 10px; touch-action: none; background: #e9f0f3; }
   canvas#world.grab { cursor: grab; } canvas#world.grabbing { cursor: grabbing; }
@@ -157,7 +192,7 @@
 
   <div class="center">
     <section class="panel map-panel" aria-labelledby="t-map">
-      <div class="map-head"><h2 id="t-map">Carte</h2><span class="counts" id="counts"></span><span class="swarm-status" id="swarm-status"></span>
+      <div class="map-head"><h2 id="t-map">Carte</h2><span class="counts" id="counts"></span><span class="swarm-status" id="swarm-status"></span><span class="replay-badge" id="replay-badge" hidden>Relecture</span>
         <button class="btn quiet" id="btn-clear" style="margin-left:auto">Vider la carte</button></div>
       <div class="map-wrap">
         <canvas id="world" aria-label="Carte du monde : glissez un élément pour le déplacer, cliquez pour l'inspecter"></canvas>
@@ -168,12 +203,31 @@
           <div id="insp-body"></div>
         </section>
       </div>
+      <div class="timeline" aria-label="Relecture">
+        <button class="btn tl" id="tl-start" type="button" aria-label="Revenir au début">⏮</button>
+        <button class="btn tl" id="tl-back" type="button" aria-label="Reculer de 5 secondes">◀◀</button>
+        <button class="btn tl" id="tl-play" type="button" aria-label="Lire ou mettre en pause la relecture">▶</button>
+        <button class="btn tl" id="tl-fwd" type="button" aria-label="Avancer de 5 secondes">▶▶</button>
+        <div class="track"><div class="marks" id="tl-marks"></div>
+          <input type="range" id="tl-range" min="0" max="0" value="0" step="1" aria-label="Moment de l'enregistrement"></div>
+        <span class="tl-time" id="tl-time">0 s</span>
+        <select id="tl-rate" aria-label="Vitesse de relecture"><option value="0.25">×0,25</option><option value="0.5">×0,5</option>
+          <option value="1" selected>×1</option><option value="2">×2</option><option value="4">×4</option></select>
+        <button class="btn tl live on" id="tl-live" type="button">En direct</button>
+        <button class="btn tl" id="tl-save" type="button" aria-label="Télécharger l'enregistrement en JSON">⬇ JSON</button>
+      </div>
       <div class="legend" id="legend"></div>
     </section>
     <div class="below">
     <section class="panel" aria-labelledby="t-dec">
       <h2 id="t-dec">Décisions</h2>
       <p class="hint" id="brain-stats" style="margin:0 0 6px"></p>
+      <label class="switch"><input type="checkbox" id="step-mode"> Pas à pas : s'arrêter à chaque question</label>
+      <div class="step-box" id="step-box" hidden>
+        <p style="margin:0 0 6px" id="step-what"></p>
+        <details open><summary>Prompt qui sera envoyé</summary><pre class="json" id="step-prompt"></pre></details>
+        <button class="btn primary" type="button" id="step-next">Envoyer à la LLM</button>
+      </div>
       <ul class="feed" id="decision-feed" style="margin-top:0"></ul>
     </section>
 
@@ -227,6 +281,10 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const plural = (n, w) => `${n} ${w}${n > 1 ? "s" : ""}`;
 let catalog = null, snap = null, selected = null, drag = null;
+// recording & replay state (see "recording & replay" below); declared first: the animation loop reads it at load
+const rec = { frames: [], events: new Map(), cleared: 0 }, REC_MAX = 20000;
+let mode = "live", marksAt = 0, marksKey = "";
+const play = { t: 0, playing: false, rate: 1, wasRunning: false, lastNow: 0 };
 
 function toast(msg, ok = false) {
   const t = $("toast"); t.textContent = msg; t.className = ok ? "ok" : ""; t.style.display = "block";
@@ -447,8 +505,8 @@ function drawWorld() {
 
   ctx.drawImage(ground, 0, 0, w, h);
 
-  const list = snap?.entities || [];
-  const items = list.map(e => { const q = posOf(e); return { e, x: q.x, y: q.y }; });
+  const sh = shown(), list = sh.entities;
+  const items = list.map(e => { const q = mode === "live" ? posOf(e) : e; return { e, x: q.x, y: q.y }; });
   const br = { branch: true, x: catalog.branch.x, y: catalog.branch.y };
   // shadows first, so nothing floats over another object's shadow
   for (const it of [...items, br]) {
@@ -478,9 +536,9 @@ function drawWorld() {
       if (it.e.state === "waiting") { ctx.fillStyle = "#1d2b22"; ctx.font = `${Math.round(11 * p.s)}px system-ui`; ctx.fillText("…", p.x + 8 * p.s, p.y - (FLY + 8) * p.s); }
     } else {
       habitatSprite(ctx, it.e.type, p.x, p.y, p.s * SIZE.hab);
-      const chosen = snap.state.swarm?.chosen_id === it.e.id;
+      const chosen = sh.swarm?.chosen_id === it.e.id;
       if (it.e.committed || chosen) {  // quorum progress above the site
-        const label = chosen ? "choisi" : `${it.e.committed}/${snap.state.swarm.quorum}`;
+        const label = chosen ? "choisi" : `${it.e.committed}/${sh.swarm?.quorum ?? 3}`;
         ctx.font = "600 12px system-ui"; const tw = ctx.measureText(label).width + 12, by = p.y - TALL[it.e.type] * p.s * SIZE.hab - 16;
         ctx.fillStyle = chosen ? "#2f5d46" : "#e6a817"; ctx.beginPath(); ctx.roundRect(p.x - tw / 2, by - 10, tw, 20, 10); ctx.fill();
         ctx.fillStyle = chosen ? "#fff" : "#4a3500"; ctx.textAlign = "center"; ctx.fillText(label, p.x, by + 4); ctx.textAlign = "start";
@@ -490,15 +548,24 @@ function drawWorld() {
   $("empty-map").hidden = list.length > 0;
 }
 new ResizeObserver(() => { if (catalog) { sizeCanvas(); drawWorld(); } }).observe(canvas);
-(function frame() { if (!document.hidden) drawWorld(); requestAnimationFrame(frame); })();
+(function frame(now) {
+  if (catalog && mode === "replay" && play.playing) {
+    const last = rec.frames.at(-1).tick;
+    play.t = Math.min(last, play.t + (now - play.lastNow) / 1000 * catalog.ticks_per_second * play.rate);
+    if (play.t >= last) play.playing = false;
+  }
+  play.lastNow = now;
+  if (!document.hidden && catalog) { drawWorld(); updateTimeline(now); if (mode === "replay") renderBeeTab(); }
+  requestAnimationFrame(frame);
+})(performance.now());
 
 // --- drag to move, click to inspect -------------------------------------------------
 // Hit-testing happens on screen, where each sprite is drawn (bees float above their ground point).
 function hit(ev) {
   const r = canvas.getBoundingClientRect(), mx = ev.clientX - r.left, my = ev.clientY - r.top;
   let best = null, bestD = Infinity;
-  for (const e of snap?.entities || []) {
-    const q = posOf(e), p = project(q.x, q.y), cy = p.y - (e.kind === "bee" ? FLY : 12 * SIZE.hab) * p.s;
+  for (const e of shown().entities) {
+    const q = mode === "live" ? posOf(e) : e, p = project(q.x, q.y), cy = p.y - (e.kind === "bee" ? FLY : 12 * SIZE.hab) * p.s;
     const reach = (e.kind === "bee" ? 9 * SIZE.bee : 20 * SIZE.hab) * p.s, dist = Math.hypot(mx - p.x, my - cy);
     if (dist < reach && dist - (e.kind === "bee" ? 6 : 0) < bestD) { best = e; bestD = dist - (e.kind === "bee" ? 6 : 0); }
   }
@@ -506,6 +573,7 @@ function hit(ev) {
 }
 canvas.addEventListener("pointerdown", ev => {
   const { e, mx, my } = hit(ev); if (!e) { if (selected) deselect(); return; }
+  if (mode !== "live") { select(e.id); return; }  // the past cannot be edited: replay only inspects
   const p = project(e.x, e.y);  // keep the grab offset between the cursor and the entity's ground point
   drag = { id: e.id, x: e.x, y: e.y, ox: p.x - mx, oy: p.y - my, moved: false };
   canvas.setPointerCapture(ev.pointerId); canvas.className = "grabbing";
@@ -545,10 +613,69 @@ async function select(id) {
   } else {
     const p = persName(d.personality);
     $("insp-body").innerHTML = `<p class="insp-title">${esc(d.name || d.id)}</p>
-      <p class="insp-sub">${ROLE[d.role] || d.role}${p ? `, ${p}` : ""}. ${STATE[d.state] || ""}${d.site_id ? `, engagée pour ${siteName(d.site_id)}` : ""}${d.home_id ? `, vit à ${siteName(d.home_id)}` : ""}.</p>
+      <p class="insp-sub" id="bee-sub"></p>
       ${Object.entries(TRAIT).map(([t, l]) => `<div class="trait"><span>${l}</span><span class="meter">
-        <i style="width:${100 * d.personality[t]}%;background:${PERS[p] || "#777"}"></i></span></div>`).join("")}${del}`;
+        <i style="width:${100 * d.personality[t]}%;background:${PERS[p] || "#777"}"></i></span></div>`).join("")}
+      <div class="tabs" role="tablist">${TABS.map(([k, l]) => `<button role="tab" type="button" data-tab="${k}" aria-selected="${k === beeTab}">${l}</button>`).join("")}</div>
+      <div class="tab-body" id="tab-body"></div>${del}`;
+    $("insp-body").querySelectorAll("[data-tab]").forEach(b => b.onclick = () => {
+      beeTab = b.dataset.tab;
+      $("insp-body").querySelectorAll("[data-tab]").forEach(x => x.setAttribute("aria-selected", x === b));
+      renderBeeTab(true);
+    });
+    renderBeeTab(true);
   }
+}
+// --- what a bee did and thought -----------------------------------------------------------
+const TABS = [["state", "État"], ["fns", "Fonctions"], ["llm", "Jetons LLM"], ["notebook", "Carnet"]];
+const FN_TYPES = ["bee_acted", "bee_danced", "bee_committed", "bee_decided"];
+const KIND_FN = { evaluate_site: "evaluate()", judge_dances: "evaluation_signal_danse()", stay_or_leave: "stay() ou go_back()" };
+let beeTab = "fns", tabAt = 0, brainCache = { id: null, at: 0, data: null };
+function fnText(ev) {
+  const d = ev.data, s = id => (id ? siteName(id) : "");
+  switch (ev.type) {
+    case "bee_acted": return `${d.fn}(${s(d.target)})`;
+    case "bee_danced": return `dance(${s(d.habitat_id)}, vigueur ${d.level})`;
+    case "bee_committed": return `stay(${s(d.habitat_id)})`;
+    default:
+      if (d.kind === "evaluate_site") return `evaluate(${s(d.habitat_id)}) → ${d.answer.score}/5`;
+      if (d.kind === "judge_dances") return `evaluation_signal_danse() → ${d.answer.follow === "none" ? "aucune" : s(d.answer.follow)}`;
+      return `décision LLM → ${d.answer.choice}`;
+  }
+}
+async function renderBeeTab(force) {
+  const now = performance.now();
+  if (!force && now - tabAt < 400) return;
+  tabAt = now;
+  const body = $("tab-body"), sh = shown(), e = selected && sh.entities.find(x => x.id === selected);
+  if (!body || !e || e.kind !== "bee") return;
+  $("bee-sub").textContent = `${ROLE[e.role] || e.role}${persName(e.personality) ? `, ${persName(e.personality)}` : ""}. ${STATE[e.state] || ""}`
+    + `${e.site_id ? `, engagée pour ${siteName(e.site_id)}` : ""}${e.home_id ? `, vit à ${siteName(e.home_id)}` : ""}.`;
+  const set = (key, html) => { if (force || body.dataset.key !== key) { body.dataset.key = key; body.innerHTML = html; } };
+  if (beeTab === "state") return set(JSON.stringify(e), `<pre class="json">${esc(JSON.stringify(e, null, 2))}</pre>`);
+  if (beeTab === "fns") {
+    const evs = [...rec.events.values()].filter(ev => FN_TYPES.includes(ev.type) && ev.data.bee_id === selected);
+    const past = evs.filter(ev => ev.tick <= sh.tick).length;
+    set(`${evs.length}|${past}`, `<ol class="fns">${evs.map(ev => `<li class="${ev.tick > sh.tick ? "future" : ""}"><span class="t">t${ev.tick}</span>
+      <code>${esc(fnText(ev))}</code></li>`).join("") || `<li class="hint">Aucune fonction appelée pour l'instant.</li>`}</ol>`);
+    return;
+  }
+  if (brainCache.id !== selected || now - brainCache.at > 1500) {
+    brainCache = { id: selected, at: now, data: brainCache.id === selected ? brainCache.data : null };
+    brainCache.data = await api("GET", `/api/bees/${encodeURIComponent(selected)}/brain`).catch(() => brainCache.data);
+  }
+  const b = brainCache.data;
+  if (!b || beeTab === "state" || beeTab === "fns") return;
+  if (beeTab === "notebook") return set(`nb|${b.notebook.join("|")}`, b.notebook.length
+    ? `<ol class="fns">${b.notebook.map(l => `<li>${esc(l)}</li>`).join("")}</ol>`
+    : `<p class="hint">Carnet vide : l'abeille n'a encore rien décidé.</p>`);
+  const calls = b.calls.slice().reverse(), past = calls.filter(c => c.tick <= sh.tick).length;
+  set(`llm|${calls.length}|${past}`, calls.map(c => `<div class="call ${c.tick > sh.tick ? "future" : ""}">
+      <div class="call-head"><b>${KIND_FN[c.kind] || c.kind}</b><span>t${c.tick}, ${c.ms} ms${c.fallback ? ", réponse par défaut" : ""}</span></div>
+      <details><summary>Prompt envoyé</summary><pre class="json">${esc(c.messages.map(m => `[${m.role}]\n${m.content}`).join("\n\n"))}</pre></details>
+      ${c.attempts.map(a => `<div class="raw">seed ${a.seed} : <code>${esc(a.raw ?? a.error)}</code></div>`).join("")}
+      <div class="raw">réponse retenue : <code>${esc(JSON.stringify(c.answer))}</code></div></div>`).join("")
+    || `<p class="hint">Aucun jeton pour l'instant : l'abeille n'a encore rien demandé à la LLM.</p>`);
 }
 function featRow(k, v, word) {
   const spec = catalog.features[k], [label, unit] = FEAT[k];
@@ -638,7 +765,10 @@ $("btn-generate").onclick = async () => {
   btn.disabled = false; btn.textContent = "Générer le monde";
 };
 $("btn-clear").onclick = () => snap?.entities.length && confirm("Retirer tous les éléments de la carte ?") && api("POST", "/api/world/clear").catch(() => {});
-$("btn-toggle").onclick = () => api("POST", snap?.state.paused ? "/api/simulation/resume" : "/api/simulation/pause").catch(() => {});
+$("btn-toggle").onclick = () => {
+  if (mode === "replay") { mode = "live"; play.playing = false; play.wasRunning = false; }  // Lancer/Pause acts on the live world
+  api("POST", snap?.state.paused ? "/api/simulation/resume" : "/api/simulation/pause").catch(() => {});
+};
 $("speed").onchange = () => api("POST", "/api/simulation/speed", { speed: Number($("speed").value) }).catch(() => {});
 
 function buildLegend() {
@@ -716,21 +846,116 @@ function render() {
   const cleared = snap.world_events.findLastIndex(ev => ev.type === "world_cleared");  // only this world's decisions
   $("decision-feed").innerHTML = snap.world_events.slice(cleared + 1).filter(ev => ev.type === "bee_decided").slice(-40).reverse().map(ev =>
     `<li><span class="t">t${ev.tick}</span>${esc(evText(ev))}</li>`).join("") || `<li class="hint">Lancez la simulation : les abeilles poseront leurs questions à la LLM.</li>`;
-  $("world-feed").innerHTML = snap.world_events.filter(ev => !["bee_decided", "bee_danced"].includes(ev.type)).reverse().map(ev =>
+  $("world-feed").innerHTML = snap.world_events.filter(ev => !["bee_decided", "bee_danced", "bee_acted"].includes(ev.type)).reverse().map(ev =>
     `<li><span class="t">t${ev.tick}</span>${esc(evText(ev))}</li>`).join("") || `<li class="hint">Rien pour l'instant.</li>`;
   if (selected && !list.some(e => e.id === selected)) { selected = null; $("inspector").hidden = true; }
-  renderList();
-  if (selected && snap.entities.find(e => e.id === selected)?.kind === "bee") refreshBee();
+  renderList(); renderStep();
+  if (selected && mode === "live") renderBeeTab();
 }
-let lastBee = "";
-async function refreshBee() {  // keep the selected bee's state line current while it acts
-  const e = snap.entities.find(e => e.id === selected), key = `${e.state}|${e.site_id}|${e.home_id}|${e.role}`;
-  if (key !== lastBee) { lastBee = key; select(selected); }
+
+// --- step mode: the world waits at each question until it is sent ----------------------------
+let stepKey = "";
+function renderStep() {
+  const b = snap.brain || {}, n = b.next;
+  if (document.activeElement !== $("step-mode")) $("step-mode").checked = !!b.step_mode;
+  $("step-box").hidden = !n;
+  const key = n ? `${n.bee_id}|${n.kind}|${n.tick}` : "";
+  if (n && key !== stepKey) {
+    $("step-what").textContent = `${nameOf(n.bee_id)} attend : ${KIND_FN[n.kind] || n.kind} (t${n.tick}).`;
+    $("step-prompt").textContent = n.messages.map(m => `[${m.role}]\n${m.content}`).join("\n\n");
+    $("step-next").disabled = false;
+  }
+  stepKey = key;
 }
+$("step-mode").onchange = e => api("POST", "/api/step-mode", { on: e.target.checked }).catch(() => {});
+$("step-next").onclick = () => { $("step-next").disabled = true; api("POST", "/api/step-mode/next").catch(() => { $("step-next").disabled = false; }); };
+
+// --- recording & replay ---------------------------------------------------------------------
+// Every snapshot and event is kept in the page (since it was opened or the map last cleared),
+// so the run can be scrubbed back like a video. Replaying pauses the live world.
+function record(s) {
+  for (const ev of s.world_events) {
+    if (ev.type === "world_cleared" && ev.seq > rec.cleared) {
+      rec.cleared = ev.seq; rec.frames = [];
+      for (const k of [...rec.events.keys()]) if (k < ev.seq) rec.events.delete(k);
+      if (mode === "replay") { mode = "live"; play.playing = false; }
+    }
+    if (ev.seq >= rec.cleared && !rec.events.has(ev.seq)) rec.events.set(ev.seq, ev);
+  }
+  const f = rec.frames.at(-1), frame = { tick: s.state.tick, entities: s.entities, swarm: s.state.swarm };
+  if (f && f.tick === frame.tick) rec.frames[rec.frames.length - 1] = frame; else rec.frames.push(frame);
+  if (rec.frames.length > REC_MAX) rec.frames.shift();
+}
+function frameIdx(t) {
+  let lo = 0, hi = rec.frames.length - 1;
+  while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (rec.frames[mid].tick <= t) lo = mid; else hi = mid - 1; }
+  return lo;
+}
+// What the map shows: the live world, or the recorded moment under the cursor (positions blended between frames).
+function shown() {
+  if (mode === "live" || !rec.frames.length) return { entities: snap?.entities || [], swarm: snap?.state.swarm, tick: snap?.state.tick ?? 0 };
+  const i = frameIdx(play.t), a = rec.frames[i], b = rec.frames[i + 1];
+  if (!b) return { ...a, tick: play.t };
+  const k = Math.min(1, Math.max(0, (play.t - a.tick) / (b.tick - a.tick))), next = new Map(b.entities.map(e => [e.id, e]));
+  return { tick: play.t, swarm: a.swarm, entities: a.entities.map(e => {
+    const n = next.get(e.id); return n ? { ...e, x: e.x + (n.x - e.x) * k, y: e.y + (n.y - e.y) * k } : e; }) };
+}
+const tps = () => catalog.ticks_per_second;
+function enterReplay() {
+  if (mode === "replay" || !rec.frames.length) return;
+  mode = "replay"; play.t = rec.frames.at(-1).tick; play.wasRunning = !!snap && !snap.state.paused;
+  if (play.wasRunning) api("POST", "/api/simulation/pause").catch(() => {});
+}
+function goLive() {
+  if (mode === "live") return;
+  mode = "live"; play.playing = false;
+  if (play.wasRunning) api("POST", "/api/simulation/resume").catch(() => {});
+  play.wasRunning = false;
+}
+function seek(t) {
+  if (!rec.frames.length) return;
+  enterReplay(); play.t = Math.max(rec.frames[0].tick, Math.min(rec.frames.at(-1).tick, t));
+}
+$("tl-range").oninput = e => { seek(Number(e.target.value)); play.playing = false; };
+$("tl-start").onclick = () => seek(rec.frames[0]?.tick ?? 0);
+$("tl-back").onclick = () => seek((mode === "live" ? rec.frames.at(-1)?.tick ?? 0 : play.t) - 5 * tps());
+$("tl-fwd").onclick = () => seek(play.t + 5 * tps());
+$("tl-play").onclick = () => {
+  if (!rec.frames.length) return;
+  if (mode === "live" || play.t >= rec.frames.at(-1).tick) seek(rec.frames[0].tick);  // replay the run from the start
+  play.playing = !play.playing;
+};
+$("tl-rate").onchange = e => play.rate = Number(e.target.value);
+$("tl-live").onclick = goLive;
+$("tl-save").onclick = () => {
+  const blob = new Blob([JSON.stringify({ frames: rec.frames, events: [...rec.events.values()] })], { type: "application/json" });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `bzz-run-t${rec.frames.at(-1)?.tick ?? 0}.json`; a.click();
+  URL.revokeObjectURL(a.href);
+};
+const MARK = { bee_decided: "#9aa79e", bee_danced: "#e6a817", bee_committed: "#2f5d46", swarm_decided: "#b23a3a" };
+function updateTimeline(now) {
+  const n = rec.frames.length, r = $("tl-range");
+  const first = n ? rec.frames[0].tick : 0, last = n ? rec.frames.at(-1).tick : 0, t = mode === "live" ? last : play.t;
+  r.min = first; r.max = last; if (document.activeElement !== r || mode === "live") r.value = t;
+  $("tl-time").textContent = `${(t / tps()).toFixed(1).replace(".", ",")} s / ${(last / tps()).toFixed(1).replace(".", ",")} s`;
+  $("tl-live").classList.toggle("on", mode === "live");
+  $("tl-play").textContent = play.playing ? "⏸" : "▶";
+  $("replay-badge").hidden = mode === "live";
+  $("replay-badge").textContent = `Relecture à ${(t / tps()).toFixed(1).replace(".", ",")} s`;
+  if (now - marksAt < 1000) return;  // markers: redrawn at most once a second
+  marksAt = now;
+  const evs = [...rec.events.values()].filter(ev => MARK[ev.type]), key = `${evs.length}|${first}|${last}`;
+  if (key === marksKey) return;
+  marksKey = key;
+  const span = Math.max(1, last - first);
+  $("tl-marks").innerHTML = evs.map(ev => `<i class="${ev.type === "swarm_decided" ? "big" : ""}" data-t="${ev.tick}"
+    style="left:${(100 * (ev.tick - first) / span).toFixed(2)}%;background:${MARK[ev.type]}" title="t${ev.tick} : ${esc(evText(ev))}"></i>`).join("");
+}
+$("tl-marks").onclick = e => { if (e.target.dataset.t) { seek(Number(e.target.dataset.t)); play.playing = false; } };
 function connect() {
   const ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws");
   ws.onopen = () => { $("conn").className = "dot on"; $("conn-text").textContent = "Connecté"; };
-  ws.onmessage = m => { snap = JSON.parse(m.data); retarget(snap.entities); if (catalog) render(); };
+  ws.onmessage = m => { snap = JSON.parse(m.data); record(snap); retarget(snap.entities); if (catalog) render(); };
   ws.onclose = () => { $("conn").className = "dot"; $("conn-text").textContent = "Hors ligne"; setTimeout(connect, 1500); };
 }
 

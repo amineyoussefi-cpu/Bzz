@@ -12,12 +12,14 @@ Configured by environment variables:
 
 import json
 import os
+import time
 import urllib.request
 import zlib
 from collections import defaultdict, deque
 
 TEMPERATURE = 0.7
 NOTEBOOK_SIZE = 5  # lines kept per bee; small models get lost in long prompts
+CALL_LOG_SIZE = 50  # LLM calls kept per bee for the dashboard (prompt, raw replies, answer)
 
 # Personality traits (0..1) in words, on the same 5 levels as the habitat features.
 _TRAIT_WORDS = {"pickiness": "picky", "boldness": "bold", "sociability": "sociable", "curiosity": "curious"}
@@ -119,6 +121,7 @@ class Brain:
         self.run_seed = run_seed
         self.notebooks: dict[str, deque] = defaultdict(lambda: deque(maxlen=NOTEBOOK_SIZE))
         self.failures = 0  # decisions that fell back to the default answer (a measure in itself for small models)
+        self.calls: dict[str, deque] = defaultdict(lambda: deque(maxlen=CALL_LOG_SIZE))
 
     def seed(self, bee_id: str) -> int:
         # Same run + same bee -> same seed (reproducible); different bees -> different seeds (variety).
@@ -131,21 +134,33 @@ class Brain:
         user = f"Your notebook:\n{notebook}\n\n{DECISIONS[kind]['question'](situation)}"
         return [{"role": "system", "content": system}, {"role": "user", "content": user}]
 
-    def decide(self, bee: dict, kind: str, situation: dict) -> dict:
-        """One intelligence token: asks the LLM (one retry), falls back to the default, notes the outcome."""
+    def decide(self, bee: dict, kind: str, situation: dict, tick: int | None = None) -> dict:
+        """One intelligence token: asks the LLM (one retry), falls back to the default, notes the outcome.
+
+        Every call is logged in self.calls[bee id] (prompt, raw replies, answer) for the dashboard; `tick` dates it.
+        """
         d = DECISIONS[kind]
         messages = self.prompt(bee, kind, situation)
-        answer = None
+        answer, attempts, started = None, [], time.monotonic()
         for attempt in range(2):
-            try:  # the retry shifts the seed, else the same prompt gives the same bad answer again
-                candidate = json.loads(self.llm(messages, d["schema"], self.seed(bee["id"]) + attempt))
-            except (ValueError, OSError):  # bad JSON, or Ollama unreachable / timed out
+            seed = self.seed(bee["id"]) + attempt  # the retry shifts the seed, else the same bad answer comes back
+            try:
+                raw = self.llm(messages, d["schema"], seed)
+                attempts.append({"seed": seed, "raw": raw})
+                candidate = json.loads(raw)
+            except (ValueError, OSError) as e:  # bad JSON, or Ollama unreachable / timed out
+                if isinstance(e, OSError):
+                    attempts.append({"seed": seed, "error": str(e)})
                 continue
             if isinstance(candidate, dict) and d["valid"](candidate, situation):
                 answer = candidate
                 break
-        if answer is None:
+        fallback = answer is None
+        if fallback:
             self.failures += 1
             answer = d["default"](situation)
         self.notebooks[bee["id"]].append(d["note"](answer, situation))
+        self.calls[bee["id"]].append({"tick": tick, "kind": kind, "messages": messages, "attempts": attempts,
+                                      "answer": answer, "fallback": fallback,
+                                      "ms": round((time.monotonic() - started) * 1000)})
         return answer

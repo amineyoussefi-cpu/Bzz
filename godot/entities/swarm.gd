@@ -85,6 +85,7 @@ func step() -> void:
 				_fly(bee, m)
 			State.DANCING:
 				if api.tick >= m.until:
+					_act(bee, "visit_habitat", m.site)
 					_fly_to(m, _site_spot(m.site), "revisit", m.site)
 
 
@@ -96,6 +97,7 @@ func _rest(bee: Bee, m: Dictionary) -> void:
 		var unseen := _habitats().filter(func(h): return h.get_meta("id") not in m.visited)
 		if not unseen.is_empty():  # explore: fly to a site this bee has not seen yet
 			var h: Habitat = unseen[rng.randi_range(0, unseen.size() - 1)]
+			_act(bee, "explore", h.get_meta("id"))
 			_fly_to(m, _site_spot(h.get_meta("id")), "inspect", h.get_meta("id"))
 			return
 	var seen := _dance_situation(bee)
@@ -113,7 +115,7 @@ func _fly(bee: Bee, m: Dictionary) -> void:
 	match m.purpose:
 		"inspect":
 			if site == null:
-				_go_home(m)
+				_go_home(bee, m)
 			else:
 				_ask(bee, m, "evaluate_site", {"habitat": _site_words(site)})
 		"dance":
@@ -129,7 +131,7 @@ func _fly(bee: Bee, m: Dictionary) -> void:
 		"move_in":
 			if site == null:  # the chosen site was removed on the way: search again
 				chosen_id = null
-				_go_home(m)
+				_go_home(bee, m)
 			else:
 				m.state = State.SETTLED
 				bee.home = site
@@ -171,7 +173,7 @@ func answer(bee: Bee, kind: String, a: Dictionary) -> String:
 			if choice == "stay" and _habitat(m.goal) != null:
 				_commit(bee, m)
 			else:
-				_go_home(m)
+				_go_home(bee, m)
 		"judge_dances":
 			var follow = a.get("follow")
 			var offered: Array = m.situation.dances.map(func(d): return d.site_id)
@@ -181,6 +183,7 @@ func answer(bee: Bee, kind: String, a: Dictionary) -> String:
 			if follow == "none" or _habitat(follow) == null:
 				m.state = State.RESTING
 			else:
+				_act(bee, "visit_habitat", follow)
 				_fly_to(m, _site_spot(follow), "inspect", follow)
 	return ""
 
@@ -205,6 +208,7 @@ func _choose(habitat_id: String) -> void:
 	for bee in _bees():  # every bee leaves what it was doing, pending decisions included
 		var m := mind(bee)
 		if m.state != State.SETTLED:
+			_act(bee, "join_swarm", habitat_id)
 			_fly_to(m, _site_spot(habitat_id), "move_in", habitat_id)
 
 
@@ -217,8 +221,14 @@ func _fly_to(m: Dictionary, target: Vector2, purpose: String, goal) -> void:
 	m.goal = goal
 
 
-func _go_home(m: Dictionary) -> void:
+func _go_home(bee: Bee, m: Dictionary) -> void:
+	_act(bee, "go_back" if bee.role == BeeRole.Id.SCOUT else "go_back_to_branch")
 	_fly_to(m, m.perch, "rest", null)
+
+
+## Trace of a behaviour function the bee runs (ScoutBehavior / FollowerBehavior names), for the dashboard.
+func _act(bee: Bee, fn: String, target = null) -> void:
+	api._emit("bee_acted", {"bee_id": bee.get_meta("id"), "fn": fn, "target": target})
 
 
 func _site_spot(habitat_id: String) -> Vector2:  # around the site, so bees there do not stack on one point
