@@ -122,6 +122,15 @@ class ModelsApiTest(unittest.TestCase):
         self.assertEqual(c.put("/api/models/current", json={"model": "bad name; rm"}).status_code, 400)
         self.assertEqual(c.put("/api/models/current", json=["x"]).status_code, 400)
 
+    def test_each_bee_can_have_its_own_model(self):
+        c, brain = self.client, self.client.app.state.hub.brain
+        self.assertEqual(c.put("/api/bees/bee-2/model", json={"model": "llama3.2:1b"}).json(), {"bee_id": "bee-2", "model": "llama3.2:1b"})
+        self.assertEqual(brain.models, {"bee-2": "llama3.2:1b"})
+        self.assertEqual(c.get("/api/bees/bee-2/brain").json()["model"], "llama3.2:1b")
+        self.assertEqual(c.put("/api/bees/bee-2/model", json={"model": "gemma3:1b"}).status_code, 400)  # not installed
+        self.assertEqual(c.put("/api/bees/bee-2/model", json={"model": None}).json()["model"], None)  # back to the default
+        self.assertEqual(brain.models, {})
+
     def test_pull(self):
         c = self.client
         self.assertEqual(c.post("/api/models/pull", json={"model": "gemma3:1b"}).json(), {"pulled": "gemma3:1b"})
@@ -156,7 +165,7 @@ class HubBrainTest(unittest.TestCase):
     def setUp(self):
         from bzz.brain import Brain
         from bzz.server import Hub
-        self.brain = Brain(lambda messages, schema, seed: '{"score": 4}')
+        self.brain = Brain(lambda messages, schema, seed, model=None: '{"score": 4}')
         self.Hub = Hub
 
     def need(self):

@@ -24,8 +24,8 @@ class FakeLLM:
         self.answers = list(answers)
         self.calls = []
 
-    def __call__(self, messages, schema, seed):
-        self.calls.append({"messages": messages, "schema": schema, "seed": seed})
+    def __call__(self, messages, schema, seed, model=None):
+        self.calls.append({"messages": messages, "schema": schema, "seed": seed, "model": model})
         a = self.answers.pop(0)
         if isinstance(a, Exception):
             raise a
@@ -86,6 +86,16 @@ class BrainTest(unittest.TestCase):
         self.assertTrue(brain.calls["bee-1"][-1]["fallback"])
         self.assertIn("refused", brain.calls["bee-1"][-1]["attempts"][0]["error"])
 
+    def test_each_bee_can_have_its_own_model(self):
+        llm = FakeLLM({"score": 3}, {"score": 4})
+        llm.model = "qwen2.5:0.5b"
+        brain = Brain(llm)
+        brain.models["bee-2"] = "llama3.2:1b"
+        brain.decide(BEE, "evaluate_site", {"habitat": SITE})
+        brain.decide({**BEE, "id": "bee-2"}, "evaluate_site", {"habitat": SITE})
+        self.assertEqual([c["model"] for c in llm.calls], [None, "llama3.2:1b"])  # None: the LLM's default
+        self.assertEqual((brain.calls["bee-1"][-1]["model"], brain.calls["bee-2"][-1]["model"]), ("qwen2.5:0.5b", "llama3.2:1b"))
+
     def test_notebook_keeps_only_last_lines(self):
         brain = Brain(FakeLLM(*[{"choice": "go_back"}] * (NOTEBOOK_SIZE + 2)))
         for _ in range(NOTEBOOK_SIZE + 2):
@@ -142,6 +152,8 @@ class OllamaLLMTest(unittest.TestCase):
         self.assertEqual(path, "/api/chat")
         self.assertEqual((body["model"], body["format"], body["stream"]), ("qwen2.5:0.5b", {"type": "object"}, False))
         self.assertEqual(body["options"], {"temperature": 0.7, "seed": 42})
+        self.llm([{"role": "user", "content": "hi"}], {"type": "object"}, 42, "llama3.2:1b")
+        self.assertEqual(FakeOllama.requests[-1][1]["model"], "llama3.2:1b")
 
     def test_pull(self):
         self.llm.pull("qwen2.5:0.5b")

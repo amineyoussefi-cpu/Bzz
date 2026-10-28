@@ -43,7 +43,7 @@ def main() -> int:
 
     llm = OllamaLLM(model=args.model)
     calls = []
-    brain = Brain(lambda m, s, seed: calls.append(1) or llm(m, s, seed), run_seed=args.seed)
+    brain = Brain(lambda m, s, seed, model=None: calls.append(1) or llm(m, s, seed, model), run_seed=args.seed)
 
     engine = GodotEngine()
     engine.start()

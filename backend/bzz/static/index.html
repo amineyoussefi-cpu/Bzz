@@ -125,6 +125,7 @@
   .insp-sub { color: var(--muted); font-size: 13px; margin: 2px 0 10px; }
   .chips { display: flex; flex-wrap: wrap; gap: 5px; }
   .chip { background: var(--ground); border-radius: 99px; padding: 3px 9px; font-size: 12.5px; }
+  .trait select { font: inherit; border: 1px solid var(--line); border-radius: 6px; padding: 3px 4px; min-width: 0; }
   .trait { display: grid; grid-template-columns: 82px 1fr; align-items: center; gap: 8px; font-size: 12.5px; margin: 5px 0; }
   .feat { padding: 7px 0; border-bottom: 1px solid var(--ground); }
   .feat-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 13px; }
@@ -233,10 +234,11 @@
 
     <section class="panel" aria-labelledby="t-models">
       <h2 id="t-models">Modèle des abeilles</h2>
+      <p class="hint" style="margin:-4px 0 10px">Modèle par défaut. Chaque abeille peut avoir le sien : cliquez-la sur la carte.</p>
       <div class="model-state"><span class="dot" id="m-dot"></span><span id="m-state">…</span></div>
       <div class="notice" id="m-down" hidden>Ollama ne répond pas. Lancez <code>ollama serve</code>, puis
         <button class="btn" type="button" id="m-refresh">réessayez</button>.</div>
-      <ul class="mlist" id="m-list" role="radiogroup" aria-label="Modèle utilisé par les abeilles"></ul>
+      <ul class="mlist" id="m-list" role="radiogroup" aria-label="Modèle par défaut des abeilles"></ul>
       <label class="hint" for="m-pull" style="display:block;margin-bottom:4px">Ajouter un modèle</label>
       <form class="pull" id="f-pull">
         <input id="m-pull" list="m-suggest" placeholder="ex. qwen2.5:1.5b" required>
@@ -616,6 +618,7 @@ async function select(id) {
       <p class="insp-sub" id="bee-sub"></p>
       ${Object.entries(TRAIT).map(([t, l]) => `<div class="trait"><span>${l}</span><span class="meter">
         <i style="width:${100 * d.personality[t]}%;background:${PERS[p] || "#777"}"></i></span></div>`).join("")}
+      <label class="trait"><span>Modèle</span><select id="bee-model" aria-label="Modèle LLM de cette abeille"></select></label>
       <div class="tabs" role="tablist">${TABS.map(([k, l]) => `<button role="tab" type="button" data-tab="${k}" aria-selected="${k === beeTab}">${l}</button>`).join("")}</div>
       <div class="tab-body" id="tab-body"></div>${del}`;
     $("insp-body").querySelectorAll("[data-tab]").forEach(b => b.onclick = () => {
@@ -624,7 +627,21 @@ async function select(id) {
       renderBeeTab(true);
     });
     renderBeeTab(true);
+    beeModelMenu(d.id);
   }
+}
+async function beeModelMenu(id) {
+  const b = await api("GET", `/api/bees/${encodeURIComponent(id)}/brain`).catch(() => null), sel = $("bee-model");
+  if (!b || !sel || selected !== id) return;
+  const names = (models?.installed || []).map(i => i.name);
+  if (b.model && !names.includes(b.model)) names.unshift(b.model);
+  sel.innerHTML = `<option value="">Par défaut (${esc(models?.current || "?")})</option>`
+    + names.map(n => `<option value="${esc(n)}" ${n === b.model ? "selected" : ""}>${esc(n)}</option>`).join("");
+  sel.onchange = async () => {
+    const r = await api("PUT", `/api/bees/${encodeURIComponent(id)}/model`, { model: sel.value || null }).catch(() => null);
+    if (r) toast(`${$("insp-body").querySelector(".insp-title").textContent} utilise ${r.model || "le modèle par défaut"}`, true);
+    else beeModelMenu(id);
+  };
 }
 // --- what a bee did and thought -----------------------------------------------------------
 const TABS = [["state", "État"], ["fns", "Fonctions"], ["llm", "Jetons LLM"], ["notebook", "Carnet"]];
@@ -671,7 +688,7 @@ async function renderBeeTab(force) {
     : `<p class="hint">Carnet vide : l'abeille n'a encore rien décidé.</p>`);
   const calls = b.calls.slice().reverse(), past = calls.filter(c => c.tick <= sh.tick).length;
   set(`llm|${calls.length}|${past}`, calls.map(c => `<div class="call ${c.tick > sh.tick ? "future" : ""}">
-      <div class="call-head"><b>${KIND_FN[c.kind] || c.kind}</b><span>t${c.tick}, ${c.ms} ms${c.fallback ? ", réponse par défaut" : ""}</span></div>
+      <div class="call-head"><b>${KIND_FN[c.kind] || c.kind}</b><span>t${c.tick}, ${esc(c.model || "")}, ${c.ms} ms${c.fallback ? ", réponse par défaut" : ""}</span></div>
       <details><summary>Prompt envoyé</summary><pre class="json">${esc(c.messages.map(m => `[${m.role}]\n${m.content}`).join("\n\n"))}</pre></details>
       ${c.attempts.map(a => `<div class="raw">seed ${a.seed} : <code>${esc(a.raw ?? a.error)}</code></div>`).join("")}
       <div class="raw">réponse retenue : <code>${esc(JSON.stringify(c.answer))}</code></div></div>`).join("")
@@ -780,9 +797,11 @@ function buildLegend() {
 
 // --- models (Ollama) -------------------------------------------------------------------
 const fmtSize = b => b >= 1e9 ? (b / 1e9).toFixed(1).replace(".", ",") + " Go" : Math.max(1, Math.round(b / 1e6)) + " Mo";
+let models = null;  // last /api/models answer, also used by each bee's model menu
 async function loadModels() {
   const m = await api("GET", "/api/models").catch(() => null);
   if (!m) return;
+  models = m;
   $("m-dot").className = "dot" + (m.available ? " on" : "");
   $("m-state").textContent = m.available ? `Ollama connecté, ${m.url.replace(/^https?:\/\//, "")}` : "Ollama injoignable";
   $("m-down").hidden = m.available;

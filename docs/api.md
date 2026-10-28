@@ -337,11 +337,13 @@ des abeilles (`backend/bzz/brain.py`, voir [methode_jeton.md](methode_jeton.md))
 | Méthode et route | Rôle | Code de succès |
 |---|---|---|
 | `GET /api/models` | `{"current", "url", "available", "installed": [{"name", "size"}]}` ; `available: false` si Ollama ne répond pas | 200 |
-| `PUT /api/models/current` | `{"model": "llama3.2:1b"}` change le modèle des abeilles ; il doit être installé | 200 |
+| `PUT /api/models/current` | `{"model": "llama3.2:1b"}` change le modèle par défaut des abeilles ; il doit être installé | 200 |
+| `PUT /api/bees/{id}/model` | `{"model": "qwen2.5:0.5b"}` donne à cette abeille son propre modèle ; `{"model": null}` la remet sur le modèle par défaut | 200 |
+| `GET /api/bees/{id}/brain` | `{"model", "notebook", "calls"}` : son modèle propre (`null` = défaut), son carnet, ses derniers appels LLM (chacun avec le `model` utilisé) | 200 |
 | `POST /api/models/pull` | `{"model": "qwen2.5:0.5b"}` télécharge un modèle ; la requête bloque jusqu'à la fin | 200 |
 
 Erreurs : **400** si le nom est invalide, si le modèle n'est pas installé, ou si Ollama refuse (modèle inconnu) ;
-**503** si Ollama est injoignable. Le choix du modèle n'est pas sauvegardé : au redémarrage, c'est `BZZ_MODEL` qui s'applique.
+**503** si Ollama est injoignable. Les choix de modèle ne sont pas sauvegardés : au redémarrage, c'est `BZZ_MODEL` qui s'applique.
 
 Exemples :
 

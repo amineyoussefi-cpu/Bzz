@@ -80,7 +80,8 @@ DECISIONS = {
 class OllamaLLM:
     """Calls a local Ollama server. `__call__` returns the raw text of the answer.
 
-    `model` is the model the bees use; the dashboard can change it (see server.py, /api/models).
+    `model` is the default model of the bees; `__call__` takes another one for a bee that has its own
+    (Brain.models). The dashboard changes both (see server.py, /api/models and /api/bees/{id}/model).
     Network errors surface as OSError (urllib's URLError/HTTPError are OSErrors).
     """
 
@@ -97,8 +98,8 @@ class OllamaLLM:
         with urllib.request.urlopen(req, timeout=timeout or self.timeout) as r:
             return json.load(r)
 
-    def __call__(self, messages: list, schema: dict, seed: int) -> str:
-        body = {"model": self.model, "messages": messages, "format": schema, "stream": False,
+    def __call__(self, messages: list, schema: dict, seed: int, model: str | None = None) -> str:
+        body = {"model": model or self.model, "messages": messages, "format": schema, "stream": False,
                 "options": {"temperature": TEMPERATURE, "seed": seed}}
         return self._request("/api/chat", body)["message"]["content"]
 
@@ -122,6 +123,7 @@ class Brain:
         self.notebooks: dict[str, deque] = defaultdict(lambda: deque(maxlen=NOTEBOOK_SIZE))
         self.failures = 0  # decisions that fell back to the default answer (a measure in itself for small models)
         self.calls: dict[str, deque] = defaultdict(lambda: deque(maxlen=CALL_LOG_SIZE))
+        self.models: dict[str, str] = {}  # bee id -> its own model; bees not listed use the LLM's default
 
     def seed(self, bee_id: str) -> int:
         # Same run + same bee -> same seed (reproducible); different bees -> different seeds (variety).
@@ -140,12 +142,13 @@ class Brain:
         Every call is logged in self.calls[bee id] (prompt, raw replies, answer) for the dashboard; `tick` dates it.
         """
         d = DECISIONS[kind]
+        model = self.models.get(bee["id"])
         messages = self.prompt(bee, kind, situation)
         answer, attempts, started = None, [], time.monotonic()
         for attempt in range(2):
             seed = self.seed(bee["id"]) + attempt  # the retry shifts the seed, else the same bad answer comes back
             try:
-                raw = self.llm(messages, d["schema"], seed)
+                raw = self.llm(messages, d["schema"], seed, model)
                 attempts.append({"seed": seed, "raw": raw})
                 candidate = json.loads(raw)
             except (ValueError, OSError) as e:  # bad JSON, or Ollama unreachable / timed out
@@ -160,7 +163,8 @@ class Brain:
             self.failures += 1
             answer = d["default"](situation)
         self.notebooks[bee["id"]].append(d["note"](answer, situation))
-        self.calls[bee["id"]].append({"tick": tick, "kind": kind, "messages": messages, "attempts": attempts,
+        self.calls[bee["id"]].append({"tick": tick, "kind": kind,
+                                      "model": model or getattr(self.llm, "model", None), "messages": messages, "attempts": attempts,
                                       "answer": answer, "fallback": fallback,
                                       "ms": round((time.monotonic() - started) * 1000)})
         return answer

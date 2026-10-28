@@ -239,7 +239,8 @@ def create_app(engine: GodotEngine | None = None, llm: OllamaLLM | None = None) 
     @app.get("/api/bees/{bee_id}/brain")
     def bee_brain(bee_id: str):
         brain = hub.brain
-        return {"notebook": list(brain.notebooks.get(bee_id, [])), "calls": list(brain.calls.get(bee_id, []))}
+        return {"model": brain.models.get(bee_id), "notebook": list(brain.notebooks.get(bee_id, [])),
+                "calls": list(brain.calls.get(bee_id, []))}
 
     @app.post("/api/step-mode")
     def set_step_mode(payload=Body(...)):
@@ -278,19 +279,38 @@ def create_app(engine: GodotEngine | None = None, llm: OllamaLLM | None = None) 
             return {"current": llm.model, "url": llm.url, "available": False, "installed": [], "error": str(e)}
         return {"current": llm.model, "url": llm.url, "available": True, "installed": installed}
 
-    @app.put("/api/models/current")
-    def set_model(payload=Body(...)):
+    def installed_model(payload):
+        """(name, None) if the body names an installed model, else (None, error response)."""
         name, err = model_name(payload)
         if err:
-            return err
+            return None, err
         try:
             names = [m["name"] for m in llm.installed()]
         except (OSError, ValueError, KeyError) as e:
-            return ollama_down(e)
+            return None, ollama_down(e)
         if name not in names:
-            return JSONResponse({"error": f"model {name} is not installed; download it first"}, status_code=400)
+            return None, JSONResponse({"error": f"model {name} is not installed; download it first"}, status_code=400)
+        return name, None
+
+    @app.put("/api/models/current")
+    def set_model(payload=Body(...)):
+        name, err = installed_model(payload)
+        if err:
+            return err
         llm.model = name
         return {"current": name}
+
+    @app.put("/api/bees/{bee_id}/model")
+    def set_bee_model(bee_id: str, payload=Body(...)):
+        """{"model": name} gives this bee its own model; {"model": null} puts it back on the default."""
+        if isinstance(payload, dict) and payload.get("model") is None:
+            hub.brain.models.pop(bee_id, None)
+            return {"bee_id": bee_id, "model": None}
+        name, err = installed_model(payload)
+        if err:
+            return err
+        hub.brain.models[bee_id] = name
+        return {"bee_id": bee_id, "model": name}
 
     @app.post("/api/models/pull")
     def pull_model(payload=Body(...)):
